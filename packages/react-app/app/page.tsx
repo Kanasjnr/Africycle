@@ -1,38 +1,89 @@
-'use client';
+"use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 
-import { useAccount } from 'wagmi';
+// Simple loading placeholders
+const LoadingPlaceholder = () => <div className="min-h-screen bg-black" />
+const NavPlaceholder = () => <div className="h-16" />
+const FooterPlaceholder = () => <div className="h-96 bg-black" />
+
+// Use dynamic imports with no SSR to prevent hydration issues
+const PreLoader = dynamic(() => import("@/components/preloader"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const FloatingNavbar = dynamic(() => import("@/components/FloatingNavbar"), {
+  ssr: false,
+  loading: () => <NavPlaceholder />,
+})
+
+const ImmersiveHero = dynamic(() => import("@/components/sections/ImmersiveHero"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const ImpactSection = dynamic(() => import("@/components/sections/ImpactSection"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const ProcessFlow = dynamic(() => import("@/components/sections/ProcessFlow"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const EcosystemSection = dynamic(() => import("@/components/sections/EcosystemSection"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const JoinMovement = dynamic(() => import("@/components/sections/JoinMovement"), {
+  ssr: false,
+  loading: () => <LoadingPlaceholder />,
+})
+
+const Footer = dynamic(() => import("@/components/AnimatedFooter"), {
+  ssr: false,
+  loading: () => <FooterPlaceholder />,
+})
 
 export default function Home() {
-  const [userAddress, setUserAddress] = useState('');
-  const [isMounted, setIsMounted] = useState(false);
-  const { address, isConnected } = useAccount();
+  const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    setMounted(true)
 
-  useEffect(() => {
-    if (isConnected && address) {
-      setUserAddress(address);
-    }
-  }, [address, isConnected]);
+    // Add a slight delay to ensure all components are properly loaded
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 2000)
 
-  if (!isMounted) {
-    return null;
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Don't render anything during SSR
+  if (!mounted) {
+    return null
+  }
+
+  // Show preloader during initial loading phase
+  if (loading) {
+    return <PreLoader onFinish={() => setLoading(false)} />
   }
 
   return (
-    <div className="flex flex-col justify-center items-center">
-      <div className="h1">
-        There you go... a canvas for your next Celo project!
-      </div>
-      {isConnected ? (
-        <div className="h2 text-center">Your address: {userAddress}</div>
-      ) : (
-        <div>No Wallet Connected</div>
-      )}
-    </div>
-  );
+    <main className="relative">
+      <FloatingNavbar />
+      <ImmersiveHero />
+      <ImpactSection />
+      <ProcessFlow />
+      <EcosystemSection />
+      <JoinMovement />
+      <Footer />
+    </main>
+  )
 }
+

@@ -1,17 +1,19 @@
-import '@/styles/globals.css';
+import { Inter } from "next/font/google"
+import "../styles/globals.css"
 
-import { AppProvider } from '@/providers/AppProvider';
+const inter = Inter({ subsets: ["latin"] })
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const metadata = {
+  title: "AfriCycle - Transforming Waste into Wealth with Blockchain",
+  description:
+    "AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis while creating economic opportunities.",
+}
+
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <AppProvider>{children}</AppProvider>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
-  );
+  )
 }
+

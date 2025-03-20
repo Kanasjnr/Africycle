@@ -1,5 +1,6 @@
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomicfoundation/hardhat-verify';
+import 'hardhat-coverage'; 
 import { config as dotEnvConfig } from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/config';
 
@@ -10,10 +11,15 @@ const config: HardhatUserConfig = {
     alfajores: {
       accounts: [process.env.PRIVATE_KEY ?? '0x0'],
       url: 'https://alfajores-forno.celo-testnet.org',
+      allowUnlimitedContractSize: true,
     },
     celo: {
       accounts: [process.env.PRIVATE_KEY ?? '0x0'],
       url: 'https://forno.celo.org',
+      allowUnlimitedContractSize: true,
+    },
+    hardhat: {
+      allowUnlimitedContractSize: true,
     },
   },
   etherscan: {
@@ -43,7 +49,15 @@ const config: HardhatUserConfig = {
   sourcify: {
     enabled: false,
   },
-  solidity: '0.8.24',
+  solidity: {
+    version: '0.8.24',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
 };
 
 export default config;
