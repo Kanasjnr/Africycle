@@ -26,7 +26,9 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "@openzeppelin/contracts": "^5.2.0",
+    "dotenv": "^16.4.7",
+    "hardhat-coverage": "^0.9.19"
   },
   "scripts": {
     "postinstall": "chmod +x sync-abis.js",
