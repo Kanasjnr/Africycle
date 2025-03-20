@@ -2,7 +2,7 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, getDefaultConfig, lightTheme } from '@rainbow-me/rainbowkit';
 import { WagmiProvider, http } from 'wagmi';
 import { celo, celoAlfajores } from 'wagmi/chains';
 
@@ -24,7 +24,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
+        <RainbowKitProvider
+          theme={lightTheme({
+            accentColor: '#2E7D32', // Green color
+            accentColorForeground: 'white',
+            borderRadius: 'small',
+            fontStack: 'system',
+            overlayBlur: 'small',
+          })}
+        >
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
