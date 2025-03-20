@@ -1,19 +1,31 @@
-import { Inter } from "next/font/google"
-import "../styles/globals.css"
+import type React from "react";
+import "@/styles/globals.css";
+import { Inter } from "next/font/google";
+import Navbar from "@/components/layout/Navbar";
+import { AppProvider } from "@/providers/AppProvider";
+import Footer from "@/components/layout/footer";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = {
-  title: "AfriCycle - Transforming Waste into Wealth with Blockchain",
-  description:
-    "AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis while creating economic opportunities.",
-}
-
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+      </head>
+      <body className={`${inter.className} min-h-screen bg-background`}>
+        <AppProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+        </AppProvider>
+      </body>
     </html>
-  )
+  );
 }
-
