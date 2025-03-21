@@ -31,12 +31,6 @@ AfriCycle is built on the **Celo blockchain** for:
 - **Low transaction costs** (gas fees <$0.001 per transaction).
 - **Sustainable consensus** (Proof-of-Stake validation, carbon-negative infrastructure).
 
-### 📝 Core Smart Contracts
-- **RegistryContract**: Manages stakeholder identities, KYC verification, and reputation scoring.
-- **WasteStreamContracts**: Stream-specific validation, weight tracking, and quality assessment.
-- **TokenContracts**: ERC-20 (AfriCycle Token - ACT), ERC-721 (Impact NFTs), ERC-4626 (Yield vaults).
-- **MarketplaceContracts**: Order matching, escrow mechanisms, and dispute resolution.
-- **GovernanceContract**: Treasury management, proposal voting, and platform adjustments.
 
 ## 🏗 Application Architecture
 ### 🌐 Frontend Application
