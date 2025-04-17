@@ -1,11 +1,16 @@
-import type React from "react";
+import type { Metadata } from 'next';
 import "@/styles/globals.css";
 import { Inter } from "next/font/google";
-import Navbar from "@/components/layout/Navbar";
 import { AppProvider } from "@/providers/AppProvider";
-import Footer from "@/components/layout/footer";
+import { RoleProvider } from '@/providers/RoleProvider';
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "AfriCycle | Blockchain-Powered Waste Management Ecosystem",
+  description:
+    "A multi-stream ReFi waste management ecosystem built on Celo blockchain, transforming Africa's waste challenges into economic opportunities.",
+};
 
 export default function RootLayout({
   children,
@@ -18,13 +23,11 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body className={`${inter.className} min-h-screen bg-background`}>
-        <AppProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-        </AppProvider>
+        <RoleProvider>
+          <AppProvider>
+            {children}
+          </AppProvider>
+        </RoleProvider>
       </body>
     </html>
   );
