@@ -28,12 +28,12 @@ graph TD
     Corporate -->|Tracks Impact| ImpactDashboard[Impact Dashboard]
     
     %% Styling
-    style Collector fill:#f9f,stroke:#333,stroke-width:2px
-    style CollectionPoint fill:#bbf,stroke:#333,stroke-width:2px
-    style Recycler fill:#bfb,stroke:#333,stroke-width:2px
-    style Corporate fill:#fbf,stroke:#333,stroke-width:2px
-    style RecyclingCertificate fill:#fbb,stroke:#333,stroke-width:2px
-    style ImpactDashboard fill:#bbf,stroke:#333,stroke-width:2px
+    style Collector fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
+    style CollectionPoint fill:#2196F3,stroke:#333,stroke-width:2px,color:white
+    style Recycler fill:#FF9800,stroke:#333,stroke-width:2px,color:white
+    style Corporate fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
+    style RecyclingCertificate fill:#F44336,stroke:#333,stroke-width:2px,color:white
+    style ImpactDashboard fill:#607D8B,stroke:#333,stroke-width:2px,color:white
 ```
 
 ### Role-Based Workflow Description
