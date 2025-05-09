@@ -1,7 +1,72 @@
 # AfriCycle: A Multi-Stream ReFi Waste Management Ecosystem
 
 ## 🌍 Overview
-AfriCycle is a blockchain-powered circular economy platform that addresses Africa’s waste management crisis across three key waste streams: **plastic**, **electronic waste (e-waste)**, and **metal/general waste**. The platform incentivizes waste collection through **tokenized rewards**, enables **transparent recycling processes**, and promotes **corporate sustainability** through verified **recycling credits**.
+AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis across three key waste streams: **plastic**, **electronic waste (e-waste)**, and **metal/general waste**. The platform incentivizes waste collection through **tokenized rewards**, enables **transparent recycling processes**, and promotes **corporate sustainability** through verified **recycling credits**.
+
+## 🔄 System Workflow
+```mermaid
+graph TD
+    %% Roles
+    Collector[Waste Collector]
+    CollectionPoint[Collection Point]
+    Recycler[Recycler]
+    Corporate[Corporate Partner]
+    
+    %% Collection Process
+    Collector -->|Delivers Waste| CollectionPoint
+    CollectionPoint -->|Verifies & Weighs| CollectionPoint
+    CollectionPoint -->|Transfers cUSD| Collector
+    
+    %% Recycling Process
+    CollectionPoint -->|Sends Waste| Recycler
+    Recycler -->|Processes Waste| Recycler
+    Recycler -->|Creates NFT| RecyclingCertificate[Recycling Certificate]
+    
+    %% Corporate Partnership
+    Corporate -->|Purchases Credits| Recycler
+    Recycler -->|Transfers cUSD| Corporate
+    Corporate -->|Tracks Impact| ImpactDashboard[Impact Dashboard]
+    
+    %% Styling
+    style Collector fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
+    style CollectionPoint fill:#2196F3,stroke:#333,stroke-width:2px,color:white
+    style Recycler fill:#FF9800,stroke:#333,stroke-width:2px,color:white
+    style Corporate fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
+    style RecyclingCertificate fill:#F44336,stroke:#333,stroke-width:2px,color:white
+    style ImpactDashboard fill:#607D8B,stroke:#333,stroke-width:2px,color:white
+```
+
+### Role-Based Workflow Description
+
+1. **Waste Collector**
+   - Delivers waste to collection points
+   - Receives cUSD payments based on waste weight and type
+   - Can track earnings through their wallet
+
+2. **Collection Point**
+   - Verifies and weighs incoming waste
+   - Processes cUSD payments to collectors
+   - Coordinates waste transfer to recyclers
+   - Maintains quality standards
+
+3. **Recycler**
+   - Receives waste from collection points
+   - Processes waste into recyclable materials
+   - Creates NFTs for verified recycling
+   - Sells recycling credits to corporate partners
+   - Receives cUSD payments for credits
+
+4. **Corporate Partner**
+   - Purchases recycling credits using cUSD
+   - Tracks environmental impact
+   - Monitors sustainability goals
+   - Accesses impact dashboard for reporting
+
+### Key Interactions
+- All financial transactions use cUSD
+- NFTs represent verified recycling certificates
+- Smart contracts automate payments and verification
+- Impact tracking is transparent and immutable
 
 ## 🚀 Features
 ### ♻️ Multi-Stream Waste Collection
@@ -27,75 +92,47 @@ AfriCycle is a blockchain-powered circular economy platform that addresses Afric
 ## 🏗 Technical Architecture
 ### 🛠 Blockchain Infrastructure
 AfriCycle is built on the **Celo blockchain** for:
-- **Mobile-first design** (lightweight clients for low-end devices).
-- **Low transaction costs** (gas fees <$0.001 per transaction).
-- **Sustainable consensus** (Proof-of-Stake validation, carbon-negative infrastructure).
+- **Mobile-first design** (lightweight clients for low-end devices)
+- **Low transaction costs** (gas fees <$0.001 per transaction)
+- **Sustainable consensus** (Proof-of-Stake validation, carbon-negative infrastructure)
 
-
-## 🏗 Application Architecture
 ### 🌐 Frontend Application
-- **Progressive Web App (PWA)** with offline capabilities.
-- **Responsive design** for mobile and desktop access.
-- **Push notifications** for transaction updates.
+- **Next.js 14** with App Router for modern React development
+- **TypeScript** for type safety and better developer experience
+- **Tailwind CSS** for utility-first styling
+- **Radix UI** for accessible component primitives
+- **Recharts** for data visualization
+- **Progressive Web App (PWA)** capabilities
+- **Responsive design** for mobile and desktop access
 
 ### 🖥 Backend Infrastructure
-- **Node.js API** with Express.
-- **MongoDB** for off-chain data storage.
-- **Redis caching** for performance optimization.
+- **Hardhat** for smart contract development and testing
+- **TypeScript** for contract development
+- **OpenZeppelin** for secure contract implementations
+- **IPFS** for decentralized media storage
+- **Ceramic Network** for decentralized identity
 
 ### 📦 Blockchain Integration
-- **Web3.js/Ethers.js** for smart contract interactions.
-- **ContractKit** for Celo-specific features.
-- **Metamask and Valora wallet integrations**.
-
-### 🗄 Data Storage
-- **IPFS** for decentralized media storage.
-- **Ceramic Network** for decentralized identity.
-- **MongoDB** for off-chain document storage.
-
-## 🔄 Collection Process Details
-### 🔹 Plastic Waste Collection
-- Collectors gather PET bottles and recyclable plastics.
-- QR codes on collection bags enable **batch verification**.
-- Photo documentation for **manual verification**.
-- **Weight-based validation** at collection centers.
-
-### 🔹 E-Waste Collection
-- Specialized collectors document **valuable electronic components**.
-- Proper handling to prevent **hazardous material leakage**.
-- **Component-based reward calculation**.
-
-### 🔹 Metal/General Waste Collection
-- Categorization into **ferrous, non-ferrous, and other materials**.
-- **Weight-based verification** at recycling facilities.
-- **Bulk collection incentives** for larger quantities.
-
-## 💰 Revenue Model
-### 🏦 Revenue Streams
-- **Transaction Fees**
-  - **1.5% fee** on marketplace transactions.
-  - **0.5% fee** on token conversions (ACT to cUSD).
-  - Volume-based discounts for high-frequency users.
-
-## 📜 Smart Contract Implementation
-- **ACT Token (AfriCycle Token)**: ERC-20 standard for incentives and payments.
-- **Recycling NFTs**: ERC-721 impact certificates for verified waste processing.
-- **Governance Model**: Decentralized voting via ERC-20 governance token.
+- **ContractKit** for Celo-specific features
+- **Web3.js/Ethers.js** for smart contract interactions
+- **Metamask and Valora wallet integrations**
+- **Hardhat Network** for local development
 
 ## 🛠 Tech Stack
 - **Blockchain**: Celo
-- **Smart Contracts**: Solidity, Hardhat
-- **Frontend**: React.js, TypeScript
-- **Backend**: Node.js, Express, MongoDB
-- **Storage**: IPFS
+- **Smart Contracts**: Solidity, Hardhat, TypeScript
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Radix UI
+- **Development**: Yarn Workspaces, ESLint, Prettier
+- **Testing**: Mocha, Chai
+- **Storage**: IPFS, Ceramic Network
 
 ## 🚀 Getting Started
 ### 📥 Prerequisites
 Ensure you have the following installed:
-- [Node.js](https://nodejs.org/)
-- [Yarn](https://yarnpkg.com/)
-- [Metamask](https://metamask.io/)
-- [Hardhat](https://hardhat.org/)
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [Yarn](https://yarnpkg.com/) (v1.22 or higher)
+- [Metamask](https://metamask.io/) or [Valora](https://valoraapp.com/)
+- [Git](https://git-scm.com/)
 
 ### 📌 Installation
 ```bash
@@ -107,18 +144,51 @@ cd africycle
 
 # Install dependencies
 yarn install
+
+# Set up environment variables
+cp packages/react-app/.env.template packages/react-app/.env
 ```
 
-### 🛠 Running the Application
+### 🛠 Development
 ```bash
-# Start the local blockchain for testing
-yarn hardhat node
+# Start the local blockchain
+yarn hardhat:run:node
 
-# Deploy smart contracts
-yarn hardhat run scripts/deploy.js --network celo
+# In a new terminal, deploy contracts
+yarn hardhat:compile
+yarn hardhat:build
 
-# Start the frontend
-yarn start
+# Start the frontend development server
+yarn react-app:dev
+```
+
+### 🧪 Testing
+```bash
+# Run smart contract tests
+yarn hardhat:test
+
+# Run frontend tests
+yarn react-app:test
+```
+
+### 🏗 Project Structure
+```
+africycle/
+├── packages/
+│   ├── react-app/          # Next.js frontend application
+│   │   ├── app/           # App router pages and layouts
+│   │   ├── components/    # Reusable UI components
+│   │   ├── hooks/        # Custom React hooks
+│   │   ├── lib/          # Utility functions and configurations
+│   │   ├── providers/    # React context providers
+│   │   └── styles/       # Global styles and Tailwind config
+│   │
+│   └── hardhat/          # Smart contract development
+│       ├── contracts/    # Solidity smart contracts
+│       ├── scripts/      # Deployment and utility scripts
+│       └── test/         # Contract tests
+│
+└── package.json          # Root package.json for workspace management
 ```
 
 ## 🧑‍💻 Contributing
@@ -133,5 +203,5 @@ We welcome contributions! Follow these steps:
 This project is licensed under the **MIT License**.
 
 ## 📞 Contact
-<!-- - **Twitter**: [@AfriCycle](https://twitter.com/africycle) -->
-- **Email**: nasihudeen04@gmail.com
+- **Twitter**: [@AfriCycle](https://twitter.com/africycle)
+- **Email**: aficycle0@gmail.com
