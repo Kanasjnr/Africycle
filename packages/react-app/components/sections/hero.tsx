@@ -117,7 +117,7 @@ export default function Hero() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.9, duration: 0.5 }}
             >
-              A blockchain-powered circular economy platform addressing Africa's waste management crisis while creating
+              A blockchain-powered circular economy platform addressing Africa&apos;s waste management crisis while creating
               economic opportunities through ReFi principles.
             </motion.p>
             <motion.div

@@ -8,6 +8,7 @@ interface RoleContextType {
   role: Role;
   setRole: (role: Role) => void;
   isLoading: boolean;
+  isRegistered: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -15,6 +16,7 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRegistered, setIsRegistered] = useState(false);
 
   useEffect(() => {
     const loadRole = async () => {
@@ -22,6 +24,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         const savedRole = localStorage.getItem('userRole') as Role;
         if (savedRole) {
           setRole(savedRole);
+          setIsRegistered(true);
         }
       } catch (error) {
         console.error('Error loading role:', error);
@@ -36,7 +39,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const value = {
     role,
     setRole,
-    isLoading
+    isLoading,
+    isRegistered
   };
 
   return (

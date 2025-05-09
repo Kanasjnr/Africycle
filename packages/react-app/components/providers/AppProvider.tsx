@@ -7,7 +7,7 @@ import { http } from "wagmi"
 import { Toaster } from "sonner"
 
 const config = createConfig({
-  chains: [mainnet],
+  chains: [mainnet as any],
   transports: {
     [mainnet.id]: http(),
   },

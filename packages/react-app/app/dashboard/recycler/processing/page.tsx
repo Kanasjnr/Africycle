@@ -106,7 +106,7 @@ function Document({ title, type, date, status }: DocumentProps) {
           <IconDownload className="mr-2 h-4 w-4" />
           Download
         </Button>
-        <Button variant="primary" size="sm">
+        <Button variant="default" size="sm">
           <IconUpload className="mr-2 h-4 w-4" />
           Update
         </Button>
@@ -197,7 +197,7 @@ export default function ProcessingPage() {
                   Manage processing certificates and documentation
                 </p>
               </div>
-              <Button variant="primary">
+              <Button variant="default">
                 <IconUpload className="mr-2 h-4 w-4" />
                 Upload New
               </Button>

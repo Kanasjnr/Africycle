@@ -1,8 +1,7 @@
-
-  {
-    "extends": ["oclif"],
-    "parserOptions": {
-      "sourceType": "module"
-    }
+{
+  "extends": ["next/core-web-vitals"],
+  "parserOptions": {
+    "sourceType": "module"
   }
+}
   

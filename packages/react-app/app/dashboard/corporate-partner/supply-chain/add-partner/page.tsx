@@ -38,7 +38,7 @@ const partnerSchema = z.object({
     required_error: "Please enter the location",
   }),
   contactPerson: z.string({
-    required_error: "Please enter the contact person's name",
+    required_error: "Please enter the contact person&apos;s name",
   }),
   email: z.string().email({
     message: "Please enter a valid email address",
@@ -174,7 +174,7 @@ export default function AddPartnerPage() {
                     <FormItem>
                       <FormLabel>Contact Person</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter contact person's name" {...field} />
+                        <Input placeholder="Enter contact person&apos;s name" {...field} />
                       </FormControl>
                       <FormDescription>
                         The primary contact person
@@ -194,7 +194,7 @@ export default function AddPartnerPage() {
                         <Input type="email" placeholder="Enter email address" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Contact person's email address
+                        Contact person&apos;s email address
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -212,7 +212,7 @@ export default function AddPartnerPage() {
                       <Input placeholder="Enter phone number" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Contact person's phone number
+                      Contact person&apos;s phone number
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

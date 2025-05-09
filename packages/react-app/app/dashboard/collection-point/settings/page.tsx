@@ -96,7 +96,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-lg font-semibold">Operating Hours</h2>
                 <p className="text-sm text-muted-foreground">
-                  Set your collection point's operating schedule
+                  Set your collection point&apos;s operating schedule
                 </p>
               </div>
             </div>

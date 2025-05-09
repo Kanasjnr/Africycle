@@ -16,27 +16,15 @@ export default function Footer() {
               className="h-12 w-auto"
             />
             <p className="text-base font-medium text-muted-foreground max-w-xs">
-              A blockchain-powered circular economy platform addressing Africa's waste management crisis while creating
+              A blockchain-powered circular economy platform addressing Africa&apos;s waste management crisis while creating
               economic opportunities.
             </p>
             <div className="flex space-x-4">
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <Link href="https://x.com/africycle" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Twitter className="h-6 w-6" />
                 <span className="sr-only">Twitter</span>
               </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Facebook className="h-6 w-6" />
-                <span className="sr-only">Facebook</span>
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Instagram className="h-6 w-6" />
-                <span className="sr-only">Instagram</span>
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Linkedin className="h-6 w-6" />
-                <span className="sr-only">LinkedIn</span>
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <Link href="https://github.com/Kanasjnr/Africycle" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Github className="h-6 w-6" />
                 <span className="sr-only">GitHub</span>
               </Link>
@@ -46,11 +34,6 @@ export default function Footer() {
           <div>
             <h3 className="text-base font-bold uppercase tracking-wider text-foreground">Platform</h3>
             <ul className="mt-4 space-y-3">
-              <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                  Marketplace
-                </Link>
-              </li>
               <li>
                 <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   Collector App
@@ -73,23 +56,13 @@ export default function Footer() {
             <h3 className="text-base font-bold uppercase tracking-wider text-foreground">Resources</h3>
             <ul className="mt-4 space-y-3">
               <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
+                <Link href="https://docs.google.com/document/d/1Np5ef2_3wkdKblfs8z3pMGYNrAMkb_MYmV_yx_Q-nVI/edit?usp=sharing" target="_blank" rel="noopener noreferrer" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   Documentation
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
+                <Link href="https://africycle.hashnode.space/default-guide/africycle" target="_blank" rel="noopener noreferrer" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   Whitepaper
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                  API
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                  Blog
                 </Link>
               </li>
             </ul>
@@ -105,17 +78,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
                   Contact
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-base font-medium text-muted-foreground hover:text-primary transition-colors">
-                  Partners
                 </Link>
               </li>
             </ul>

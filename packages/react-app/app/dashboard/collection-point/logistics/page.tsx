@@ -132,7 +132,7 @@ export default function LogisticsPage() {
             <div className="p-6">
               <div className="flex items-center gap-2">
                 <IconTruck className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-medium">Today's Pickups</h3>
+                <h3 className="font-medium">Today&apos;s Pickups</h3>
               </div>
               <p className="mt-2 text-2xl font-bold">3</p>
               <p className="text-sm text-muted-foreground">2 completed</p>

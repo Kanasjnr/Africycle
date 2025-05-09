@@ -76,12 +76,7 @@ export default function Navbar() {
             >
               How It Works
             </Link>
-            <Link
-              href="#Stakeholders"
-              className="text-foreground/80 hover:text-primary transition-colors font-semibold"
-            >
-              Stakeholders
-            </Link>
+           
             <ConnectButton />
           </nav>
 

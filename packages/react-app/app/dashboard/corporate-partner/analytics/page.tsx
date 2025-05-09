@@ -22,15 +22,11 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { IconBox, IconRefresh, IconStore, IconShield, IconChart } from "@/components/ui/icons"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
-import { RecyclerOverview } from "@/components/dashboard/recycler/overview"
-import { MaterialProcessing } from "@/components/dashboard/recycler/material-processing"
-import { QuickActions } from "@/components/dashboard/recycler/quick-actions"
-import { MaterialTrackingOverview } from "@/components/dashboard/recycler/tracking/overview"
-import { MaterialTrackingList } from "@/components/dashboard/recycler/tracking/tracking-list"
-import { ProcessingOverview } from "@/components/dashboard/recycler/processing/overview"
-import { ProcessingDocsList } from "@/components/dashboard/recycler/processing/docs-list"
-import { MarketplaceOverview } from "@/components/dashboard/recycler/marketplace/overview"
-import { MarketplaceListings } from "@/components/dashboard/recycler/marketplace/listings"
+import RecyclerOverview from "@/app/dashboard/recycler/page"
+import MaterialProcessing from "@/app/dashboard/recycler/processing/page"
+import MaterialTrackingOverview from "@/app/dashboard/recycler/tracking/page"
+import ProcessingOverview from "@/app/dashboard/recycler/processing/page"
+import MarketplaceOverview from "@/app/dashboard/recycler/marketplace/page"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -145,14 +141,10 @@ export default function RecyclerDashboardPage() {
         <RecyclerOverview />
         <div className="grid gap-6 md:grid-cols-2">
           <MaterialProcessing />
-          <QuickActions />
         </div>
         <MaterialTrackingOverview />
-        <MaterialTrackingList />
         <ProcessingOverview />
-        <ProcessingDocsList />
         <MarketplaceOverview />
-        <MarketplaceListings />
       </div>
     </DashboardShell>
   )
