@@ -1,0 +1,47 @@
+{
+  "author": "kanas",
+  "bugs": {
+    "url": "https://github.com/celo-org/celo-composer/issues"
+  },
+  "description": "Custom Celo Composer project.",
+  "homepage": "https://github.com/celo-org/celo-composer/blob/main/README.md",
+  "keywords": [
+    "celo-composer",
+    "celo"
+  ],
+  "license": "MIT",
+  "name": "africycle",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celo-org/celo-composer.git"
+  },
+  "scripts": {
+    "react-app:dev": "yarn workspace @africycle/react-app dev",
+    "react-app:build": "yarn workspace @africycle/react-app build",
+    "react-app:start": "yarn workspace @africycle/react-app start",
+    "react-app:lint": "yarn workspace @africycle/react-app lint",
+    "hardhat:postinstall": "yarn workspace @africycle/hardhat postinstall",
+    "hardhat:compile": "yarn workspace @africycle/hardhat compile",
+    "hardhat:tsc": "yarn workspace @africycle/hardhat tsc",
+    "hardhat:build": "yarn workspace @africycle/hardhat build",
+    "hardhat:clean": "yarn workspace @africycle/hardhat clean",
+    "hardhat:run:node": "yarn workspace @africycle/hardhat run:node",
+    "hardhat:test": "yarn workspace @africycle/hardhat test",
+    "hardhat:prettier": "yarn workspace @africycle/hardhat prettier",
+    "hardhat:sync:abis": "yarn workspace @africycle/hardhat sync:abis"
+  },
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "devDependencies": {
+    "eslint-config-oclif": "^6.0.28"
+  },
+  "dependencies": {
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "class-variance-authority": "^0.7.1",
+    "recharts": "^2.15.1"
+  }
+}
