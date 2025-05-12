@@ -13,10 +13,18 @@ import SplashScreen from "@/components/SplashScreen"
 import Navbar from "@/components/layout/Navbar"
 import Footer from "@/components/layout/footer"
 import { AppProvider } from "@/providers/AppProvider"
+import { RegistrationDialog } from "@/components/dialogs/registration-dialog"
+import { useAccount } from "wagmi"
+import { useRole } from "@/providers/RoleProvider"
 
 export default function HomePage() {
   const [showSplash, setShowSplash] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
+  const { isConnected } = useAccount()
+  const { role, isLoading } = useRole()
+
+  // Determine if we should show the registration dialog
+  const showRegistration = isConnected && !isLoading && !role
 
   useEffect(() => {
     setIsMounted(true)
@@ -61,6 +69,9 @@ export default function HomePage() {
           <CTA />
         </main>
         <Footer />
+
+        {/* Only show registration dialog when needed */}
+        {showRegistration && <RegistrationDialog />}
       </div>
     </AppProvider>
   )

@@ -62,6 +62,40 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
     }
 
     // ============ Structs ============
+    struct CollectorProfile {
+        uint256 totalCollected;
+        uint256 totalEarnings;
+        uint256 pendingVerifications;
+        uint256 verifiedCollections;
+        uint256 reputationScore;
+        mapping(AfricycleLibrary.WasteStream => uint256) collectedByType;
+        uint256[] collectionHistory;
+    }
+
+    struct CollectionPointProfile {
+        uint256 totalInventory;
+        uint256 pendingVerifications;
+        uint256 scheduledPickups;
+        uint256 activeCollectors;
+        mapping(AfricycleLibrary.WasteStream => uint256) inventoryByType;
+        address[] registeredCollectors;
+    }
+
+    struct RecyclerProfile {
+        uint256 totalEarnings;
+        uint256 activeListings;
+        uint256 reputationScore;
+        mapping(AfricycleLibrary.WasteStream => uint256) processedByType;
+    }
+
+    struct CorporateProfile {
+        uint256 totalPurchases;
+        uint256 totalImpactCredits;
+        uint256 carbonOffset;
+        mapping(AfricycleLibrary.WasteStream => uint256) purchasedByType;
+        uint256[] purchaseHistory;
+    }
+
     struct UserProfile {
         string name;
         string location;
@@ -69,11 +103,12 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         Status status;
         uint256 registrationDate;
         uint256 verificationDate;
-        uint256 reputationScore;
         bool isVerified;
-        mapping(AfricycleLibrary.WasteStream => uint256) totalCollected;
-        mapping(AfricycleLibrary.WasteStream => uint256) totalProcessed;
-        uint256 totalEarnings;
+        bytes32 role;
+        CollectorProfile collectorProfile;
+        CollectionPointProfile collectionPointProfile;
+        RecyclerProfile recyclerProfile;
+        CorporateProfile corporateProfile;
     }
 
     struct WasteCollection {
@@ -82,7 +117,6 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         AfricycleLibrary.WasteStream wasteType;
         uint256 weight;
         string location;
-        string qrCode;
         string imageHash;
         Status status;
         uint256 timestamp;
@@ -147,6 +181,40 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         bool blacklistedStatus;
     }
 
+    struct UserProfileView {
+        string name;
+        string location;
+        string contactInfo;
+        Status status;
+        uint256 registrationDate;
+        uint256 verificationDate;
+        bool isVerified;
+        bytes32 role;
+        // Collector stats
+        uint256 totalCollected;
+        uint256 totalEarnings;
+        uint256 pendingVerifications;
+        uint256 verifiedCollections;
+        uint256 collectorReputationScore;
+        uint256[4] collectedByType;
+        // Collection point stats
+        uint256 totalInventory;
+        uint256 collectionPointPendingVerifications;
+        uint256 scheduledPickups;
+        uint256 activeCollectors;
+        uint256[4] inventoryByType;
+        // Recycler stats
+        uint256 recyclerTotalEarnings;
+        uint256 activeListings;
+        uint256 recyclerReputationScore;
+        uint256[4] processedByType;
+        // Corporate stats
+        uint256 totalPurchases;
+        uint256 totalImpactCredits;
+        uint256 carbonOffset;
+        uint256[4] purchasedByType;
+    }
+
     // ============ State Variables ============
 
     /// @notice Celo Dollar token contract
@@ -167,7 +235,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
     // ============ Mappings ============
 
     /// @notice User profiles mapping
-    mapping(address => UserProfile) public userProfiles;
+    mapping(address => UserProfile) private userProfiles;
 
     /// @notice Waste collections mapping
     mapping(uint256 => WasteCollection) public collections;
@@ -402,6 +470,37 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         uint256 itemsProcessed
     );
 
+    event CollectorStatsUpdated(
+        address indexed collector,
+        uint256 totalCollected,
+        uint256 totalEarnings,
+        uint256 pendingVerifications,
+        uint256 verifiedCollections
+    );
+
+    event CollectionPointStatsUpdated(
+        address indexed collectionPoint,
+        uint256 totalInventory,
+        uint256 pendingVerifications,
+        uint256 scheduledPickups,
+        uint256 activeCollectors
+    );
+
+    event RecyclerStatsUpdated(
+        address indexed recycler,
+        uint256 totalProcessed,
+        uint256 totalEarnings,
+        uint256 activeListings,
+        uint256 reputationScore
+    );
+
+    event CorporateStatsUpdated(
+        address indexed corporate,
+        uint256 totalPurchases,
+        uint256 totalImpactCredits,
+        uint256 carbonOffset
+    );
+
     // ============ Constructor ============
 
     /**
@@ -410,14 +509,24 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
      */
     constructor(address _cUSDToken) {
         cUSDToken = IERC20(_cUSDToken);
+        
+        // Set up role hierarchy
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ADMIN_ROLE, msg.sender);
+        _setupRole(VERIFIER_ROLE, msg.sender); // Admin is also a verifier
+        
+        // Set role admins
+        _setRoleAdmin(COLLECTOR_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(COLLECTION_POINT_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(RECYCLER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(CORPORATE_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(VERIFIER_ROLE, ADMIN_ROLE);
 
         // Initialize default reward rates (in cUSD, scaled by 1e18)
-        rewardRates[AfricycleLibrary.WasteStream.PLASTIC] = 0.5 ether; // 0.5 cUSD per kg
-        rewardRates[AfricycleLibrary.WasteStream.EWASTE] = 2 ether; // 2 cUSD per kg
-        rewardRates[AfricycleLibrary.WasteStream.METAL] = 1 ether; // 1 cUSD per kg
-        rewardRates[AfricycleLibrary.WasteStream.GENERAL] = 0.2 ether; // 0.2 cUSD per kg
+        rewardRates[AfricycleLibrary.WasteStream.PLASTIC] = 0.1 ether; // 0.1 cUSD per kg (reduced from 0.5)
+        rewardRates[AfricycleLibrary.WasteStream.EWASTE] = 0.5 ether; // 0.5 cUSD per kg (reduced from 2.0)
+        rewardRates[AfricycleLibrary.WasteStream.METAL] = 0.2 ether; // 0.2 cUSD per kg (reduced from 1.0)
+        rewardRates[AfricycleLibrary.WasteStream.GENERAL] = 0.05 ether; // 0.05 cUSD per kg (reduced from 0.2)
 
         // Initialize quality multipliers (percentage, base 10000)
         qualityMultipliers[AfricycleLibrary.WasteStream.PLASTIC][AfricycleLibrary.QualityGrade.LOW] = 8000; // 80%
@@ -489,13 +598,9 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
     // ============ User Management Functions ============
 
     /**
-     * @notice Registers a new user in the system
-     * @param _name User's name
-     * @param _location User's location
-     * @param _contactInfo User's contact information
-     * @dev Initializes user profile with default values
+     * @notice Registers a new collector with role-specific initialization
      */
-    function registerUser(
+    function registerCollector(
         string memory _name,
         string memory _location,
         string memory _contactInfo
@@ -511,27 +616,180 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         profile.name = _name;
         profile.location = _location;
         profile.contactInfo = _contactInfo;
-        profile.status = Status.PENDING;
+        profile.status = Status.VERIFIED;
         profile.registrationDate = block.timestamp;
-        profile.reputationScore = 100; // Initial reputation score
+        profile.isVerified = true;
+        profile.verificationDate = block.timestamp;
+        profile.role = COLLECTOR_ROLE;
+
+        // Initialize collector-specific profile
+        CollectorProfile storage collectorProfile = profile.collectorProfile;
+        collectorProfile.totalCollected = 0;
+        collectorProfile.totalEarnings = 0;
+        collectorProfile.pendingVerifications = 0;
+        collectorProfile.verifiedCollections = 0;
+        collectorProfile.reputationScore = 100;
+
+        _grantRole(COLLECTOR_ROLE, msg.sender);
 
         emit UserRegistered(msg.sender, _name, _location);
+        emit UserRoleGranted(msg.sender, COLLECTOR_ROLE);
+        emit CollectorStatsUpdated(
+            msg.sender,
+            0, // totalCollected
+            0, // totalEarnings
+            0, // pendingVerifications
+            0  // verifiedCollections
+        );
     }
 
-    function verifyUser(address _user) external onlyVerifier whenNotPaused {
-        UserProfile storage profile = userProfiles[_user];
-        require(profile.registrationDate > 0, 'User not registered');
-        require(!profile.isVerified, 'Already verified');
+    /**
+     * @notice Registers a new collection point with role-specific initialization
+     */
+    function registerCollectionPoint(
+        string memory _name,
+        string memory _location,
+        string memory _contactInfo
+    ) external whenNotPaused {
+        require(bytes(_name).length > 0, 'Name required');
+        require(bytes(_location).length > 0, 'Location required');
+        require(
+            userProfiles[msg.sender].registrationDate == 0,
+            'Already registered'
+        );
 
-        profile.isVerified = true;
+        UserProfile storage profile = userProfiles[msg.sender];
+        profile.name = _name;
+        profile.location = _location;
+        profile.contactInfo = _contactInfo;
         profile.status = Status.VERIFIED;
+        profile.registrationDate = block.timestamp;
+        profile.isVerified = true;
         profile.verificationDate = block.timestamp;
+        profile.role = COLLECTION_POINT_ROLE;
 
-        emit UserVerified(_user);
+        // Initialize collection point-specific profile
+        CollectionPointProfile storage collectionPointProfile = profile.collectionPointProfile;
+        collectionPointProfile.totalInventory = 0;
+        collectionPointProfile.pendingVerifications = 0;
+        collectionPointProfile.scheduledPickups = 0;
+        collectionPointProfile.activeCollectors = 0;
+
+        _grantRole(COLLECTION_POINT_ROLE, msg.sender);
+
+        emit UserRegistered(msg.sender, _name, _location);
+        emit UserRoleGranted(msg.sender, COLLECTION_POINT_ROLE);
+        emit CollectionPointStatsUpdated(
+            msg.sender,
+            0, // totalInventory
+            0, // pendingVerifications
+            0, // scheduledPickups
+            0  // activeCollectors
+        );
+    }
+
+    /**
+     * @notice Registers a new recycler with role-specific initialization
+     */
+    function registerRecycler(
+        string memory _name,
+        string memory _location,
+        string memory _contactInfo
+    ) external whenNotPaused {
+        require(bytes(_name).length > 0, 'Name required');
+        require(bytes(_location).length > 0, 'Location required');
+        require(
+            userProfiles[msg.sender].registrationDate == 0,
+            'Already registered'
+        );
+
+        UserProfile storage profile = userProfiles[msg.sender];
+        profile.name = _name;
+        profile.location = _location;
+        profile.contactInfo = _contactInfo;
+        profile.status = Status.VERIFIED;
+        profile.registrationDate = block.timestamp;
+        profile.isVerified = true;
+        profile.verificationDate = block.timestamp;
+        profile.role = RECYCLER_ROLE;
+
+        // Initialize recycler-specific profile
+        RecyclerProfile storage recyclerProfile = profile.recyclerProfile;
+        recyclerProfile.totalEarnings = 0;
+        recyclerProfile.activeListings = 0;
+        recyclerProfile.reputationScore = 100;
+
+        _grantRole(RECYCLER_ROLE, msg.sender);
+
+        emit UserRegistered(msg.sender, _name, _location);
+        emit UserRoleGranted(msg.sender, RECYCLER_ROLE);
+        emit RecyclerStatsUpdated(
+            msg.sender,
+            0, // totalProcessed
+            0, // totalEarnings
+            0, // activeListings
+            100 // reputationScore
+        );
+    }
+
+    /**
+     * @notice Registers a new corporate partner with role-specific initialization
+     */
+    function registerCorporate(
+        string memory _name,
+        string memory _location,
+        string memory _contactInfo
+    ) external whenNotPaused {
+        require(bytes(_name).length > 0, 'Name required');
+        require(bytes(_location).length > 0, 'Location required');
+        require(
+            userProfiles[msg.sender].registrationDate == 0,
+            'Already registered'
+        );
+
+        UserProfile storage profile = userProfiles[msg.sender];
+        profile.name = _name;
+        profile.location = _location;
+        profile.contactInfo = _contactInfo;
+        profile.status = Status.VERIFIED;
+        profile.registrationDate = block.timestamp;
+        profile.isVerified = true;
+        profile.verificationDate = block.timestamp;
+        profile.role = CORPORATE_ROLE;
+
+        // Initialize corporate-specific profile
+        CorporateProfile storage corporateProfile = profile.corporateProfile;
+        corporateProfile.totalPurchases = 0;
+        corporateProfile.totalImpactCredits = 0;
+        corporateProfile.carbonOffset = 0;
+
+        _grantRole(CORPORATE_ROLE, msg.sender);
+
+        emit UserRegistered(msg.sender, _name, _location);
+        emit UserRoleGranted(msg.sender, CORPORATE_ROLE);
+        emit CorporateStatsUpdated(
+            msg.sender,
+            0, // totalPurchases
+            0, // totalImpactCredits
+            0  // carbonOffset
+        );
+    }
+
+    // Add a function to get user's role
+    function getUserRole(address _user) external view returns (bytes32) {
+        return userProfiles[_user].role;
     }
 
     // ============ Collection Functions ============
 
+    /**
+     * @notice Creates a new waste collection
+     * @param _wasteType Type of waste collected
+     * @param _weight Weight of the collection in kg
+     * @param _location Location of collection
+     * @param _qrCode QR code for collection
+     * @param _imageHash Hash of the verification image
+     */
     function createCollection(
         AfricycleLibrary.WasteStream _wasteType,
         uint256 _weight,
@@ -539,6 +797,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         string memory _qrCode,
         string memory _imageHash
     ) public onlyCollector whenNotPaused returns (uint256) {
+        // Update validation call - QR code is optional
         AfricycleLibrary.validateCollection(_weight, _location, _qrCode, _imageHash);
 
         uint256 collectionId = _collectionIdCounter++;
@@ -550,22 +809,37 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
             wasteType: _wasteType,
             weight: _weight,
             location: _location,
-            qrCode: _qrCode,
             imageHash: _imageHash,
-            status: Status.PENDING,
+            status: Status.VERIFIED,
             timestamp: block.timestamp,
-            quality: AfricycleLibrary.QualityGrade.LOW,
+            quality: AfricycleLibrary.QualityGrade.MEDIUM,
             rewardAmount: rewardAmount,
             isProcessed: false
         });
 
         UserProfile storage profile = userProfiles[msg.sender];
-        profile.totalCollected[_wasteType] += _weight;
+        profile.collectorProfile.totalCollected += _weight;
+        profile.collectorProfile.totalEarnings += rewardAmount;
+
+        // Auto-pay reward
+        require(
+            cUSDToken.transfer(msg.sender, rewardAmount),
+            'Reward transfer failed'
+        );
 
         emit CollectionCreated(collectionId, msg.sender, _weight, _wasteType);
+        emit RewardPaid(msg.sender, rewardAmount, _wasteType, collectionId);
         return collectionId;
     }
 
+    /**
+     * @notice Creates multiple waste collections in a single transaction
+     * @param _wasteTypes Array of waste types
+     * @param _weights Array of weights in kg
+     * @param _locations Array of collection locations
+     * @param _qrCodes Array of QR codes for collections
+     * @param _imageHashes Array of verification image hashes
+     */
     function batchCreateCollections(
         AfricycleLibrary.WasteStream[] memory _wasteTypes,
         uint256[] memory _weights,
@@ -578,13 +852,12 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
             _weights.length == _locations.length &&
             _locations.length == _qrCodes.length &&
             _qrCodes.length == _imageHashes.length,
-            'Length mismatch'
+            'Array lengths must match'
         );
-        require(_wasteTypes.length <= AfricycleLibrary.MAX_BATCH_SIZE, 'Batch too large');
 
         uint256[] memory collectionIds = new uint256[](_wasteTypes.length);
 
-        for (uint256 i = 0; i < _wasteTypes.length; i++) {
+        for (uint i = 0; i < _wasteTypes.length; i++) {
             collectionIds[i] = createCollection(
                 _wasteTypes[i],
                 _weights[i],
@@ -594,7 +867,6 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
             );
         }
 
-        emit BatchOperationCompleted(keccak256('CREATE_COLLECTIONS'), _wasteTypes.length);
         return collectionIds;
     }
 
@@ -634,6 +906,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         );
     }
 
+    /* Commented out verification function
     function verifyCollection(
         uint256 _collectionId,
         AfricycleLibrary.QualityGrade _quality
@@ -644,52 +917,60 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         collection.status = Status.VERIFIED;
         collection.quality = _quality;
 
-        // Use library calculation for quality multiplier
         uint256 qualityMultiplier = AfricycleLibrary.calculateQualityMultiplier(
             collection.wasteType,
             _quality
         );
         collection.rewardAmount = (collection.rewardAmount * qualityMultiplier) / AfricycleLibrary.SCALE;
 
-        // Pay reward
         require(
             cUSDToken.transfer(collection.collector, collection.rewardAmount),
             'Reward transfer failed'
         );
 
-        // Update collector stats
         UserProfile storage collector = userProfiles[collection.collector];
-        collector.totalCollected[collection.wasteType] += collection.weight;
-        collector.totalEarnings += collection.rewardAmount;
-        collector.reputationScore += AfricycleLibrary.calculateReputationIncrease(
-            1, // base increase
+        collector.collectorProfile.collectedByType[collection.wasteType] += collection.weight;
+        collector.collectorProfile.totalEarnings += collection.rewardAmount;
+        collector.collectorProfile.reputationScore += AfricycleLibrary.calculateReputationIncrease(
+            1,
             _quality
         );
 
         emit CollectionVerified(_collectionId, msg.sender, _quality, collection.rewardAmount);
         emit RewardPaid(collection.collector, collection.rewardAmount, collection.wasteType, _collectionId);
     }
+    */
 
+    /**
+     * @notice Updates an existing collection with new information
+     * @param _collectionId ID of the collection to update
+     * @param _weight New weight of the collection
+     * @param _location New location of the collection
+     * @param _qrCode New QR code for the collection
+     * @param _imageHash New verification image hash
+     */
     function updateCollection(
         uint256 _collectionId,
-        uint256 _newWeight,
-        string memory _newLocation
+        uint256 _weight,
+        string memory _location,
+        string memory _qrCode,
+        string memory _imageHash
     ) external onlyCollector whenNotPaused {
         WasteCollection storage collection = collections[_collectionId];
-        require(collection.collector == msg.sender, 'Not collector');
-        require(collection.status == Status.PENDING, 'Not pending');
-        require(_newWeight > 0, 'Invalid weight');
-        require(bytes(_newLocation).length > 0, 'Location required');
+        require(collection.collector == msg.sender, 'Not collection owner');
+        require(collection.status == Status.PENDING, 'Cannot update verified collection');
 
-        collection.weight = _newWeight;
-        collection.location = _newLocation;
-        collection.rewardAmount =
-            (collection.weight * rewardRates[collection.wasteType]) /
-            1e18;
+        // Update validation call - QR code is optional
+        AfricycleLibrary.validateCollection(_weight, _location, _qrCode, _imageHash);
 
-        emit CollectionUpdated(_collectionId, _newWeight, _newLocation);
+        collection.weight = _weight;
+        collection.location = _location;
+        collection.imageHash = _imageHash;
+
+        emit CollectionUpdated(_collectionId, _weight, _location);
     }
 
+    /* Commented out rejection function
     function rejectCollection(
         uint256 _collectionId,
         string memory _reason
@@ -701,6 +982,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         collection.status = Status.REJECTED;
         emit CollectionRejected(_collectionId, msg.sender, _reason);
     }
+    */
 
     // ============ Processing Functions ============
 
@@ -714,10 +996,9 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         AfricycleLibrary.WasteStream wasteType = collections[_collectionIds[0]].wasteType;
         uint256 totalInput = 0;
 
-        // Verify all collections are of same type and verified
+        // Modified to not require verification
         for (uint i = 0; i < _collectionIds.length; i++) {
             WasteCollection storage collection = collections[_collectionIds[i]];
-            require(collection.status == Status.VERIFIED, 'Collection not verified');
             require(!collection.isProcessed, 'Already processed');
             require(collection.wasteType == wasteType, 'Mixed waste types');
 
@@ -766,8 +1047,8 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
 
         // Update processor stats
         UserProfile storage processor = userProfiles[msg.sender];
-        processor.totalProcessed[batch.wasteType] += _outputAmount;
-        processor.reputationScore += AfricycleLibrary.calculateReputationIncrease(
+        processor.recyclerProfile.totalEarnings += _outputAmount;
+        processor.recyclerProfile.reputationScore += AfricycleLibrary.calculateReputationIncrease(
             2, // base increase
             _outputQuality
         );
@@ -934,15 +1215,15 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         UserProfile storage profile = userProfiles[_user];
 
         for (uint i = 0; i < 4; i++) {
-            collected[i] = profile.totalCollected[AfricycleLibrary.WasteStream(i)];
-            processed[i] = profile.totalProcessed[AfricycleLibrary.WasteStream(i)];
+            collected[i] = profile.collectorProfile.collectedByType[AfricycleLibrary.WasteStream(i)];
+            processed[i] = profile.recyclerProfile.processedByType[AfricycleLibrary.WasteStream(i)];
         }
 
         return (
             collected,
             processed,
-            profile.totalEarnings,
-            profile.reputationScore
+            profile.collectorProfile.totalEarnings + profile.recyclerProfile.totalEarnings,
+            profile.recyclerProfile.reputationScore
         );
     }
 
@@ -971,7 +1252,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         uint256 _newScore
     ) external onlyAdmin {
         require(_newScore <= 1000, 'Score too high'); // Max 1000 points
-        userProfiles[_user].reputationScore = _newScore;
+        userProfiles[_user].recyclerProfile.reputationScore = _newScore;
         emit UserReputationUpdated(_user, _newScore);
     }
 
@@ -989,6 +1270,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         emit ImpactCreditTransferred(_creditId, msg.sender, _to);
     }
 
+    /* Commented out verification function
     function verifyImpactCredit(
         uint256 _creditId,
         string memory _verificationProof
@@ -998,6 +1280,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         credit.verificationProof = _verificationProof;
         emit ImpactCreditVerified(_creditId, msg.sender, _verificationProof);
     }
+    */
 
     function burnImpactCredit(uint256 _creditId) external whenNotPaused {
         ImpactCredit storage credit = impactCredits[_creditId];
@@ -1024,6 +1307,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         emit ProcessingBatchUpdated(_batchId, _newOutputAmount, _newQuality);
     }
 
+    /* Commented out rejection function
     function rejectProcessingBatch(
         uint256 _batchId,
         string memory _reason
@@ -1034,6 +1318,7 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         batch.status = Status.REJECTED;
         emit ProcessingRejected(_batchId, _reason);
     }
+    */
 
     // ============ Marketplace Management ============
 
@@ -1091,10 +1376,10 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdrawCollectorEarnings(uint256 _amount) external onlyCollector whenNotPaused notSuspended notBlacklisted {
         UserProfile storage profile = userProfiles[msg.sender];
-        require(profile.totalEarnings >= _amount, 'Insufficient earnings');
+        require(profile.collectorProfile.totalEarnings >= _amount, 'Insufficient earnings');
         require(_amount > 0, 'Amount must be positive');
         
-        profile.totalEarnings -= _amount;
+        profile.collectorProfile.totalEarnings -= _amount;
         require(cUSDToken.transfer(msg.sender, _amount), 'Transfer failed');
         
         emit RewardPaid(msg.sender, _amount, AfricycleLibrary.WasteStream.GENERAL, 0);
@@ -1106,10 +1391,10 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdrawRecyclerEarnings(uint256 _amount) external onlyRecycler whenNotPaused notSuspended notBlacklisted {
         UserProfile storage profile = userProfiles[msg.sender];
-        require(profile.totalEarnings >= _amount, 'Insufficient earnings');
+        require(profile.recyclerProfile.totalEarnings >= _amount, 'Insufficient earnings');
         require(_amount > 0, 'Amount must be positive');
         
-        profile.totalEarnings -= _amount;
+        profile.recyclerProfile.totalEarnings -= _amount;
         require(cUSDToken.transfer(msg.sender, _amount), 'Transfer failed');
         
         emit RewardPaid(msg.sender, _amount, AfricycleLibrary.WasteStream.GENERAL, 0);
@@ -1121,10 +1406,10 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdrawCorporateEarnings(uint256 _amount) external onlyCorporate whenNotPaused notSuspended notBlacklisted {
         UserProfile storage profile = userProfiles[msg.sender];
-        require(profile.totalEarnings >= _amount, 'Insufficient earnings');
+        require(profile.corporateProfile.totalPurchases >= _amount, 'Insufficient purchases');
         require(_amount > 0, 'Amount must be positive');
         
-        profile.totalEarnings -= _amount;
+        profile.corporateProfile.totalPurchases -= _amount;
         require(cUSDToken.transfer(msg.sender, _amount), 'Transfer failed');
         
         emit RewardPaid(msg.sender, _amount, AfricycleLibrary.WasteStream.GENERAL, 0);
@@ -1136,10 +1421,10 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
      */
     function withdrawCollectionPointEarnings(uint256 _amount) external onlyCollectionPoint whenNotPaused notSuspended notBlacklisted {
         UserProfile storage profile = userProfiles[msg.sender];
-        require(profile.totalEarnings >= _amount, 'Insufficient earnings');
+        require(profile.collectionPointProfile.totalInventory >= _amount, 'Insufficient inventory');
         require(_amount > 0, 'Amount must be positive');
         
-        profile.totalEarnings -= _amount;
+        profile.collectionPointProfile.totalInventory -= _amount;
         require(cUSDToken.transfer(msg.sender, _amount), 'Transfer failed');
         
         emit RewardPaid(msg.sender, _amount, AfricycleLibrary.WasteStream.GENERAL, 0);
@@ -1274,12 +1559,12 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         UserStats memory stats;
         
         for (uint i = 0; i < 4; i++) {
-            stats.collected[i] = profile.totalCollected[AfricycleLibrary.WasteStream(i)];
-            stats.processed[i] = profile.totalProcessed[AfricycleLibrary.WasteStream(i)];
+            stats.collected[i] = profile.collectorProfile.collectedByType[AfricycleLibrary.WasteStream(i)];
+            stats.processed[i] = profile.recyclerProfile.processedByType[AfricycleLibrary.WasteStream(i)];
         }
 
-        stats.totalEarnings = profile.totalEarnings;
-        stats.reputationScore = profile.reputationScore;
+        stats.totalEarnings = profile.collectorProfile.totalEarnings + profile.recyclerProfile.totalEarnings;
+        stats.reputationScore = profile.recyclerProfile.reputationScore;
         stats.activeListings = userActiveListings[_user];
         stats.verifiedStatus = profile.isVerified;
         stats.suspendedStatus = isSuspended[_user];
@@ -1402,5 +1687,170 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
         uint256 basePrice = wasteType == AfricycleLibrary.WasteStream.PLASTIC ? 100 : 50;
         uint256 qualityMultiplier = uint256(quality) + 1;
         return (basePrice * weight * qualityMultiplier) / 10;
+    }
+
+    // ============ Role-Specific View Functions ============
+
+    /**
+     * @notice Gets collector-specific statistics
+     */
+    function getCollectorStats(address _collector) external view returns (
+        uint256 totalCollected,
+        uint256 totalEarnings,
+        uint256 pendingVerifications,
+        uint256 verifiedCollections,
+        uint256 reputationScore,
+        uint256[4] memory collectedByType
+    ) {
+        UserProfile storage profile = userProfiles[_collector];
+        require(profile.role == COLLECTOR_ROLE, 'Not a collector');
+        
+        CollectorProfile storage collectorProfile = profile.collectorProfile;
+        
+        for (uint i = 0; i < 4; i++) {
+            collectedByType[i] = collectorProfile.collectedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        return (
+            collectorProfile.totalCollected,
+            collectorProfile.totalEarnings,
+            collectorProfile.pendingVerifications,
+            collectorProfile.verifiedCollections,
+            collectorProfile.reputationScore,
+            collectedByType
+        );
+    }
+
+    /**
+     * @notice Gets collection point-specific statistics
+     */
+    function getCollectionPointStats(address _collectionPoint) external view returns (
+        uint256 totalInventory,
+        uint256 pendingVerifications,
+        uint256 scheduledPickups,
+        uint256 activeCollectors,
+        uint256[4] memory inventoryByType
+    ) {
+        UserProfile storage profile = userProfiles[_collectionPoint];
+        require(profile.role == COLLECTION_POINT_ROLE, 'Not a collection point');
+        
+        CollectionPointProfile storage collectionPointProfile = profile.collectionPointProfile;
+        
+        for (uint i = 0; i < 4; i++) {
+            inventoryByType[i] = collectionPointProfile.inventoryByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        return (
+            collectionPointProfile.totalInventory,
+            collectionPointProfile.pendingVerifications,
+            collectionPointProfile.scheduledPickups,
+            collectionPointProfile.activeCollectors,
+            inventoryByType
+        );
+    }
+
+    /**
+     * @notice Gets recycler-specific statistics
+     */
+    function getRecyclerStats(address _recycler) external view returns (
+        uint256 totalEarnings,
+        uint256 activeListings,
+        uint256 reputationScore,
+        uint256[4] memory processedByType
+    ) {
+        UserProfile storage profile = userProfiles[_recycler];
+        require(profile.role == RECYCLER_ROLE, 'Not a recycler');
+        
+        RecyclerProfile storage recyclerProfile = profile.recyclerProfile;
+        
+        for (uint i = 0; i < 4; i++) {
+            processedByType[i] = recyclerProfile.processedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        return (
+            recyclerProfile.totalEarnings,
+            recyclerProfile.activeListings,
+            recyclerProfile.reputationScore,
+            processedByType
+        );
+    }
+
+    /**
+     * @notice Gets corporate partner-specific statistics
+     */
+    function getCorporateStats(address _corporate) external view returns (
+        uint256 totalPurchases,
+        uint256 totalImpactCredits,
+        uint256 carbonOffset,
+        uint256[4] memory purchasedByType
+    ) {
+        UserProfile storage profile = userProfiles[_corporate];
+        require(profile.role == CORPORATE_ROLE, 'Not a corporate partner');
+        
+        CorporateProfile storage corporateProfile = profile.corporateProfile;
+        
+        for (uint i = 0; i < 4; i++) {
+            purchasedByType[i] = corporateProfile.purchasedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        return (
+            corporateProfile.totalPurchases,
+            corporateProfile.totalImpactCredits,
+            corporateProfile.carbonOffset,
+            purchasedByType
+        );
+    }
+
+    /// @notice Get user profile
+    function getUserProfile(address user) external view returns (UserProfileView memory) {
+        UserProfile storage profile = userProfiles[user];
+        UserProfileView memory viewProfile;
+        
+        // Basic profile info
+        viewProfile.name = profile.name;
+        viewProfile.location = profile.location;
+        viewProfile.contactInfo = profile.contactInfo;
+        viewProfile.status = profile.status;
+        viewProfile.registrationDate = profile.registrationDate;
+        viewProfile.verificationDate = profile.verificationDate;
+        viewProfile.isVerified = profile.isVerified;
+        viewProfile.role = profile.role;
+
+        // Collector stats
+        viewProfile.totalCollected = profile.collectorProfile.totalCollected;
+        viewProfile.totalEarnings = profile.collectorProfile.totalEarnings;
+        viewProfile.pendingVerifications = profile.collectorProfile.pendingVerifications;
+        viewProfile.verifiedCollections = profile.collectorProfile.verifiedCollections;
+        viewProfile.collectorReputationScore = profile.collectorProfile.reputationScore;
+        for (uint i = 0; i < 4; i++) {
+            viewProfile.collectedByType[i] = profile.collectorProfile.collectedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        // Collection point stats
+        viewProfile.totalInventory = profile.collectionPointProfile.totalInventory;
+        viewProfile.collectionPointPendingVerifications = profile.collectionPointProfile.pendingVerifications;
+        viewProfile.scheduledPickups = profile.collectionPointProfile.scheduledPickups;
+        viewProfile.activeCollectors = profile.collectionPointProfile.activeCollectors;
+        for (uint i = 0; i < 4; i++) {
+            viewProfile.inventoryByType[i] = profile.collectionPointProfile.inventoryByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        // Recycler stats
+        viewProfile.recyclerTotalEarnings = profile.recyclerProfile.totalEarnings;
+        viewProfile.activeListings = profile.recyclerProfile.activeListings;
+        viewProfile.recyclerReputationScore = profile.recyclerProfile.reputationScore;
+        for (uint i = 0; i < 4; i++) {
+            viewProfile.processedByType[i] = profile.recyclerProfile.processedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        // Corporate stats
+        viewProfile.totalPurchases = profile.corporateProfile.totalPurchases;
+        viewProfile.totalImpactCredits = profile.corporateProfile.totalImpactCredits;
+        viewProfile.carbonOffset = profile.corporateProfile.carbonOffset;
+        for (uint i = 0; i < 4; i++) {
+            viewProfile.purchasedByType[i] = profile.corporateProfile.purchasedByType[AfricycleLibrary.WasteStream(i)];
+        }
+
+        return viewProfile;
     }
 }
