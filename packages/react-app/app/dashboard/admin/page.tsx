@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Settings, ListChecks } from 'lucide-react';
 import Link from 'next/link';
+import { DashboardHeader } from "@/components/dashboard/header"
+import { DashboardShell } from "@/components/dashboard/shell"
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { role, isLoading } = useRole();
 
   useEffect(() => {
-    if (!isLoading && role !== 'admin') {
+    if (!isLoading && role !== 'corporate_partner') {
       router.push('/dashboard');
     }
   }, [role, isLoading, router]);
@@ -26,7 +28,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  if (role !== 'admin') {
+  if (role !== 'corporate_partner') {
     return null;
   }
 
