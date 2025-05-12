@@ -1,5 +1,6 @@
 import "@nomicfoundation/hardhat-toolbox";
 import { ethers } from "hardhat";
+import * as hre from "hardhat";
 
 async function main() {
   // Get the deployer account
@@ -16,7 +17,7 @@ async function main() {
 
   // Deploy the AfriCycle contract
   console.log("Deploying AfriCycle contract...");
-  const AfriCycle = await ethers.getContractFactory("AfriCycle");
+  const AfriCycle = await ethers.getContractFactory("contracts/Africycle.sol:AfriCycle");
   const africycle = await AfriCycle.deploy(cUSDTokenAddress);
   await africycle.waitForDeployment();
 
@@ -52,10 +53,10 @@ async function main() {
   // Initialize reward rates
   console.log("Setting up reward rates...");
   const rewardRates = {
-    PLASTIC: ethers.parseEther("0.5"), // 0.5 cUSD per kg
-    EWASTE: ethers.parseEther("2"),    // 2 cUSD per kg
-    METAL: ethers.parseEther("1"),     // 1 cUSD per kg
-    GENERAL: ethers.parseEther("0.2")  // 0.2 cUSD per kg
+    PLASTIC: ethers.parseEther("0.1"),  // 0.1 cUSD per kg (reduced from 0.5)
+    EWASTE: ethers.parseEther("0.5"),   // 0.5 cUSD per kg (reduced from 2.0)
+    METAL: ethers.parseEther("0.2"),    // 0.2 cUSD per kg (reduced from 1.0)
+    GENERAL: ethers.parseEther("0.05")  // 0.05 cUSD per kg (reduced from 0.2)
   };
 
   // Define WasteStream enum values
@@ -146,6 +147,20 @@ async function main() {
   console.log("Contract address:", africycleAddress);
   console.log("Deployer address:", deployer.address);
   console.log("Network:", (await ethers.provider.getNetwork()).name);
+
+  // Verify contract on CeloScan
+  console.log("\nVerifying contract on CeloScan...");
+  try {
+    await africycle.deploymentTransaction()?.wait(5); // Wait for 5 blocks
+    await hre.run("verify:verify", {
+      address: africycleAddress,
+      constructorArguments: [cUSDTokenAddress],
+      contract: "contracts/Africycle.sol:AfriCycle"
+    });
+    console.log("Contract verified successfully on CeloScan!");
+  } catch (error) {
+    console.error("Error verifying contract:", error);
+  }
 }
 
 main().catch((error) => {

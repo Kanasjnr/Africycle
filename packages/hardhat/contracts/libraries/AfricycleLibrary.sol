@@ -81,7 +81,7 @@ library AfricycleLibrary {
         require(weight > 0, 'Weight must be positive');
         require(weight <= MAX_COLLECTION_WEIGHT, 'Weight exceeds maximum');
         require(bytes(location).length > 0, 'Location required');
-        require(bytes(qrCode).length > 0, 'QR code required');
+        // QR code is optional for now
         require(bytes(imageHash).length > 0, 'Image hash required');
     }
 
