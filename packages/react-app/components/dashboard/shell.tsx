@@ -3,6 +3,15 @@ import { IconBell, IconMoon } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { usePathname } from "next/navigation"
+import { useAccount } from "wagmi"
+import { useAfriCycle } from "@/hooks/useAfricycle"
+import { useEffect, useState } from "react"
+
+interface UserProfile {
+  name: string;
+  location: string;
+  contactInfo: string;
+}
 
 interface DashboardShellProps {
   children?: React.ReactNode
@@ -11,6 +20,43 @@ interface DashboardShellProps {
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname()
   const isCollector = pathname?.startsWith("/dashboard/collector")
+  const { address } = useAccount()
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  const africycle = useAfriCycle({
+    contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
+    rpcUrl: process.env.NEXT_PUBLIC_CELO_RPC_URL as string,
+  })
+
+  useEffect(() => {
+    async function loadUserProfile() {
+      if (!address || !africycle) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const profile = await africycle.getUserProfile(address)
+        setUserProfile(profile as UserProfile)
+      } catch (error) {
+        console.error("Error loading user profile:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadUserProfile()
+  }, [address, africycle])
+
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -35,11 +81,17 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <div className="flex items-center gap-3 rounded-lg border bg-gray-50 p-4">
               <Avatar>
                 <AvatarImage src="/placeholder-avatar.jpg" />
-                <AvatarFallback>{isCollector ? "JD" : "NR"}</AvatarFallback>
+                <AvatarFallback>
+                  {isLoading ? "..." : userProfile ? getInitials(userProfile.name) : "?"}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <p className="text-sm font-medium">{isCollector ? "John Doe" : "Nairobi Recycling"}</p>
-                <p className="text-xs text-muted-foreground">{isCollector ? "Collector" : "Recycler"}</p>
+                <p className="text-sm font-medium">
+                  {isLoading ? "Loading..." : userProfile?.name || "Not Registered"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isCollector ? "Collector" : "Recycler"}
+                </p>
               </div>
             </div>
           </div>

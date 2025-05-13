@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import "@/styles/globals.css";
 import { Inter } from "next/font/google";
-import { AppProvider } from "@/providers/AppProvider";
-import { RoleProvider } from '@/providers/RoleProvider';
+import { Providers } from "@/providers/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,11 +22,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body className={`${inter.className} min-h-screen bg-background`}>
-        <RoleProvider>
-          <AppProvider>
-            {children}
-          </AppProvider>
-        </RoleProvider>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
