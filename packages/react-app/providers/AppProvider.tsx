@@ -1,39 +1,38 @@
-'use client';
+"use client";
 
 import '@rainbow-me/rainbowkit/styles.css';
+import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
+import { metaMaskWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
+import { WagmiProvider, createConfig, http } from 'wagmi';
+import { celoAlfajores } from 'viem/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider, getDefaultConfig, lightTheme } from '@rainbow-me/rainbowkit';
-import { WagmiProvider, http } from 'wagmi';
-import { celoAlfajores } from 'wagmi/chains';
-import type { Config } from 'wagmi';
 
-const projectId = process.env.WC_PROJECT_ID ?? '044601f65212332475a09bc14ceb3c34';
+// Debug environment variable
+console.log('WalletConnect Project ID:', process.env.NEXT_PUBLIC_WC_PROJECT_ID);
 
-const config = getDefaultConfig({
+// Create a client
+const queryClient = new QueryClient();
+
+// Configure wallet connectors
+const { connectors } = getDefaultWallets({
   appName: 'AfriCycle',
-  projectId,
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || '',
+});
+
+// Create wagmi config
+const config = createConfig({
   chains: [celoAlfajores],
   transports: {
-    [celoAlfajores.id]: http(),
+    [celoAlfajores.id]: http(process.env.NEXT_PUBLIC_CELO_RPC_URL),
   },
-  ssr: true,
-}) as Config;
-
-const queryClient = new QueryClient();
+  connectors,
+});
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={lightTheme({
-            accentColor: '#2E7D32', // Green color
-            accentColorForeground: 'white',
-            borderRadius: 'small',
-            fontStack: 'system',
-            overlayBlur: 'small',
-          })}
-        >
+        <RainbowKitProvider>
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

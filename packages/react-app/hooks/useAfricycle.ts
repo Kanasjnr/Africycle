@@ -16,7 +16,8 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { celoAlfajores } from 'viem/chains'; // Using Alfajores testnet instead of mainnet
 // Import ABI directly from JSON file
 import afriCycleAbi from '@/ABI/Africycle.json';
-  
+import { useAccount, useWalletClient } from 'wagmi';
+
 // Types based on the contract
 export enum AfricycleWasteStream {
   PLASTIC = 0,
@@ -1694,4 +1695,26 @@ export function createAfriCycle(
   }
 
   return new AfriCycle(contractAddress, publicClient, walletClient);
+}
+
+// Hook to use AfriCycle in React components
+export function useAfriCycle({ contractAddress, rpcUrl }: { contractAddress: Address, rpcUrl: string }): (AfriCycle & { account: Address }) | null {
+  const { address, isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
+  
+  if (!isConnected || !address || !walletClient) {
+    return null
+  }
+
+  // Create public client
+  const publicClient = createPublicClient({
+    chain: celoAlfajores,
+    transport: http(rpcUrl)
+  }) as PublicClient
+
+  // Create AfriCycle instance with the wallet client
+  const africycle = new AfriCycle(contractAddress, publicClient, walletClient)
+  
+  // Return the instance with the account property
+  return Object.assign(africycle, { account: address })
 }
