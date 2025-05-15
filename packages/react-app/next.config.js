@@ -2,12 +2,18 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
+    domains: ['res.cloudinary.com', 'images.unsplash.com'],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
+        hostname: 'res.cloudinary.com',
+        pathname: '/dn2ed9k6p/**',
       },
-      
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
     ],
   },
   webpack: (config) => {

@@ -1,6 +1,6 @@
 import React from "react"
 
-interface DashboardHeaderProps {
+export interface DashboardHeaderProps {
   heading: string
   text?: string
 }

@@ -17,6 +17,7 @@ import { celoAlfajores } from 'viem/chains'; // Using Alfajores testnet instead 
 // Import ABI directly from JSON file
 import afriCycleAbi from '@/ABI/Africycle.json';
 import { useAccount, useWalletClient } from 'wagmi';
+import { useMemo } from 'react'
 
 // Types based on the contract
 export enum AfricycleWasteStream {
@@ -154,9 +155,21 @@ export class AfriCycle {
     publicClient: PublicClient,
     walletClient: WalletClient<Transport, Chain, Account>
   ) {
-    this.contractAddress = contractAddress;
-    this.publicClient = publicClient;
-    this.walletClient = walletClient;
+    if (!contractAddress) throw new Error('Contract address is required')
+    if (!publicClient) throw new Error('Public client is required')
+    if (!walletClient) throw new Error('Wallet client is required')
+
+    this.contractAddress = contractAddress
+    this.publicClient = publicClient
+    this.walletClient = walletClient
+
+    // Verify clients are properly initialized
+    if (!this.publicClient.readContract) {
+      throw new Error('Public client is not properly initialized')
+    }
+    if (!this.walletClient.writeContract) {
+      throw new Error('Wallet client is not properly initialized')
+    }
   }
 
   // ============ User Management Functions ============
@@ -1701,20 +1714,30 @@ export function createAfriCycle(
 export function useAfriCycle({ contractAddress, rpcUrl }: { contractAddress: Address, rpcUrl: string }): (AfriCycle & { account: Address }) | null {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
-  
-  if (!isConnected || !address || !walletClient) {
-    return null
-  }
 
-  // Create public client
-  const publicClient = createPublicClient({
-    chain: celoAlfajores,
-    transport: http(rpcUrl)
-  }) as PublicClient
+  // Memoize the AfriCycle instance
+  const africycle = useMemo(() => {
+    if (!isConnected || !address || !walletClient) {
+      return null
+    }
 
-  // Create AfriCycle instance with the wallet client
-  const africycle = new AfriCycle(contractAddress, publicClient, walletClient)
-  
-  // Return the instance with the account property
-  return Object.assign(africycle, { account: address })
+    try {
+      // Create public client
+      const publicClient = createPublicClient({
+        chain: celoAlfajores,
+        transport: http(rpcUrl)
+      }) as PublicClient
+
+      // Create AfriCycle instance with the wallet client
+      const instance = new AfriCycle(contractAddress, publicClient, walletClient)
+      
+      // Return the instance with the account property
+      return Object.assign(instance, { account: address })
+    } catch (error) {
+      console.error('useAfriCycle: Error creating instance:', error)
+      return null
+    }
+  }, [isConnected, address, walletClient, contractAddress, rpcUrl])
+
+  return africycle
 }

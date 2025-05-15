@@ -1,213 +1,759 @@
 "use client"
 
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { IconCamera, IconUpload, IconCheck, IconX } from "@tabler/icons-react"
+import { IconUpload, IconPhoto, IconCheck, IconCamera, IconTrash, IconX } from "@tabler/icons-react"
+import { useAfriCycle, AfricycleStatus, AfricycleWasteStream, AfricycleQualityGrade, WasteCollection } from "@/hooks/useAfricycle"
+import { useAccount, useWalletClient } from "wagmi"
+import { cloudinaryConfig, getCloudinaryConfig, CloudinaryUploadResult } from "@/lib/cloudinary"
+import Image from "next/image"
+import { parseEther } from "viem"
+import { createPublicClient, http, PublicClient } from "viem"
+import { celoAlfajores } from "viem/chains"
+import axios from "axios"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
-interface VerificationSubmissionProps {
-  id: string
-  date: string
-  material: string
-  weight: string
-  status: "Pending" | "Verified" | "Rejected"
-  feedback?: string
+// Add this helper function before the component
+const getCloudinaryImageUrl = (publicId: string) => {
+  return `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${publicId}`
 }
 
-function VerificationSubmission({
-  id,
-  date,
-  material,
-  weight,
-  status,
-  feedback,
-}: VerificationSubmissionProps) {
+// Define the contract configuration
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
+const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org"
+
+// Add debug logging for contract configuration
+console.log('Verification Page Contract Config:', {
+  contractAddress: CONTRACT_ADDRESS,
+  rpcUrl: RPC_URL,
+  envContractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS
+})
+
+// Define types for collections
+interface Collection {
+  collectionId: number;
+  collector: string;
+  status: AfricycleStatus;
+  timestamp: bigint;
+  imageHash: string;
+  imageUrl: string;
+  weight: bigint;
+  wasteType: AfricycleWasteStream;
+  quality: AfricycleQualityGrade;
+  location: string;
+}
+
+interface CollectionsState {
+  collections: Collection[];
+}
+
+interface AppState {
+  loading: boolean;
+  collections: Collection[];
+  form: {
+    uploading: boolean;
+    submitting: boolean;
+    selectedImage: string | null;
+    imageHash: string | null;
+    weight: string;
+    wasteType: AfricycleWasteStream;
+    quality: AfricycleQualityGrade;
+    location: string;
+  };
+}
+
+// Add a loading skeleton component
+const CollectionSkeleton = memo(() => (
+  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-4 animate-pulse">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+      <div className="h-24 w-24 sm:h-16 sm:w-16 rounded-lg bg-muted shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="h-4 w-24 bg-muted rounded" />
+        <div className="h-3 w-32 bg-muted rounded" />
+        <div className="h-3 w-40 bg-muted rounded" />
+      </div>
+    </div>
+    <div className="w-full sm:w-auto">
+      <div className="h-9 w-24 bg-muted rounded" />
+    </div>
+  </div>
+))
+CollectionSkeleton.displayName = 'CollectionSkeleton'
+
+// Update the CollectionItem component to use navigation
+const CollectionItem = memo(({ 
+  collection, 
+  timeAgo,
+  isLoading = false
+}: { 
+  collection: Collection, 
+  timeAgo: (timestamp: bigint) => string,
+  isLoading?: boolean
+}) => {
+  const router = useRouter()
+  const imageUrl = useMemo(() => 
+    collection.imageHash ? getCloudinaryImageUrl(collection.imageHash) : "/placeholder.svg"
+  , [collection.imageHash])
+  
+  if (isLoading) {
+    return <CollectionSkeleton />
+  }
+  
   return (
-    <div className="border-b py-4 last:border-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">{id}</h3>
-            <Badge
-              variant={
-                status === "Pending"
-                  ? "secondary"
-                  : status === "Verified"
-                  ? "default"
-                  : "destructive"
-              }
-            >
-              {status}
-            </Badge>
-          </div>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+        <div className="h-24 w-24 sm:h-16 sm:w-16 rounded-lg bg-muted overflow-hidden relative shrink-0">
+          {collection.imageHash ? (
+            <Image
+              src={imageUrl}
+              alt="Collection"
+              fill
+              className="object-cover"
+              sizes="(max-width: 96px) 96px, 64px"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg"
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted">
+              <IconPhoto className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">Collection #{collection.collectionId}</p>
           <p className="text-sm text-muted-foreground">
-            {date} • {material} • {weight}
+            Created {timeAgo(collection.timestamp)}
+          </p>
+          <p className="text-sm text-muted-foreground truncate">
+            {AfricycleWasteStream[collection.wasteType]} • {collection.weight.toString()} kg
+          </p>
+          <p className="text-sm text-muted-foreground truncate">
+            {collection.location}
           </p>
         </div>
       </div>
-      {feedback && (
-        <div className="mt-2 rounded-lg bg-muted p-3">
-          <div className="flex items-center gap-2">
-            {status === "Verified" ? (
-              <IconCheck className="h-4 w-4 text-green-500" />
-            ) : (
-              <IconX className="h-4 w-4 text-red-500" />
-            )}
-            <p className="text-sm">{feedback}</p>
-          </div>
-        </div>
-      )}
-      <div className="mt-4">
-        <Button variant="outline" size="sm">View Details</Button>
-        {status === "Rejected" && (
-          <Button size="sm" className="ml-2">Resubmit</Button>
-        )}
+      <div className="flex gap-2 w-full sm:w-auto">
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => router.push(`/dashboard/collector/verification/${collection.collectionId}`)}
+          className="w-full sm:w-auto"
+        >
+          View Details
+        </Button>
       </div>
     </div>
   )
+})
+CollectionItem.displayName = 'CollectionItem'
+
+// Add this constant at the top of the file after imports
+const MAX_COLLECTION_WEIGHT = 1000; // Maximum weight in kg
+
+// Add this function before the PhotoVerificationPage component
+const uploadToCloudinary = async (file: File): Promise<CloudinaryUploadResult> => {
+  // Get fresh config values
+  const config = getCloudinaryConfig()
+
+  if (!config.cloudName) {
+    throw new Error('Invalid Cloudinary cloud name. Please check your environment variables.')
+  }
+
+  if (!config.uploadPreset) {
+    throw new Error('Cloudinary upload preset is not configured. Please set NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your environment variables.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', config.uploadPreset)
+  
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`
+  
+  try {
+    const response = await axios.post(
+      uploadUrl,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+        validateStatus: (status) => status === 200
+      }
+    )
+    return response.data
+  } catch (error: any) {
+    throw new Error(`Failed to upload image: ${error.response?.data?.error?.message || error.message}`)
+  }
+}
+
+// Define the raw collection data type from smart contract
+type RawCollectionData = [
+  bigint,    // id
+  string,    // collector
+  number,    // status
+  bigint,    // weight
+  string,    // location
+  string,    // imageHash
+  number,    // wasteType
+  bigint,    // timestamp
+  number,    // quality
+  bigint,    // earnings
+  boolean    // isVerified
+]
+
+// Update the type guard for collection data
+const isValidCollectionData = (data: unknown): data is RawCollectionData => {
+  // Check if data is an array with at least 7 elements (minimum required fields)
+  if (!Array.isArray(data) || data.length < 7) {
+    console.log('Debug: Data is not an array or too short:', data)
+    return false
+  }
+
+  // Check if required fields exist and have valid types
+  const [
+    id,
+    collector,
+    status,
+    weight,
+    location,
+    imageHash,
+    wasteType,
+    timestamp,
+    quality,
+    earnings,
+    isVerified
+  ] = data as RawCollectionData
+
+  // Basic type checks for required fields
+  return (
+    typeof collector === 'string' &&
+    typeof status === 'number' &&
+    typeof wasteType === 'number' &&
+    typeof timestamp === 'bigint' &&
+    typeof weight === 'bigint' &&
+    typeof location === 'string' &&
+    typeof imageHash === 'string'
+  )
+}
+
+// Update helper function to convert array data to Collection object
+const arrayToCollection = (data: unknown, id: number): Collection | null => {
+  if (!isValidCollectionData(data)) {
+    console.error(`Debug: Invalid collection data format for #${id}:`, data)
+    return null
+  }
+
+  // Skip empty collections (where collector is zero address)
+  if (data[1] === '0x0000000000000000000000000000000000000000') {
+    console.log(`Debug: Skipping empty collection #${id}`)
+    return null
+  }
+
+  return {
+    collectionId: id,
+    collector: data[1],
+    status: data[2],
+    weight: data[3],
+    location: data[4],
+    imageHash: data[5],
+    wasteType: data[6],
+    timestamp: data[7],
+    quality: data[8],
+    imageUrl: data[5] ? 
+      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${data[5]}` : 
+      ''
+  }
 }
 
 export default function PhotoVerificationPage() {
+  const { address } = useAccount()
+  const { data: walletClient } = useWalletClient()
+  const router = useRouter()
+
+  const [state, setState] = useState<AppState>({
+    loading: true,
+    collections: [],
+    form: {
+      uploading: false,
+      submitting: false,
+      selectedImage: null,
+      imageHash: null,
+      weight: "",
+      wasteType: AfricycleWasteStream.PLASTIC,
+      quality: AfricycleQualityGrade.MEDIUM,
+      location: ""
+    }
+  })
+
+  // Initialize the AfriCycle hook
+  const africycle = useAfriCycle({
+    contractAddress: CONTRACT_ADDRESS,
+    rpcUrl: RPC_URL
+  })
+
+  // Create public client - memoize to prevent recreation
+  const publicClient = useMemo(() => createPublicClient({
+    chain: celoAlfajores,
+    transport: http(RPC_URL)
+  }) as PublicClient, [])
+
+  const [loadingCollections, setLoadingCollections] = useState<Set<number>>(new Set())
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+
+  // Move handleFormChange before it's used
+  const handleFormChange = useCallback((field: keyof typeof state.form, value: any) => {
+    setState(prev => ({ 
+      ...prev, 
+      form: { ...prev.form, [field]: value } 
+    }))
+  }, [])
+
+  // Update handleImageUpload to use handleFormChange
+  const handleImageUpload = useCallback(async (file: File) => {
+    try {
+      setState(prev => ({ 
+        ...prev, 
+        form: { ...prev.form, uploading: true } 
+      }))
+      
+      const result = await uploadToCloudinary(file)
+      handleFormChange('selectedImage', result.secure_url)
+      // Store the public_id for later use
+      handleFormChange('imageHash', result.public_id)
+      
+      toast.success("Image uploaded successfully")
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      toast.error("Failed to upload image")
+    } finally {
+      setState(prev => ({ 
+        ...prev, 
+        form: { ...prev.form, uploading: false } 
+      }))
+    }
+  }, [handleFormChange])
+
+  // Update fetchCollections to handle WasteCollection type properly
+  const fetchCollections = useCallback(async () => {
+    if (!address || !africycle) {
+      console.log('Debug: fetchCollections - Missing address or africycle:', { 
+        hasAddress: !!address, 
+        hasAfricycle: !!africycle
+      })
+      setIsInitialLoading(false) // Make sure to set loading to false even if we can't fetch
+      return
+    }
+    
+    try {
+      console.log('Debug: Starting to fetch collections for address:', address)
+      setIsInitialLoading(true)
+      
+      // Get collector stats first
+      console.log('Debug: Fetching collector stats...')
+      const collectorStats = await africycle.getCollectorStats(address)
+      console.log('Debug: Collector stats:', collectorStats)
+      
+      const totalCollections = Number(collectorStats.totalCollected)
+      console.log('Debug: Total collections to fetch:', totalCollections)
+      
+      if (totalCollections > 0) {
+        console.log(`Debug: Found ${totalCollections} collections for collector`)
+        
+        // Fetch all collections in parallel with a reasonable batch size
+        const BATCH_SIZE = 10
+        const batches = Math.ceil(totalCollections / BATCH_SIZE)
+        const allCollections: Collection[] = []
+        
+        console.log(`Debug: Processing ${batches} batches of size ${BATCH_SIZE}`)
+        
+        for (let batch = 0; batch < batches; batch++) {
+          const start = batch * BATCH_SIZE
+          const end = Math.min(start + BATCH_SIZE, totalCollections)
+          
+          console.log(`Debug: Processing batch ${batch + 1}/${batches} (indices ${start}-${end-1})`)
+          
+          try {
+            // Create batch of promises
+            const batchPromises = Array.from(
+              { length: end - start }, 
+              (_, i) => africycle.getCollection(BigInt(start + i))
+            )
+            
+            // Fetch batch in parallel
+            const batchResults = await Promise.all(batchPromises)
+            console.log(`Debug: Batch ${batch + 1} results:`, batchResults)
+            
+            // Process batch results
+            const validCollections = batchResults
+              .map((data, i) => {
+                const collection = arrayToCollection(data, start + i)
+                if (collection) {
+                  console.log(`Debug: Valid collection found at index ${start + i}:`, collection)
+                }
+                return collection
+              })
+              .filter((c): c is Collection => c !== null && c.collector.toLowerCase() === address.toLowerCase())
+            
+            console.log(`Debug: Batch ${batch + 1} valid collections:`, validCollections.length)
+            allCollections.push(...validCollections)
+            
+            // Update state with current batch results
+            setState(prev => ({
+              ...prev,
+              collections: [...allCollections]
+            }))
+          } catch (error) {
+            console.error(`Debug: Error processing batch ${batch + 1}:`, error)
+            // Continue with next batch even if this one fails
+          }
+        }
+        
+        console.log('Debug: Final collections array:', allCollections)
+      } else {
+        console.log('Debug: No collections found for collector')
+        setState(prev => ({
+          ...prev,
+          collections: []
+        }))
+      }
+    } catch (error) {
+      console.error('Debug: Error in fetchCollections:', error)
+      toast.error("Failed to fetch collections")
+    } finally {
+      console.log('Debug: Setting initial loading to false')
+      setIsInitialLoading(false)
+    }
+  }, [address, africycle])
+
+  // Memoize utility functions
+  const formatDate = useCallback((timestamp: bigint) => {
+    return new Date(Number(timestamp) * 1000).toLocaleDateString()
+  }, [])
+
+  const timeAgo = useCallback((timestamp: bigint) => {
+    const seconds = Math.floor(Date.now() / 1000) - Number(timestamp)
+    
+    if (seconds < 60) return `${seconds} seconds ago`
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+    return `${Math.floor(seconds / 86400)} days ago`
+  }, [])
+
+  // Add a memoized version of the collections list to prevent unnecessary re-renders
+  const collectionsList = useMemo(() => {
+    return state.collections.map((collection) => (
+      <CollectionItem
+        key={collection.collectionId}
+        collection={collection}
+        timeAgo={timeAgo}
+        isLoading={loadingCollections.has(collection.collectionId)}
+      />
+    ))
+  }, [state.collections, loadingCollections, timeAgo])
+
+  // Update handleSubmitCollection to use state.form directly
+  const handleSubmitCollection = useCallback(async () => {
+    if (!africycle || !address) return
+    
+    const { form } = state // Destructure form from state to avoid dependency on entire state object
+    
+    try {
+      // Validate inputs
+      if (!form.weight || !form.location || !form.imageHash) {
+        toast.error("Please fill in all required fields and upload an image")
+        return
+      }
+
+      const weightInKg = parseFloat(form.weight)
+      if (isNaN(weightInKg) || weightInKg <= 0) {
+        toast.error("Please enter a valid weight")
+        return
+      }
+
+      if (weightInKg > MAX_COLLECTION_WEIGHT) {
+        toast.error(`Weight cannot exceed ${MAX_COLLECTION_WEIGHT} kg`)
+        return
+      }
+
+      setState(prev => ({ 
+        ...prev, 
+        form: { ...prev.form, submitting: true } 
+      }))
+
+      // Send weight directly in wei (1 kg = 1 wei)
+      const weightInWei = BigInt(Math.floor(weightInKg))
+      
+      // Submit collection to smart contract
+      const txHash = await africycle.createCollection(
+        address,
+        form.wasteType,
+        weightInWei,
+        form.location,
+        "", // Empty QR code since it's not required for this flow
+        form.imageHash
+      )
+
+      // Wait for transaction to be mined
+      await publicClient.waitForTransactionReceipt({ hash: txHash })
+      
+      toast.success("Collection submitted successfully")
+      
+      // Refresh collections
+      await fetchCollections()
+      
+      // Reset form
+      setState(prev => ({
+        ...prev,
+        form: {
+          uploading: false,
+          submitting: false,
+          selectedImage: null,
+          imageHash: null,
+          weight: "",
+          wasteType: AfricycleWasteStream.PLASTIC,
+          quality: AfricycleQualityGrade.MEDIUM,
+          location: ""
+        }
+      }))
+    } catch (error) {
+      console.error("Error submitting collection:", error)
+      toast.error("Failed to submit collection")
+      setState(prev => ({ 
+        ...prev, 
+        form: { ...prev.form, submitting: false } 
+      }))
+    }
+  }, [address, africycle, state.form, publicClient, fetchCollections])
+
+  // Use a ref to track if we've already fetched collections
+  const hasFetchedRef = useRef(false)
+
+  // Initial fetch
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!hasFetchedRef.current) {
+        console.log('Debug: Starting initial fetch')
+        hasFetchedRef.current = true
+        await fetchCollections()
+      }
+    }
+    fetchData()
+  }, [fetchCollections])
+
+  // Add error state
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   return (
     <DashboardShell>
       <DashboardHeader
-        heading="Photo Verification"
-        text="Upload photos to verify your waste collections"
+        heading="Collections"
+        text="Submit and manage your waste collections"
       />
-      <div className="grid gap-6">
-        {/* Upload Form */}
+
+      <div className="grid gap-4 sm:gap-6">
         <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Upload Verification Photos</h2>
-            <p className="text-sm text-muted-foreground">
-              Take or upload photos of your collected waste
-            </p>
-            <div className="mt-4 grid gap-4">
-              <div>
-                <label className="text-sm font-medium">Collection ID</label>
-                <Input placeholder="Enter collection ID" />
+          <CardHeader>
+            <CardTitle>Submit New Collection</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Waste Type</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={state.form.wasteType}
+                    onChange={(e) => handleFormChange('wasteType', Number(e.target.value))}
+                  >
+                    <option value={AfricycleWasteStream.PLASTIC}>Plastic</option>
+                    <option value={AfricycleWasteStream.EWASTE}>E-Waste</option>
+                    <option value={AfricycleWasteStream.METAL}>Metal</option>
+                    <option value={AfricycleWasteStream.GENERAL}>General Waste</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Quality Grade</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={state.form.quality}
+                    onChange={(e) => handleFormChange('quality', Number(e.target.value))}
+                  >
+                    <option value={AfricycleQualityGrade.LOW}>Low</option>
+                    <option value={AfricycleQualityGrade.MEDIUM}>Medium</option>
+                    <option value={AfricycleQualityGrade.HIGH}>High</option>
+                    <option value={AfricycleQualityGrade.PREMIUM}>Premium</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Waste Type</label>
-                <Input placeholder="E.g., Plastic, Metal, E-Waste" />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={state.form.weight}
+                    onChange={(e) => handleFormChange('weight', e.target.value)}
+                    placeholder="Enter weight in kilograms"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Location</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={state.form.location}
+                    onChange={(e) => handleFormChange('location', e.target.value)}
+                    placeholder="Enter collection location"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  placeholder="Briefly describe the collected waste"
-                  className="h-24"
+
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 sm:p-8">
+                {state.form.selectedImage ? (
+                  <div className="relative w-full max-w-md aspect-[4/3]">
+                    <Image
+                      src={state.form.selectedImage}
+                      alt="Selected collection"
+                      fill
+                      className="rounded-lg object-cover"
+                      sizes="(max-width: 400px) 100vw, 400px"
+                      onError={(e) => {
+                        toast.error('Failed to load image preview')
+                        handleFormChange('selectedImage', null)
+                      }}
+                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        handleFormChange('selectedImage', null)
+                        handleFormChange('imageHash', null)
+                      }}
+                    >
+                      <IconTrash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <IconCamera className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium">Upload collection photos</p>
+                      <p className="text-xs text-muted-foreground">
+                        Take or upload photos of your collection for verification
+                      </p>
+                    </div>
+                  </>
+                )}
+                
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  id="photo-upload"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    await handleImageUpload(file)
+                  }}
                 />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium">Before Collection Photo</label>
-                  <div className="mt-2 flex aspect-video items-center justify-center rounded-lg border border-dashed">
-                    <div className="text-center">
-                      <IconUpload className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Drag & drop or click to upload
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">After Collection Photo</label>
-                  <div className="mt-2 flex aspect-video items-center justify-center rounded-lg border border-dashed">
-                    <div className="text-center">
-                      <IconUpload className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Drag & drop or click to upload
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline">
-                  <IconCamera className="mr-2 h-4 w-4" />
-                  Take Photo
+                
+                <Button 
+                  onClick={() => document.getElementById('photo-upload')?.click()} 
+                  disabled={state.form.uploading}
+                  className="mt-4"
+                >
+                  {state.form.uploading ? (
+                    "Uploading..."
+                  ) : (
+                    <>
+                      <IconUpload className="mr-2 h-4 w-4" />
+                      {state.form.selectedImage ? "Change Photo" : "Upload Photos"}
+                    </>
+                  )}
                 </Button>
-                <Button>Submit for Verification</Button>
               </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
 
-        {/* Verification Guidelines */}
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Verification Guidelines</h2>
-            <p className="text-sm text-muted-foreground">
-              Follow these guidelines for successful verification
-            </p>
-            <div className="mt-4 grid gap-4">
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="font-medium">1. Clear Photos</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ensure photos are clear, well-lit, and show the waste clearly
-                </p>
-              </div>
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="font-medium">2. Before & After</h3>
-                <p className="text-sm text-muted-foreground">
-                  Take photos both before and after collection for comparison
-                </p>
-              </div>
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="font-medium">3. Include Scale Reference</h3>
-                <p className="text-sm text-muted-foreground">
-                  Include an object for scale reference when possible
-                </p>
-              </div>
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="font-medium">4. Accurate Description</h3>
-                <p className="text-sm text-muted-foreground">
-                  Provide accurate details about the waste type and quantity
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <div className="flex justify-end">
+          <Button 
+            onClick={handleSubmitCollection}
+            disabled={state.form.submitting || !state.form.imageHash || !state.form.weight || !state.form.location}
+            className="w-full sm:w-auto"
+          >
+            {state.form.submitting ? (
+              <>
+                <IconUpload className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <IconCheck className="mr-2 h-4 w-4" />
+                Submit Collection
+              </>
+            )}
+          </Button>
+        </div>
 
-        {/* Recent Submissions */}
         <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Recent Verification Submissions</h2>
-            <p className="text-sm text-muted-foreground">
-              Status of your recent verification submissions
-            </p>
-            <div className="mt-4 divide-y">
-              <VerificationSubmission
-                id="VER-2023-0045"
-                date="Mar 20, 2023"
-                material="Plastic"
-                weight="5kg"
-                status="Pending"
-              />
-              <VerificationSubmission
-                id="VER-2023-0044"
-                date="Mar 18, 2023"
-                material="E-Waste"
-                weight="3kg"
-                status="Verified"
-                feedback="Good quality photos, clear evidence of collection."
-              />
-              <VerificationSubmission
-                id="VER-2023-0043"
-                date="Mar 15, 2023"
-                material="Metal"
-                weight="7kg"
-                status="Rejected"
-                feedback="Photos too blurry, unable to verify waste type."
-              />
+          <CardHeader>
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span>Your Collections</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {fetchError ? "Error loading collections" : (isInitialLoading ? "Loading..." : `${state.collections.length} items`)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="min-h-[300px]">
+              {fetchError ? (
+                <div className="py-8 text-center text-destructive">
+                  Error loading collections: {fetchError}
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => {
+                      setFetchError(null)
+                      hasFetchedRef.current = false
+                      fetchCollections()
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : isInitialLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <CollectionSkeleton key={i} />
+                  ))}
+                </div>
+              ) : state.collections.length > 0 ? (
+                <div className="space-y-4">
+                  {collectionsList}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  No collections found. Submit your first collection above!
+                </div>
+              )}
             </div>
-          </div>
+          </CardContent>
         </Card>
       </div>
     </DashboardShell>
   )
-} 
+}
