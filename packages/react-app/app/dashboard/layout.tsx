@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { AppProvider } from "@/providers/AppProvider";
 import { RoleProvider } from '@/providers/RoleProvider';
-import { DashboardContent } from "@/components/dashboard/dashboard-content";
 
 export const metadata: Metadata = {
   title: "Dashboard | AfriCycle",
@@ -16,9 +15,7 @@ export default function DashboardLayout({
   return (
     <RoleProvider>
       <AppProvider>
-        <DashboardContent>
-          {children}
-        </DashboardContent>
+        {children}
       </AppProvider>
     </RoleProvider>
   );

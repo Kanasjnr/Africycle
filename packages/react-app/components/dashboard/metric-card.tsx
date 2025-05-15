@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-interface MetricCardProps {
+export interface MetricCardProps {
   title: string
   value: string
   trend?: {

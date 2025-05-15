@@ -46,25 +46,21 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         // Only try to get role from blockchain if connected
         if (isConnected && address && africycle) {
           const blockchainRole = await africycle.getUserRole(address);
-          console.log("Blockchain role:", blockchainRole);
           
           // Check if the role is a zero bytes32 value (unregistered)
           const isZeroRole = blockchainRole === "0x0000000000000000000000000000000000000000000000000000000000000000";
           
           if (!isZeroRole) {
             const humanReadableRole = ROLE_MAPPING[blockchainRole.toLowerCase()];
-            console.log("Converted to human-readable role:", humanReadableRole);
             
             if (humanReadableRole) {
               setRole(humanReadableRole);
               setIsRegistered(true);
             } else {
-              console.warn("Unknown role type from blockchain:", blockchainRole);
               setRole(null);
               setIsRegistered(false);
             }
           } else {
-            console.log("User has no role on blockchain");
             setRole(null);
             setIsRegistered(false);
           }

@@ -59,13 +59,6 @@ export default function HomePage() {
         // A zero bytes32 value (all zeros) means the user is not registered
         const isZeroRole = blockchainRole === "0x0000000000000000000000000000000000000000000000000000000000000000"
         setIsRegisteredOnBlockchain(!isZeroRole)
-        
-        console.log("Blockchain role check:", {
-          address,
-          blockchainRole,
-          isZeroRole,
-          isRegistered: !isZeroRole
-        })
       } catch (error) {
         console.error("Error checking blockchain registration:", error)
         setIsRegisteredOnBlockchain(false)

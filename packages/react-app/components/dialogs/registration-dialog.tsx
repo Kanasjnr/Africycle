@@ -71,14 +71,6 @@ export function RegistrationDialog() {
   const { setRole } = useRole();
   const { address, isConnected } = useAccount();
 
-  console.log('RegistrationDialog state:', {
-    isConnected,
-    address,
-    isCheckingRegistration,
-    open,
-    isRegistering,
-  });
-
   // Initialize AfriCycle hook at the top level
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS_SAFE,
@@ -99,17 +91,7 @@ export function RegistrationDialog() {
   // Check if user is already registered
   useEffect(() => {
     async function checkRegistration() {
-      console.log('Checking registration...', {
-        isConnected,
-        address,
-        contractAddress: CONTRACT_ADDRESS_SAFE,
-        rpcUrl: RPC_URL_SAFE,
-      });
-
       if (!isConnected || !address || !africycle) {
-        console.log(
-          'Wallet not connected, no address, or africycle not initialized'
-        );
         setIsCheckingRegistration(false);
         return;
       }
@@ -117,13 +99,11 @@ export function RegistrationDialog() {
       try {
         // Check if user has a role
         const blockchainRole = await africycle.getUserRole(address);
-        console.log('Got user role from contract:', blockchainRole);
 
         // Check if the role is a zero bytes32 value (unregistered)
         const isZeroRole =
           blockchainRole ===
           '0x0000000000000000000000000000000000000000000000000000000000000000';
-        console.log('Is zero role:', isZeroRole);
 
         if (!isZeroRole) {
           // User has a role, convert it to human-readable format
@@ -139,24 +119,14 @@ export function RegistrationDialog() {
           };
 
           const humanReadableRole = roleMapping[blockchainRole.toLowerCase()];
-          console.log(
-            'Converted role to human-readable format:',
-            humanReadableRole
-          );
 
           if (humanReadableRole) {
-            console.log(
-              'User is already registered with role:',
-              humanReadableRole
-            );
             setRole(humanReadableRole);
             router.push('/dashboard');
           } else {
-            console.log('Unknown role type, showing registration dialog');
             setOpen(true);
           }
         } else {
-          console.log('User needs to register (zero role)');
           setOpen(true);
         }
       } catch (error) {
@@ -173,36 +143,28 @@ export function RegistrationDialog() {
 
   // Don't show anything while checking registration
   if (isCheckingRegistration) {
-    console.log('Still checking registration status...');
     return null;
   }
 
   // Don't show the dialog if wallet is not connected or africycle is not initialized
   if (!isConnected || !africycle) {
-    console.log(
-      'Wallet not connected or africycle not initialized, not showing dialog'
-    );
     return null;
   }
 
   async function onSubmit(data: RegistrationFormValues) {
-    console.log('Submitting registration form:', data);
     try {
       if (!address || !africycle) {
-        console.log('No wallet address or africycle not initialized');
         toast.error('Please connect your wallet first');
         return;
       }
 
       setIsRegistering(true);
-      console.log('Starting registration process...');
 
       // Use the appropriate registration function based on the selected role
       let txHash;
 
       switch (data.role) {
         case 'collector':
-          console.log('Registering as collector...');
           txHash = await africycle.registerCollector(
             address,
             data.name,
@@ -212,7 +174,6 @@ export function RegistrationDialog() {
           break;
 
         case 'collection_point':
-          console.log('Registering as collection point...');
           txHash = await africycle.registerCollectionPoint(
             address,
             data.name,
@@ -222,7 +183,6 @@ export function RegistrationDialog() {
           break;
 
         case 'recycler':
-          console.log('Registering as recycler...');
           txHash = await africycle.registerRecycler(
             address,
             data.name,
@@ -232,7 +192,6 @@ export function RegistrationDialog() {
           break;
 
         case 'corporate_partner':
-          console.log('Registering as corporate partner...');
           txHash = await africycle.registerCorporate(
             address,
             data.name,
@@ -242,11 +201,8 @@ export function RegistrationDialog() {
           break;
 
         default:
-          console.error('Invalid role selected:', data.role);
           throw new Error('Invalid role selected');
       }
-
-      console.log('Registration successful, txHash:', txHash);
 
       // Wait for the transaction to be mined and role to be updated
       toast.success(

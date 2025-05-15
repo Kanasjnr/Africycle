@@ -1,3 +1,5 @@
+"use client"
+
 import { Nav, recyclerNavItems, collectorNavItems } from "@/components/dashboard/nav"
 import { IconBell, IconMoon } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
