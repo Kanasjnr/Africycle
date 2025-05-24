@@ -47,68 +47,141 @@ export default function CollectionHistoryPage() {
       try {
         setLoading(true)
         
-        // Fetch collector stats
+        // Log contract address
+        console.log('Contract Address:', CONTRACT_ADDRESS)
+        
+        // Get collector stats
         const collectorStats = await africycle.getCollectorStats(address)
         setStats(collectorStats)
         
-        // Get total collections from contract stats
-        const totalCollections = await africycle.getContractStats()
+        // Get user profile for additional context
+        const userProfile = await africycle.getUserProfile(address)
+        console.log('User profile:', {
+          name: userProfile.name,
+          location: userProfile.location,
+          role: userProfile.role,
+          registrationDate: new Date(Number(userProfile.registrationDate) * 1000).toISOString(),
+          isVerified: userProfile.isVerified,
+          status: userProfile.status
+        })
         
-        // Debug the contract stats in detail
-        console.log('Contract stats details:', {
-          collectedStats: totalCollections.collectedStats.map((stat, index) => ({
-            wasteType: index,
-            count: stat.toString()
-          })),
-          processedStats: totalCollections.processedStats.map((stat, index) => ({
-            wasteType: index,
-            count: stat.toString()
-          })),
-          userCount: totalCollections.userCount.toString(),
-          listingCount: totalCollections.listingCount.toString(),
-          creditCount: totalCollections.creditCount.toString()
+        console.log('Collector stats (detailed):', {
+          totalWeightCollected: Number(collectorStats.totalCollected), // This is in kg
+          totalEarnings: Number(collectorStats.totalEarnings) / 1e18,
+          pendingVerifications: collectorStats.pendingVerifications.toString(),
+          verifiedCollections: collectorStats.verifiedCollections.toString(),
+          reputationScore: collectorStats.reputationScore.toString(),
+          collectedByType: collectorStats.collectedByType.map((n: bigint) => Number(n)),
+          collectedByTypeBreakdown: {
+            PLASTIC: Number(collectorStats.collectedByType[0]),
+            EWASTE: Number(collectorStats.collectedByType[1]),
+            METAL: Number(collectorStats.collectedByType[2]),
+            GENERAL: Number(collectorStats.collectedByType[3])
+          },
+          // Add comparison with user profile stats
+          profileStats: {
+            totalCollected: Number(userProfile.totalCollected),
+            totalEarnings: Number(userProfile.totalEarnings) / 1e18,
+            pendingVerifications: Number(userProfile.pendingVerifications),
+            verifiedCollections: Number(userProfile.verifiedCollections),
+            reputationScore: Number(userProfile.collectorReputationScore)
+          }
+        })
+        
+        // Get platform stats to check contract balance
+        const platformStats = await africycle.getPlatformStats()
+        console.log('Platform stats (detailed):', {
+          contractBalance: Number(platformStats.revenue) / 1e18,
+          totalCollections: Number(platformStats.collectionCount),
+          totalProcessed: Number(platformStats.processedCount),
+          totalListings: Number(platformStats.listingCount),
+          totalCredits: Number(platformStats.creditCount),
+          wasteStats: platformStats.wasteStats.map((n: bigint) => Number(n)),
+          wasteStatsBreakdown: {
+            PLASTIC: Number(platformStats.wasteStats[0]),
+            EWASTE: Number(platformStats.wasteStats[1]),
+            METAL: Number(platformStats.wasteStats[2]),
+            GENERAL: Number(platformStats.wasteStats[3])
+          }
         })
         
         // Get user's collections
         const userCollections = []
+        let totalWeightFound = 0
+        let processedCollections = 0
+        let verifiedCollections = 0
+        let rejectedCollections = 0
         
         // Try to fetch collections by iterating through IDs
-        // Only check the first 10 IDs since we know there are at most a few collections
-        console.log('Attempting to fetch collections by ID (checking first 10)...')
-        for (let i = 0; i < 10; i++) {
+        // Note: We check up to the platform's collection count to avoid unnecessary calls
+        const maxCollectionId = Number(platformStats.collectionCount)
+        console.log(`Attempting to fetch collections by ID (checking first ${maxCollectionId} collections)...`)
+        
+        // First, try to get collection details for each ID
+        for (let i = 0; i < maxCollectionId; i++) {
           try {
-            console.log(`Checking collection ID ${i}...`)
-            const details = await africycle.getCollectionDetails(BigInt(i))
+            console.log(`\nChecking collection ID ${i}...`)
+            const [collection, componentCounts, serialNumber, manufacturer, estimatedValue] = await africycle.getCollectionDetails(i)
             
-            if (!details || !details.collection) {
-              // If we hit 3 consecutive empty IDs, stop searching
-              if (i >= 2 && !userCollections.length) {
-                console.log('No collections found in first few IDs, stopping search')
-                break
-              }
+            // Skip if collection doesn't exist or has no collector
+            if (!collection || !collection.collector) {
+              console.log(`Collection ${i} does not exist or has no collector`)
               continue
             }
             
-            const collection = details.collection
-            console.log(`Found collection ${i}:`, {
+            // Track collection status
+            if (collection.isProcessed) processedCollections++
+            if (collection.status === 1) verifiedCollections++ // Status.VERIFIED
+            if (collection.status === 2) rejectedCollections++ // Status.REJECTED
+            
+            // Log all collection details for debugging
+            console.log(`Collection ${i} details:`, {
+              id: collection.id.toString(),
               collector: collection.collector,
               userAddress: address,
               matches: collection.collector?.toLowerCase() === address?.toLowerCase(),
               wasteType: collection.wasteType,
-              weight: collection.weight.toString(),
-              status: collection.status
+              weight: Number(collection.weight),
+              status: collection.status,
+              isProcessed: collection.isProcessed,
+              rewardAmount: Number(collection.rewardAmount) / 1e18,
+              timestamp: new Date(Number(collection.timestamp) * 1000).toISOString(),
+              // Add e-waste details if available
+              ...(collection.wasteType === 1 ? { // EWASTE
+                componentCounts: componentCounts.map(n => Number(n)),
+                serialNumber,
+                manufacturer,
+                estimatedValue: Number(estimatedValue)
+              } : {})
             })
-            
-            if (!collection.collector) {
-              console.log(`Collection ${i} has no collector address`)
-              continue
-            }
             
             if (collection.collector.toLowerCase() === address.toLowerCase()) {
               console.log(`Found matching collection ${i} for user`)
+              totalWeightFound += Number(collection.weight)
+              
+              // Calculate expected reward for verification
+              const weight = Number(collection.weight)
+              const wasteType = collection.wasteType
+              let rate = 0
+              switch(wasteType) {
+                case 0: rate = 0.1; break; // PLASTIC
+                case 1: rate = 0.5; break; // EWASTE
+                case 2: rate = 0.2; break; // METAL
+                case 3: rate = 0.05; break; // GENERAL
+              }
+              const expectedReward = weight * rate
+              console.log(`Collection ${i} reward calculation:`, {
+                weight,
+                wasteType,
+                rate,
+                expectedReward,
+                actualReward: Number(collection.rewardAmount) / 1e18,
+                status: collection.status,
+                isProcessed: collection.isProcessed
+              })
+              
               userCollections.push({
                 ...collection,
-                ...details,
                 id: i
               })
             } else {
@@ -125,14 +198,24 @@ export default function CollectionHistoryPage() {
           }
         }
         
-        console.log('Collection fetch results:', {
+        console.log('\nCollection fetch results (detailed):', {
           foundCollections: userCollections.length,
+          totalWeightFound,
+          expectedTotalWeight: Number(collectorStats.totalCollected),
+          weightDiscrepancy: Number(collectorStats.totalCollected) - totalWeightFound,
+          collectionStatus: {
+            processed: processedCollections,
+            verified: verifiedCollections,
+            rejected: rejectedCollections
+          },
           collections: userCollections.map(c => ({
             id: c.id,
             collector: c.collector,
             status: c.status,
             wasteType: c.wasteType,
-            weight: c.weight.toString()
+            weight: c.weight.toString(),
+            isProcessed: c.isProcessed,
+            timestamp: new Date(Number(c.timestamp) * 1000).toISOString()
           }))
         })
         
@@ -179,7 +262,7 @@ export default function CollectionHistoryPage() {
     <DashboardShell>
       <DashboardHeader
         heading="Collection History"
-        text="View and manage your collection history"
+        text="View your collection history and earnings"
       />
       <div className="grid gap-6">
         {/* Filters */}
@@ -253,6 +336,11 @@ export default function CollectionHistoryPage() {
                         >
                           {AfricycleStatus[collection.status]}
                         </Badge>
+                        {collection.rewardAmount > BigInt(0) && (
+                          <Badge variant="outline" className="ml-2">
+                            {Number(collection.rewardAmount) / 1e18} cUSD
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {formatDate(collection.timestamp)} • {AfricycleWasteStream[collection.wasteType]} • {collection.weight.toString()} kg

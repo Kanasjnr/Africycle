@@ -10,6 +10,7 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useAccount, useWalletClient } from "wagmi"
 import { formatEther } from "viem"
+import { Loader } from "@/components/ui/loader"
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
@@ -276,13 +277,9 @@ export default function CollectorDashboard() {
           heading="Collector Dashboard"
           text="Track your collections and manage your recycling activities"
         />
-        <div className="grid gap-6">
-          <Card>
-            <div className="p-6 text-center">
-              <div className="text-muted-foreground">Loading...</div>
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <Loader message="Loading dashboard..." />
+        </Card>
       </DashboardShell>
     )
   }
@@ -295,33 +292,23 @@ export default function CollectorDashboard() {
           heading="Collector Dashboard"
           text="Track your collections and manage your recycling activities"
         />
-        <div className="grid gap-6">
-          <Card>
-            <div className="p-6 text-center">
-              <h2 className="text-lg font-semibold mb-2">Wallet Connection Required</h2>
-              <p className="text-muted-foreground mb-4">
-                {status === 'reconnecting' 
-                  ? "Reconnecting to your wallet... Please wait while we establish a secure connection."
-                  : "Please connect your wallet to view your collector dashboard."}
-              </p>
-              {status === 'reconnecting' && (
-                <div className="animate-pulse text-sm text-muted-foreground mt-2">
-                  This may take a few moments...
-                </div>
-              )}
-              {!isConnected && (
-                <Button
-                  onClick={() => {
-                    // This will trigger the wallet connection modal
-                    window.location.reload()
-                  }}
-                >
-                  Connect Wallet
-                </Button>
-              )}
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <div className="p-6 text-center">
+            <h2 className="text-lg font-semibold mb-2">Wallet Connection Required</h2>
+            <p className="text-muted-foreground mb-4">
+              {status === 'reconnecting' 
+                ? "Reconnecting to your wallet..."
+                : "Please connect your wallet to view your collector dashboard."}
+            </p>
+            {status === 'reconnecting' ? (
+              <Loader size="sm" message="Establishing secure connection..." />
+            ) : (
+              <Button onClick={() => window.location.reload()}>
+                Connect Wallet
+              </Button>
+            )}
+          </div>
+        </Card>
       </DashboardShell>
     )
   }
@@ -334,19 +321,9 @@ export default function CollectorDashboard() {
           heading="Collector Dashboard"
           text="Track your collections and manage your recycling activities"
         />
-        <div className="grid gap-6">
-          <Card>
-            <div className="p-6 text-center">
-              <h2 className="text-lg font-semibold mb-2">Initializing Wallet Connection</h2>
-              <p className="text-muted-foreground mb-4">
-                Please wait while we initialize your wallet connection...
-              </p>
-              <div className="animate-pulse text-sm text-muted-foreground mt-2">
-                This may take a few moments...
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <Loader message="Initializing wallet connection..." />
+        </Card>
       </DashboardShell>
     )
   }
@@ -359,19 +336,9 @@ export default function CollectorDashboard() {
           heading="Collector Dashboard"
           text="Track your collections and manage your recycling activities"
         />
-        <div className="grid gap-6">
-          <Card>
-            <div className="p-6 text-center">
-              <h2 className="text-lg font-semibold mb-2">Initializing Contract Connection</h2>
-              <p className="text-muted-foreground mb-4">
-                Please wait while we establish a connection to the smart contract...
-              </p>
-              <div className="animate-pulse text-sm text-muted-foreground mt-2">
-                This may take a few moments...
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card>
+          <Loader message="Connecting to smart contract..." />
+        </Card>
       </DashboardShell>
     )
   }
@@ -392,32 +359,33 @@ export default function CollectorDashboard() {
             {/* Metrics Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {loading ? (
-                <div className="col-span-full text-center py-8">
-                  <div className="text-muted-foreground">
-                    Loading metrics...
-                    {retryCount > 0 && (
-                      <div className="text-sm mt-2">
-                        Retry attempt {retryCount}/{MAX_RETRIES}
-                      </div>
-                    )}
-                  </div>
+                <div className="col-span-full">
+                  <Card>
+                    <Loader 
+                      message={retryCount > 0 
+                        ? `Loading metrics... (Retry ${retryCount}/${MAX_RETRIES})`
+                        : "Loading metrics..."
+                      } 
+                    />
+                  </Card>
                 </div>
               ) : error ? (
-                <div className="col-span-full text-center py-8 text-red-500">
-                  <div className="max-w-md mx-auto">
-                    {error}
-                    <Button 
-                      variant="outline" 
-                      className="mt-4 w-full sm:w-auto"
-                      onClick={() => {
-                        setRetryCount(0)
-                        setLoading(true)
-                        fetchCollectorData()
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  </div>
+                <div className="col-span-full">
+                  <Card>
+                    <div className="p-6 text-center text-red-500">
+                      <p className="mb-4">{error}</p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setRetryCount(0)
+                          setLoading(true)
+                          fetchCollectorData()
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </Card>
                 </div>
               ) : metricsData ? (
                 <>
@@ -435,8 +403,12 @@ export default function CollectorDashboard() {
                   </div>
                 </>
               ) : (
-                <div className="col-span-full text-center py-8 text-muted-foreground">
-                  No data available
+                <div className="col-span-full">
+                  <Card>
+                    <div className="p-6 text-center text-muted-foreground">
+                      No data available
+                    </div>
+                  </Card>
                 </div>
               )}
             </div>
@@ -450,16 +422,13 @@ export default function CollectorDashboard() {
                 </p>
                 <div className="mt-4 h-[200px] w-full">
                   {loading ? (
-                    <div className="flex h-full items-center justify-center">
-                      <div className="text-muted-foreground text-center px-4">
-                        Loading collection history...
-                        {retryCount > 0 && (
-                          <div className="text-sm mt-2">
-                            Retry attempt {retryCount}/{MAX_RETRIES}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <Loader 
+                      size="sm"
+                      message={retryCount > 0 
+                        ? `Loading history... (Retry ${retryCount}/${MAX_RETRIES})`
+                        : "Loading collection history..."
+                      }
+                    />
                   ) : error ? (
                     <div className="flex h-full items-center justify-center text-red-500 px-4 text-center">
                       {error}

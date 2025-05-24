@@ -17,14 +17,16 @@ import { cloudinaryConfig } from "@/lib/cloudinary"
 interface Collection {
   collectionId: number;
   collector: string;
+  wasteType: AfricycleWasteStream;
+  weight: bigint;
+  location: string;
+  imageHash: string;
   status: AfricycleStatus;
   timestamp: bigint;
-  imageHash: string;
-  imageUrl: string;
-  weight: bigint;
-  wasteType: AfricycleWasteStream;
   quality: AfricycleQualityGrade;
-  location: string;
+  rewardAmount: bigint;
+  isProcessed: boolean;
+  imageUrl: string; // Computed field for display
 }
 
 // Define the contract configuration
@@ -94,18 +96,35 @@ const arrayToCollection = (data: unknown, id: number): Collection | null => {
     return null
   }
 
+  // Destructure the data array according to the contract's WasteCollection struct
+  const [
+    _id,           // uint256 id
+    collector,     // address collector
+    wasteType,     // WasteStream wasteType
+    weight,        // uint256 weight
+    location,      // string location
+    imageHash,     // string imageHash
+    status,        // Status status
+    timestamp,     // uint256 timestamp
+    quality,       // QualityGrade quality
+    rewardAmount,  // uint256 rewardAmount
+    isProcessed    // bool isProcessed
+  ] = data as any[]
+
   return {
     collectionId: id,
-    collector: data[1],
-    status: data[2],
-    weight: data[3],
-    location: data[4],
-    imageHash: data[5],
-    wasteType: data[6],
-    timestamp: data[7],
-    quality: data[8],
-    imageUrl: data[5] ? 
-      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${data[5]}` : 
+    collector,
+    wasteType,
+    weight,
+    location,
+    imageHash,
+    status,
+    timestamp,
+    quality,
+    rewardAmount,
+    isProcessed,
+    imageUrl: imageHash ? 
+      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${imageHash}` : 
       ''
   }
 }
@@ -290,6 +309,16 @@ function CollectionDetailsPage() {
                 <div className="p-4 rounded-lg bg-muted/50">
                   <p className="text-sm font-medium text-muted-foreground">Location</p>
                   <p className="font-medium">{collection.location}</p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm font-medium text-muted-foreground">Reward Amount</p>
+                  <p className="font-medium">{Number(collection.rewardAmount) / 1e18} cUSD</p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm font-medium text-muted-foreground">Processing Status</p>
+                  <p className="font-medium">{collection.isProcessed ? "Processed" : "Not Processed"}</p>
                 </div>
 
                 <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
