@@ -3,19 +3,28 @@
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { IconUpload, IconPhoto, IconCheck, IconCamera, IconTrash, IconX } from "@tabler/icons-react"
 import { useAfriCycle, AfricycleStatus, AfricycleWasteStream, AfricycleQualityGrade, WasteCollection } from "@/hooks/useAfricycle"
 import { useAccount, useWalletClient } from "wagmi"
 import { cloudinaryConfig, getCloudinaryConfig, CloudinaryUploadResult } from "@/lib/cloudinary"
 import Image from "next/image"
-import { parseEther } from "viem"
-import { createPublicClient, http, PublicClient } from "viem"
+import { 
+  parseEther, 
+  formatEther, 
+  createPublicClient, 
+  http, 
+  PublicClient,
+  type Hash,
+  getContract,
+  waitForTransaction
+} from "viem"
 import { celoAlfajores } from "viem/chains"
 import axios from "axios"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
 // Add this helper function before the component
 const getCloudinaryImageUrl = (publicId: string) => {
@@ -37,14 +46,16 @@ console.log('Verification Page Contract Config:', {
 interface Collection {
   collectionId: number;
   collector: string;
+  wasteType: AfricycleWasteStream;
+  weight: bigint;
+  location: string;
+  imageHash: string;
   status: AfricycleStatus;
   timestamp: bigint;
-  imageHash: string;
-  imageUrl: string;
-  weight: bigint;
-  wasteType: AfricycleWasteStream;
   quality: AfricycleQualityGrade;
-  location: string;
+  rewardAmount: bigint;
+  isProcessed: boolean;
+  imageUrl: string; // Computed field for display
 }
 
 interface CollectionsState {
@@ -255,18 +266,35 @@ const arrayToCollection = (data: unknown, id: number): Collection | null => {
     return null
   }
 
+  // Destructure the data array according to the contract's WasteCollection struct
+  const [
+    _id,           // uint256 id
+    collector,     // address collector
+    wasteType,     // WasteStream wasteType
+    weight,        // uint256 weight
+    location,      // string location
+    imageHash,     // string imageHash
+    status,        // Status status
+    timestamp,     // uint256 timestamp
+    quality,       // QualityGrade quality
+    rewardAmount,  // uint256 rewardAmount
+    isProcessed    // bool isProcessed
+  ] = data as any[]
+
   return {
     collectionId: id,
-    collector: data[1],
-    status: data[2],
-    weight: data[3],
-    location: data[4],
-    imageHash: data[5],
-    wasteType: data[6],
-    timestamp: data[7],
-    quality: data[8],
-    imageUrl: data[5] ? 
-      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${data[5]}` : 
+    collector,
+    wasteType,
+    weight,
+    location,
+    imageHash,
+    status,
+    timestamp,
+    quality,
+    rewardAmount,
+    isProcessed,
+    imageUrl: imageHash ? 
+      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${imageHash}` : 
       ''
   }
 }
@@ -291,11 +319,40 @@ export default function PhotoVerificationPage() {
     }
   })
 
+  // Add state for contract balance
+  const [contractBalance, setContractBalance] = useState<bigint | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(true)
+  const [balanceError, setBalanceError] = useState<string | null>(null)
+
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL
   })
+
+  // Fetch contract balance
+  useEffect(() => {
+    async function fetchContractBalance() {
+      if (!africycle) return;
+      
+      try {
+        setBalanceLoading(true);
+        setBalanceError(null);
+        const balance = await africycle.getContractCUSDBalance();
+        setContractBalance(balance);
+      } catch (error) {
+        console.error("Error fetching contract balance:", error);
+        setBalanceError("Failed to fetch contract balance");
+      } finally {
+        setBalanceLoading(false);
+      }
+    }
+
+    fetchContractBalance();
+    // Refresh balance every minute
+    const interval = setInterval(fetchContractBalance, 60000);
+    return () => clearInterval(interval);
+  }, [africycle]);
 
   // Create public client - memoize to prevent recreation
   const publicClient = useMemo(() => createPublicClient({
@@ -457,55 +514,52 @@ export default function PhotoVerificationPage() {
     ))
   }, [state.collections, loadingCollections, timeAgo])
 
-  // Update handleSubmitCollection to use state.form directly
-  const handleSubmitCollection = useCallback(async () => {
-    if (!africycle || !address) return
+  // Update handleSubmit to use waitForTransaction
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    const { form } = state // Destructure form from state to avoid dependency on entire state object
-    
+    if (!address || !africycle || !state.form.imageHash) {
+      toast.error("Please complete all required fields");
+      return;
+    }
+
     try {
-      // Validate inputs
-      if (!form.weight || !form.location || !form.imageHash) {
-        toast.error("Please fill in all required fields and upload an image")
-        return
-      }
-
-      const weightInKg = parseFloat(form.weight)
-      if (isNaN(weightInKg) || weightInKg <= 0) {
-        toast.error("Please enter a valid weight")
-        return
-      }
-
-      if (weightInKg > MAX_COLLECTION_WEIGHT) {
-        toast.error(`Weight cannot exceed ${MAX_COLLECTION_WEIGHT} kg`)
-        return
-      }
-
       setState(prev => ({ 
         ...prev, 
         form: { ...prev.form, submitting: true } 
-      }))
+      }));
 
-      // Send weight directly in wei (1 kg = 1 wei)
-      const weightInWei = BigInt(Math.floor(weightInKg))
-      
-      // Submit collection to smart contract
-      const txHash = await africycle.createCollection(
+      const weight = parseFloat(state.form.weight);
+      if (isNaN(weight) || weight <= 0) {
+        throw new Error("Please enter a valid weight greater than 0");
+      }
+
+      if (weight > MAX_COLLECTION_WEIGHT) {
+        throw new Error(`Weight exceeds maximum allowed limit of ${MAX_COLLECTION_WEIGHT} kg`);
+      }
+
+      if (!state.form.location.trim()) {
+        throw new Error("Please enter a valid location");
+      }
+
+      // Create the collection
+      const hash = await africycle.createCollection(
         address,
-        form.wasteType,
-        weightInWei,
-        form.location,
-        "", // Empty QR code since it's not required for this flow
-        form.imageHash
-      )
+        state.form.wasteType,
+        weight,
+        state.form.location,
+        "", // QR code is optional
+        state.form.imageHash
+      );
 
-      // Wait for transaction to be mined
-      await publicClient.waitForTransactionReceipt({ hash: txHash })
-      
-      toast.success("Collection submitted successfully")
-      
-      // Refresh collections
-      await fetchCollections()
+      // Wait for transaction to be mined using the public client
+      const publicClient = createPublicClient({
+        chain: celoAlfajores,
+        transport: http(RPC_URL)
+      });
+      await waitForTransaction(publicClient, { hash });
+
+      toast.success("Collection created successfully!");
       
       // Reset form
       setState(prev => ({
@@ -520,16 +574,21 @@ export default function PhotoVerificationPage() {
           quality: AfricycleQualityGrade.MEDIUM,
           location: ""
         }
-      }))
+      }));
+
+      // Refresh collections
+      fetchCollections();
+      
     } catch (error) {
-      console.error("Error submitting collection:", error)
-      toast.error("Failed to submit collection")
+      console.error("Error creating collection:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create collection");
+    } finally {
       setState(prev => ({ 
         ...prev, 
         form: { ...prev.form, submitting: false } 
-      }))
+      }));
     }
-  }, [address, africycle, state.form, publicClient, fetchCollections])
+  }, [address, africycle, state.form, fetchCollections, RPC_URL]);
 
   // Use a ref to track if we've already fetched collections
   const hasFetchedRef = useRef(false)
@@ -691,7 +750,7 @@ export default function PhotoVerificationPage() {
 
         <div className="flex justify-end">
           <Button 
-            onClick={handleSubmitCollection}
+            onClick={handleSubmit}
             disabled={state.form.submitting || !state.form.imageHash || !state.form.weight || !state.form.location}
             className="w-full sm:w-auto"
           >
@@ -751,6 +810,58 @@ export default function PhotoVerificationPage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Add Contract Balance Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Contract Status</CardTitle>
+            <CardDescription>
+              Current cUSD balance available for rewards
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {balanceLoading ? (
+              <div className="flex items-center space-x-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span>Loading balance...</span>
+              </div>
+            ) : balanceError ? (
+              <div className="text-destructive">
+                {balanceError}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="ml-2"
+                  onClick={() => {
+                    setBalanceError(null);
+                    setBalanceLoading(true);
+                    africycle?.getContractCUSDBalance()
+                      .then(setContractBalance)
+                      .catch(error => {
+                        console.error("Error fetching balance:", error);
+                        setBalanceError("Failed to fetch balance");
+                      })
+                      .finally(() => setBalanceLoading(false));
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-baseline space-x-2">
+                <span className="text-2xl font-bold">
+                  {formatEther(contractBalance || BigInt(0))}
+                </span>
+                <span className="text-muted-foreground">cUSD</span>
+                {contractBalance === BigInt(0) && (
+                  <Badge variant="destructive" className="ml-2">
+                    No rewards available
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

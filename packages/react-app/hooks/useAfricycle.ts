@@ -10,7 +10,8 @@ import {
     type WalletClient,
     type Transport,
     type Chain,
-    type Account
+    type Account,
+    custom
   } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { celoAlfajores } from 'viem/chains'; // Using Alfajores testnet instead of mainnet
@@ -149,19 +150,32 @@ export class AfriCycle {
   private publicClient: PublicClient;
   private walletClient: WalletClient<Transport, Chain, Account>;
   private contractAddress: Address;
+  private cUSDTokenAddress: Address;
 
   constructor(
     contractAddress: Address,
-    publicClient: PublicClient,
-    walletClient: WalletClient<Transport, Chain, Account>
+    rpcUrl: string,
+    cUSDTokenAddress: Address = '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // Alfajores cUSD
   ) {
     if (!contractAddress) throw new Error('Contract address is required')
-    if (!publicClient) throw new Error('Public client is required')
-    if (!walletClient) throw new Error('Wallet client is required')
+    if (!rpcUrl) throw new Error('RPC URL is required')
 
     this.contractAddress = contractAddress
-    this.publicClient = publicClient
-    this.walletClient = walletClient
+    this.cUSDTokenAddress = cUSDTokenAddress
+    this.publicClient = createPublicClient({
+      chain: celoAlfajores,
+      transport: http(rpcUrl)
+    }) as PublicClient
+
+    // Only create wallet client if window.ethereum is available
+    if (typeof window !== 'undefined' && window.ethereum) {
+      this.walletClient = createWalletClient({
+        chain: celoAlfajores,
+        transport: custom(window.ethereum)
+      }) as WalletClient<Transport, Chain, Account>
+    } else {
+      throw new Error('Ethereum provider not found')
+    }
 
     // Verify clients are properly initialized
     if (!this.publicClient.readContract) {
@@ -359,6 +373,32 @@ export class AfriCycle {
   // ============ Collection Functions ============
 
   /**
+   * Get the contract's cUSD balance
+   */
+  async getContractCUSDBalance(): Promise<bigint> {
+    try {
+      const balance = await this.publicClient.readContract({
+        address: this.cUSDTokenAddress,
+        abi: [
+          {
+            name: 'balanceOf',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'uint256' }]
+          }
+        ],
+        functionName: 'balanceOf',
+        args: [this.contractAddress]
+      });
+      return balance as bigint;
+    } catch (error) {
+      console.error('Error getting contract cUSD balance:', error);
+      throw new Error('Failed to get contract cUSD balance');
+    }
+  }
+
+  /**
    * Create a new waste collection
    */
   async createCollection(
@@ -372,6 +412,23 @@ export class AfriCycle {
     try {
       const weightBigInt = typeof weight === 'number' ? BigInt(weight) : weight;
       
+      // Calculate expected reward
+      const rewardRate = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'rewardRates',
+        args: [wasteType]
+      }) as bigint;
+      
+      const expectedReward = (weightBigInt * rewardRate) / BigInt(1e18);
+      
+      // Check contract's cUSD balance
+      const contractBalance = await this.getContractCUSDBalance();
+      if (contractBalance < expectedReward) {
+        throw new Error(`Contract has insufficient cUSD balance (${formatEther(contractBalance)} cUSD) to distribute the expected reward (${formatEther(expectedReward)} cUSD). Please contact support.`);
+      }
+      
+      // First simulate the transaction to catch any potential errors
       const { request } = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
@@ -380,10 +437,68 @@ export class AfriCycle {
         account
       });
 
-      return this.walletClient.writeContract(request);
+      // If simulation succeeds, send the actual transaction
+      const hash = await this.walletClient.writeContract(request);
+      
+      // Wait for transaction to be mined and check for revert
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      
+      if (receipt.status === 'reverted') {
+        // Try to decode the revert reason from the logs
+        const revertLog = receipt.logs.find(log => 
+          log.topics[0] === '0x08c379a000000000000000000000000000000000000000000000000000000000' // Error(string) event signature
+        );
+        
+        let revertReason = '';
+        if (revertLog) {
+          // Extract the error message from the log data
+          const data = revertLog.data.slice(2); // Remove '0x'
+          const messageLength = parseInt(data.slice(0, 64), 16);
+          const messageHex = data.slice(64, 64 + messageLength * 2);
+          revertReason = Buffer.from(messageHex, 'hex').toString().replace(/\0/g, '');
+        }
+
+        const errorMessages: { [key: string]: string } = {
+          'Reward transfer failed': 'The contract does not have enough cUSD tokens to distribute rewards. Please contact support.',
+          'Caller is not a collector': 'You are not registered as a collector. Please complete your registration first.',
+          'Location required': 'Please provide a valid location for the collection.',
+          'Image hash required': 'Please upload a verification image for the collection.',
+          'Weight must be positive': 'Please enter a valid weight greater than 0.',
+          'Weight exceeds maximum': 'The weight exceeds the maximum allowed limit.',
+        };
+
+        // Throw a user-friendly error message
+        throw new Error(errorMessages[revertReason] || 
+          'Failed to create collection. Please try again or contact support if the issue persists.');
+      }
+
+      return hash;
     } catch (error) {
-      console.error('Error creating collection:', error);
-      throw error;
+      // Handle simulation errors
+      if (error instanceof Error) {
+        // Check for common simulation errors
+        if (error.message.includes('insufficient funds')) {
+          throw new Error('You do not have enough CELO to pay for the transaction gas fees.');
+        }
+        if (error.message.includes('execution reverted')) {
+          // Try to extract the revert reason
+          const revertReason = error.message.match(/execution reverted: "([^"]+)"/)?.[1];
+          if (revertReason) {
+            const errorMessages: { [key: string]: string } = {
+              'Reward transfer failed': 'The contract does not have enough cUSD tokens to distribute rewards. Please contact support.',
+              'Caller is not a collector': 'You are not registered as a collector. Please complete your registration first.',
+              'Location required': 'Please provide a valid location for the collection.',
+              'Image hash required': 'Please upload a verification image for the collection.',
+              'Weight must be positive': 'Please enter a valid weight greater than 0.',
+              'Weight exceeds maximum': 'The weight exceeds the maximum allowed limit.',
+            };
+            throw new Error(errorMessages[revertReason] || 
+              'Failed to create collection. Please try again or contact support if the issue persists.');
+          }
+        }
+      }
+      // For any other errors, throw a generic message
+      throw new Error('Failed to create collection. Please try again or contact support if the issue persists.');
     }
   }
 
@@ -1694,7 +1809,7 @@ export function createAfriCycle(
   }) as PublicClient;
 
   // Create wallet client if private key is provided
-  let walletClient: WalletClient<Transport, Chain, Account>;
+  let walletClient: WalletClient<Transport, Chain, Account> | undefined;
   if (privateKey) {
     // Convert private key to account
     const account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -1703,11 +1818,17 @@ export function createAfriCycle(
       chain: celoAlfajores,
       transport: http(rpcUrl)
     }) as WalletClient<Transport, Chain, Account>;
-  } else {
-    throw new Error("Private key is required to create a wallet client");
   }
 
-  return new AfriCycle(contractAddress, publicClient, walletClient);
+  // Create AfriCycle instance with the public client and optional wallet client
+  const instance = new AfriCycle(contractAddress, rpcUrl);
+  
+  // If we have a wallet client, override the default one
+  if (walletClient) {
+    (instance as any).walletClient = walletClient;
+  }
+
+  return instance;
 }
 
 // Hook to use AfriCycle in React components
@@ -1722,14 +1843,8 @@ export function useAfriCycle({ contractAddress, rpcUrl }: { contractAddress: Add
     }
 
     try {
-      // Create public client
-      const publicClient = createPublicClient({
-        chain: celoAlfajores,
-        transport: http(rpcUrl)
-      }) as PublicClient
-
-      // Create AfriCycle instance with the wallet client
-      const instance = new AfriCycle(contractAddress, publicClient, walletClient)
+      // Create AfriCycle instance
+      const instance = new AfriCycle(contractAddress, rpcUrl)
       
       // Return the instance with the account property
       return Object.assign(instance, { account: address })

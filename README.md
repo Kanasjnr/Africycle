@@ -1,7 +1,19 @@
 # AfriCycle: A Multi-Stream ReFi Waste Management Ecosystem
 
+> 🚀 **Now Live on Celo Mainnet - Currently in Beta Testing Phase** 🚀
+> 
+> 📜 **Verified Smart Contract**: [View on CeloScan](https://celoscan.io/address/0xd8F399393958F5f29811b5786104cF90EfBeda41#code)
+
 ## 🌍 Overview
 AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis across three key waste streams: **plastic**, **electronic waste (e-waste)**, and **metal/general waste**. The platform incentivizes waste collection through **tokenized rewards**, enables **transparent recycling processes**, and promotes **corporate sustainability** through verified **recycling credits**.
+
+### 🎯 Current Status
+- **Live on Celo Mainnet** 🟢
+- **Beta Testing Phase** 🔄
+- **Open for Early Adopters** 👥
+- **Active Collection Points**: Multiple locations across Africa
+- **Corporate Partnerships**: Growing network of sustainability-focused organizations
+- **Verified Smart Contract**: [0xd8F399393958F5f29811b5786104cF90EfBeda41](https://celoscan.io/address/0xd8F399393958F5f29811b5786104cF90EfBeda41#code)
 
 ## 🔄 System Workflow
 ```mermaid
@@ -73,21 +85,29 @@ graph TD
 - **Plastic Waste**: QR-code-based verification and weight-based tracking.
 - **E-Waste**: Detailed documentation of valuable components such as CPUs, batteries, and PCBs.
 - **Metal & General Waste**: Categorization, weight-based verification, and quality assessment.
+- **Real-time Tracking**: Live monitoring of waste collection and processing
+- **Quality Assurance**: Automated verification of waste categories and conditions
 
 ### 🔗 Blockchain-Based Verification
 - **Decentralized authentication** of waste collection.
 - **Immutable record-keeping** for recycling activities.
 - **Transparent supply chain management**.
+- **Smart Contract Automation**: Automated payments and verification processes
+- **Audit Trail**: Complete history of all waste transactions
 
 ### 🎁 Tokenized Incentive System
 - **Direct cryptocurrency payments** to collectors.
 - **Tokenized environmental impact credits**.
 - **Governance tokens** for platform participation.
+- **Dynamic Pricing**: Market-based compensation for different waste types
+- **Loyalty Rewards**: Additional incentives for consistent collectors
 
 ### 🏪 Marketplace Ecosystem
 - **Trading platform for recycled materials**.
 - **Carbon/waste offset marketplace** for corporations.
 - **Impact investment opportunities**.
+- **Corporate Sustainability Credits**: Verified environmental impact tokens
+- **Material Exchange**: Direct trading of processed recyclables
 
 ## 🏗 Technical Architecture
 ### 🛠 Blockchain Infrastructure
@@ -133,6 +153,36 @@ Ensure you have the following installed:
 - [Yarn](https://yarnpkg.com/) (v1.22 or higher)
 - [Metamask](https://metamask.io/) or [Valora](https://valoraapp.com/)
 - [Git](https://git-scm.com/)
+
+### 🌐 Accessing the Platform
+1. **Connect Your Wallet**
+   - Install [Valora](https://valoraapp.com/) or [Metamask](https://metamask.io/)
+   - Add Celo Mainnet to your wallet
+   - Ensure you have some cUSD for transactions
+
+2. **Join Beta Testing**
+   - Join [Here](https://forms.gle/rRX8tS6yeSftxtpv5)
+   - Complete the registration process
+   - Verify your identity (KYC process)
+   - Start participating in waste collection
+
+3. **For Collection Points**
+   - Apply through the platform
+   - Complete verification process
+   - Set up your collection point
+   - Start accepting waste
+
+4. **For Recyclers**
+   - Submit business documentation
+   - Complete facility verification
+   - Set up processing capabilities
+   - Begin accepting waste from collection points
+
+5. **For Corporate Partners**
+   - Register your organization
+   - Complete sustainability assessment
+   - Set up credit purchase system
+   - Start tracking impact
 
 ### 📌 Installation
 ```bash
@@ -202,6 +252,43 @@ We welcome contributions! Follow these steps:
 ## 📝 License
 This project is licensed under the **MIT License**.
 
-## 📞 Contact
+## 📞 Contact & Support
 - **Twitter**: [@AfriCycle](https://twitter.com/africycle)
 - **Email**: aficycle0@gmail.com
+- **Telegram**: [Join our community](https://t.me/+aCZcunVKdkw2NDc0)
+- **Documentation**: [White paper ](https://africycle.hashnode.space/default-guide/africycle)
+- **Support Hours**: 24/7 automated support with human assistance during business hours
+
+## 🔒 Security
+- Regular security updates and patches
+- Bug bounty program for security researchers
+
+## 📈 Roadmap
+- Q2 2025: Current Phase - Beta testing and community building
+- Q3 2025: Expansion to additional African regions
+- Q4 2025: Launch of advanced features and partnerships
+- Q1 2026: Global expansion and ecosystem growth
+- Q2 2026: Integration with international waste management networks and advanced sustainability features
+
+## 📊 Beta Testing Metrics
+- **Active Users**: Growing community of waste collectors
+- **Collection Points**: Multiple verified locations
+- **Waste Processed**: Real-time tracking available on dashboard
+- **Environmental Impact**: Transparent impact metrics
+- **Transaction Volume**: Live on-chain data
+
+## 🤝 Join the Beta
+We're actively seeking:
+- Waste Collectors
+- Collection Point Operators
+- Recyclers
+- Corporate Partners
+- Environmental Impact Investors
+
+To participate in our beta testing program:
+1. Fill out our [Beta Testing Application Form](https://forms.gle/rRX8tS6yeSftxtpv5)
+2. Join our [Telegram Community](https://t.me/+aCZcunVKdkw2NDc0) for updates and support
+3. Wait for our team to review your application
+4. Once approved, you'll receive instructions to access the platform
+
+For any questions about the beta program, please contact us at aficycle0@gmail.com

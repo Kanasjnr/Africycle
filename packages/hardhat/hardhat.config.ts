@@ -1,5 +1,6 @@
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomicfoundation/hardhat-verify';
+import '@nomicfoundation/hardhat-ethers';
 import 'hardhat-coverage'; 
 import { config as dotEnvConfig } from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/config';
@@ -54,7 +55,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 200,
       },
       outputSelection: {
         "*": {
