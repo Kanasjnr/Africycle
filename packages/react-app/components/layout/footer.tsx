@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Facebook, Twitter, Instagram, Linkedin, Github } from "lucide-react"
+import {  Twitter, Github, Send } from "lucide-react"
 
 export default function Footer() {
   return (
@@ -27,6 +27,10 @@ export default function Footer() {
               <Link href="https://github.com/Kanasjnr/Africycle" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                 <Github className="h-6 w-6" />
                 <span className="sr-only">GitHub</span>
+              </Link>
+              <Link href="https://t.me/+aCZcunVKdkw2NDc0" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                <Send className="h-6 w-6" />
+                <span className="sr-only">Telegram</span>
               </Link>
             </div>
           </div>

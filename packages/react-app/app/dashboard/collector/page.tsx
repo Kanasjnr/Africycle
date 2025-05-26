@@ -61,6 +61,18 @@ interface MetricCardProps {
   className?: string;
 }
 
+// Add type for collector stats
+type CollectorStats = {
+  collected: [bigint, bigint, bigint, bigint];
+  processed: [bigint, bigint, bigint, bigint];
+  totalEarnings: bigint;
+  reputationScore: bigint;
+  activeListings: bigint;
+  verifiedStatus: boolean;
+  suspendedStatus: boolean;
+  blacklistedStatus: boolean;
+}
+
 export default function CollectorDashboard() {
   const { address, isConnected, status } = useAccount()
   const { data: walletClient, isLoading: isWalletClientLoading } = useWalletClient()
@@ -88,7 +100,7 @@ export default function CollectorDashboard() {
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [collectorStats, setCollectorStats] = useState<any>(null)
+  const [collectorStats, setCollectorStats] = useState<CollectorStats | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const MAX_RETRIES = 3
   
@@ -99,8 +111,8 @@ export default function CollectorDashboard() {
   const isAfriCycleReady = useMemo(() => {
     if (!africycle) return false
     try {
-      // Test if getCollectorStats is available and callable
-      return typeof africycle.getCollectorStats === 'function'
+      // Test if getUserDetailedStats is available and callable
+      return typeof africycle.getUserDetailedStats === 'function'
     } catch {
       return false
     }
@@ -141,12 +153,23 @@ export default function CollectorDashboard() {
       const stats = await Promise.race([
         (async () => {
           try {
-            console.log('Calling getCollectorStats...')
-            const result = await africycle.getCollectorStats(address)
-            console.log('getCollectorStats result:', result)
-            return result
+            console.log('Calling getUserDetailedStats...')
+            const result = await africycle.getUserDetailedStats(address)
+            console.log('getUserDetailedStats result:', result)
+            // Ensure the result matches our CollectorStats type
+            const typedStats: CollectorStats = {
+              collected: result.collected as [bigint, bigint, bigint, bigint],
+              processed: result.processed as [bigint, bigint, bigint, bigint],
+              totalEarnings: result.totalEarnings as bigint,
+              reputationScore: result.reputationScore as bigint,
+              activeListings: result.activeListings as bigint,
+              verifiedStatus: result.verifiedStatus as boolean,
+              suspendedStatus: result.suspendedStatus as boolean,
+              blacklistedStatus: result.blacklistedStatus as boolean
+            }
+            return typedStats
           } catch (error) {
-            console.error('Error in getCollectorStats:', error)
+            console.error('Error in getUserDetailedStats:', error)
             throw error
           }
         })(),
@@ -155,8 +178,8 @@ export default function CollectorDashboard() {
       
       console.log('Collector stats fetched successfully:', stats)
       setCollectorStats(stats)
-      setRetryCount(0) // Reset retry count on success
-      setLoading(false) // Explicitly set loading to false after successful fetch
+      setRetryCount(0)
+      setLoading(false)
     } catch (error) {
       console.error("Error fetching collector data:", error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data'
@@ -234,10 +257,12 @@ export default function CollectorDashboard() {
     console.log('Calculating metrics data with stats:', collectorStats)
     if (!collectorStats) return null
 
+    const sumCollected = collectorStats.collected.reduce((a: bigint, b: bigint) => a + b, BigInt(0))
+
     const data = {
       totalCollected: {
         title: "Total Collected",
-        value: `${collectorStats.totalCollected.toString() || '0'} kg`,
+        value: `${sumCollected.toString() || '0'} kg`,
         trend: { value: 12, label: "from last month", positive: true },
         icon: <IconBox className="h-4 w-4" />
       },
@@ -249,13 +274,13 @@ export default function CollectorDashboard() {
       },
       pendingVerification: {
         title: "Pending Verification",
-        value: collectorStats.pendingVerifications.toString() || '0',
+        value: collectorStats.activeListings.toString() || '0',
         trend: { value: 2, label: "from last month", positive: false },
         icon: <IconCamera className="h-4 w-4" />
       },
-      verifiedCollections: {
-        title: "Verified Collections",
-        value: collectorStats.verifiedCollections.toString() || '0',
+      reputation: {
+        title: "Reputation Score",
+        value: collectorStats.reputationScore.toString() || '0',
         trend: { value: 15, label: "from last month", positive: true },
         icon: <IconBox className="h-4 w-4" />
       }
@@ -399,7 +424,7 @@ export default function CollectorDashboard() {
                     <MemoizedMetricCard {...metricsData.pendingVerification} />
                   </div>
                   <div className="h-full">
-                    <MemoizedMetricCard {...metricsData.verifiedCollections} />
+                    <MemoizedMetricCard {...metricsData.reputation} />
                   </div>
                 </>
               ) : (
@@ -435,7 +460,7 @@ export default function CollectorDashboard() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-8 px-4">
-                      {collectorStats?.verifiedCollections > 0 
+                      {collectorStats && collectorStats.activeListings > BigInt(0)
                         ? "Collection history chart will appear here" 
                         : "No collection history available yet"}
                     </p>

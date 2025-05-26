@@ -32,7 +32,10 @@ import {
 import { toast } from 'sonner';
 import { useRole, type Role } from '@/providers/RoleProvider';
 import { useAccount } from 'wagmi';
+import { useChainId, useSwitchChain } from 'wagmi';
 import { Loader2 } from 'lucide-react';
+import { celo } from 'viem/chains';
+// Import the standard AfriCycle hook
 import { useAfriCycle } from '@/hooks/useAfricycle';
 
 // Define the contract configuration
@@ -67,9 +70,12 @@ export function RegistrationDialog() {
   const [open, setOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isCheckingRegistration, setIsCheckingRegistration] = useState(true);
+  const [isSwitchingChain, setIsSwitchingChain] = useState(false);
   const router = useRouter();
   const { setRole } = useRole();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
 
   // Initialize AfriCycle hook at the top level
   const africycle = useAfriCycle({
@@ -108,14 +114,14 @@ export function RegistrationDialog() {
         if (!isZeroRole) {
           // User has a role, convert it to human-readable format
           const roleMapping: { [key: string]: Role } = {
-            '0x636f6c6c6563746f720000000000000000000000000000000000000000000000':
-              'collector',
-            '0x636f6c6c656374696f6e5f706f696e7400000000000000000000000000000000':
-              'collection_point',
-            '0x72656379636c6572000000000000000000000000000000000000000000000000':
-              'recycler',
-            '0x636f72706f726174655f706172746e6572000000000000000000000000000000':
-              'corporate_partner',
+            // keccak256("COLLECTOR_ROLE")
+            '0x636f6c6c6563746f720000000000000000000000000000000000000000000000': 'collector',
+            // keccak256("COLLECTION_POINT_ROLE")
+            '0xbfaa47f03b044d665fdcdc16f750c4b3b3aac1139fdcc9d487a720b0f072e4f7': 'collection_point',
+            // keccak256("RECYCLER_ROLE")
+            '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154': 'recycler',
+            // keccak256("CORPORATE_PARTNER_ROLE")
+            '0x636f72706f726174655f706172746e6572000000000000000000000000000000': 'corporate_partner',
           };
 
           const humanReadableRole = roleMapping[blockchainRole.toLowerCase()];
@@ -156,6 +162,64 @@ export function RegistrationDialog() {
       if (!address || !africycle) {
         toast.error('Please connect your wallet first');
         return;
+      }
+
+      // Validate form data
+      if (!data.name || !data.location || !data.email) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Check if we're on the correct chain
+      if (chainId !== celo.id) {
+        setIsSwitchingChain(true);
+        toast.info('Please switch to Celo network in your wallet...');
+        
+        try {
+          // Attempt to switch to Celo network
+          await switchChain?.({ 
+            chainId: celo.id,
+            addEthereumChainParameter: {
+              chainName: 'Celo',
+              nativeCurrency: {
+                name: 'CELO',
+                symbol: 'CELO',
+                decimals: 18,
+              },
+              rpcUrls: [process.env.NEXT_PUBLIC_CELO_RPC_URL || 'https://forno.celo.org'],
+              blockExplorerUrls: ['https://explorer.celo.org'],
+            }
+          });
+          
+          // Wait longer for the chain switch to complete and network to stabilize
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          
+          // Get the current chain ID after waiting
+          const currentChainId = await window.ethereum?.request({ method: 'eth_chainId' });
+          const parsedChainId = currentChainId ? parseInt(currentChainId, 16) : null;
+          
+          if (parsedChainId !== celo.id) {
+            toast.error(
+              'Please switch to Celo network manually in your wallet. ' +
+              'If you don\'t see Celo in your wallet, you may need to add it as a custom network.'
+            );
+            setIsSwitchingChain(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error switching network:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          toast.error(
+            'Failed to switch network. ' +
+            'Please switch to Celo manually in your wallet. ' +
+            'If you don\'t see Celo in your wallet, you may need to add it as a custom network. ' +
+            `Error: ${errorMessage}`
+          );
+          setIsSwitchingChain(false);
+          return;
+        } finally {
+          setIsSwitchingChain(false);
+        }
       }
 
       setIsRegistering(true);
@@ -328,8 +392,17 @@ export function RegistrationDialog() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isRegistering}>
-              {isRegistering ? (
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isRegistering || isSwitchingChain}
+            >
+              {isSwitchingChain ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Switching to Celo Network...
+                </>
+              ) : isRegistering ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Registering on Blockchain...

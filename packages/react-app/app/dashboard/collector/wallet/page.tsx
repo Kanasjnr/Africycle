@@ -23,8 +23,8 @@ import { celoAlfajores } from 'viem/chains'
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://alfajores-forno.celo-testnet.org"
-const CUSD_TOKEN_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1" as `0x${string}`
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
+const CUSD_TOKEN_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`
 
 // ERC20 ABI for cUSD token
 const erc20ABI = [

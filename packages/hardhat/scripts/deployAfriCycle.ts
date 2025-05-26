@@ -1,5 +1,4 @@
-import { network, run } from "hardhat";
-import { ethers } from "hardhat";
+import { ethers, network, run } from "hardhat";
 import dotenv from "dotenv";
 
 // Load environment variables

@@ -1,24 +1,25 @@
 import { 
-    createPublicClient, 
-    createWalletClient, 
-    http, 
-    parseEther,
-    formatEther,
-    type Address,
-    type Hash,
-    type PublicClient,
-    type WalletClient,
-    type Transport,
-    type Chain,
-    type Account,
-    custom
-  } from 'viem';
+  createPublicClient, 
+  createWalletClient, 
+  http, 
+  parseEther,
+  formatEther,
+  type Address,
+  type Hash,
+  type PublicClient,
+  type WalletClient,
+  type Transport,
+  type Chain,
+  type Account,
+  custom
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { celoAlfajores } from 'viem/chains'; // Using Alfajores testnet instead of mainnet
+import { celo } from 'viem/chains';
 // Import ABI directly from JSON file
 import afriCycleAbi from '@/ABI/Africycle.json';
 import { useAccount, useWalletClient } from 'wagmi';
 import { useMemo } from 'react'
+import { withDivviTracking } from '../lib/divvi'
 
 // Types based on the contract
 export enum AfricycleWasteStream {
@@ -124,13 +125,10 @@ export type UserProfileView = {
   // Collector stats
   totalCollected: bigint;
   totalEarnings: bigint;
-  pendingVerifications: bigint;
-  verifiedCollections: bigint;
   collectorReputationScore: bigint;
   collectedByType: [bigint, bigint, bigint, bigint];
   // Collection point stats
   totalInventory: bigint;
-  collectionPointPendingVerifications: bigint;
   scheduledPickups: bigint;
   activeCollectors: bigint;
   inventoryByType: [bigint, bigint, bigint, bigint];
@@ -155,7 +153,7 @@ export class AfriCycle {
   constructor(
     contractAddress: Address,
     rpcUrl: string,
-    cUSDTokenAddress: Address = '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1' // Alfajores cUSD
+    cUSDTokenAddress: Address = '0x765DE816845861e75A25fCA122bb6898B8B1282a' // Mainnet cUSD
   ) {
     if (!contractAddress) throw new Error('Contract address is required')
     if (!rpcUrl) throw new Error('RPC URL is required')
@@ -163,14 +161,14 @@ export class AfriCycle {
     this.contractAddress = contractAddress
     this.cUSDTokenAddress = cUSDTokenAddress
     this.publicClient = createPublicClient({
-      chain: celoAlfajores,
+      chain: celo,
       transport: http(rpcUrl)
     }) as PublicClient
 
     // Only create wallet client if window.ethereum is available
     if (typeof window !== 'undefined' && window.ethereum) {
       this.walletClient = createWalletClient({
-        chain: celoAlfajores,
+        chain: celo,
         transport: custom(window.ethereum)
       }) as WalletClient<Transport, Chain, Account>
     } else {
@@ -198,15 +196,17 @@ export class AfriCycle {
     contactInfo: string
   ): Promise<Hash> {
     try {
-      const { request } = await this.publicClient.simulateContract({
+      if (!account || !name || !location || !contactInfo) {
+        throw new Error('All registration parameters are required');
+      }
+      const simulateFn = () => this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'registerCollector',
         args: [name, location, contactInfo],
         account
       });
-
-      return this.walletClient.writeContract(request);
+      return withDivviTracking(simulateFn);
     } catch (error) {
       console.error('Error registering collector:', error);
       throw error;
@@ -223,15 +223,23 @@ export class AfriCycle {
     contactInfo: string
   ): Promise<Hash> {
     try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'registerCollectionPoint',
-        args: [name, location, contactInfo],
-        account
-      });
+      if (!account || !name || !location || !contactInfo) {
+        throw new Error('All registration parameters are required');
+      }
+      
+      // Create a simple simulation function
+      const simulateFn = () => {
+        return this.publicClient.simulateContract({
+          address: this.contractAddress,
+          abi: afriCycleAbi,
+          functionName: 'registerCollectionPoint',
+          args: [name, location, contactInfo],
+          account
+        });
+      };
 
-      return this.walletClient.writeContract(request);
+      // Pass the simulation function to withDivviTracking
+      return withDivviTracking(simulateFn);
     } catch (error) {
       console.error('Error registering collection point:', error);
       throw error;
@@ -248,15 +256,17 @@ export class AfriCycle {
     contactInfo: string
   ): Promise<Hash> {
     try {
-      const { request } = await this.publicClient.simulateContract({
+      if (!account || !name || !location || !contactInfo) {
+        throw new Error('All registration parameters are required');
+      }
+      const simulateFn = () => this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'registerRecycler',
         args: [name, location, contactInfo],
         account
       });
-
-      return this.walletClient.writeContract(request);
+      return withDivviTracking(simulateFn);
     } catch (error) {
       console.error('Error registering recycler:', error);
       throw error;
@@ -273,15 +283,17 @@ export class AfriCycle {
     contactInfo: string
   ): Promise<Hash> {
     try {
-      const { request } = await this.publicClient.simulateContract({
+      if (!account || !name || !location || !contactInfo) {
+        throw new Error('All registration parameters are required');
+      }
+      const simulateFn = () => this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'registerCorporate',
         args: [name, location, contactInfo],
         account
       });
-
-      return this.walletClient.writeContract(request);
+      return withDivviTracking(simulateFn);
     } catch (error) {
       console.error('Error registering corporate partner:', error);
       throw error;
@@ -406,75 +418,87 @@ export class AfriCycle {
     wasteType: AfricycleWasteStream,
     weight: number | bigint,
     location: string,
-    qrCode: string,
     imageHash: string
   ): Promise<Hash> {
     try {
-      const weightBigInt = typeof weight === 'number' ? BigInt(weight) : weight;
-      
-      // Calculate expected reward
-      const rewardRate = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'rewardRates',
-        args: [wasteType]
-      }) as bigint;
-      
-      const expectedReward = (weightBigInt * rewardRate) / BigInt(1e18);
-      
-      // Check contract's cUSD balance
-      const contractBalance = await this.getContractCUSDBalance();
-      if (contractBalance < expectedReward) {
-        throw new Error(`Contract has insufficient cUSD balance (${formatEther(contractBalance)} cUSD) to distribute the expected reward (${formatEther(expectedReward)} cUSD). Please contact support.`);
-      }
-      
-      // First simulate the transaction to catch any potential errors
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'createCollection',
-        args: [wasteType, weightBigInt, location, qrCode, imageHash],
-        account
+      console.log('Debug: Starting createCollection with params:', {
+        account,
+        wasteType,
+        weight,
+        location,
+        imageHash
       });
 
-      // If simulation succeeds, send the actual transaction
-      const hash = await this.walletClient.writeContract(request);
+      const weightBigInt = typeof weight === 'number' ? BigInt(weight) : weight;
       
-      // Wait for transaction to be mined and check for revert
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-      
-      if (receipt.status === 'reverted') {
-        // Try to decode the revert reason from the logs
-        const revertLog = receipt.logs.find(log => 
-          log.topics[0] === '0x08c379a000000000000000000000000000000000000000000000000000000000' // Error(string) event signature
-        );
-        
-        let revertReason = '';
-        if (revertLog) {
-          // Extract the error message from the log data
-          const data = revertLog.data.slice(2); // Remove '0x'
-          const messageLength = parseInt(data.slice(0, 64), 16);
-          const messageHex = data.slice(64, 64 + messageLength * 2);
-          revertReason = Buffer.from(messageHex, 'hex').toString().replace(/\0/g, '');
-        }
+      // First check if the user is a collector using hasRole
+      console.log('Debug: Checking if user has collector role...');
+      const COLLECTOR_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000001'; // Default role ID for collector
+      const hasCollectorRole = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'hasRole',
+        args: [COLLECTOR_ROLE, account]
+      });
+      console.log('Debug: hasCollectorRole result:', hasCollectorRole);
 
-        const errorMessages: { [key: string]: string } = {
-          'Reward transfer failed': 'The contract does not have enough cUSD tokens to distribute rewards. Please contact support.',
-          'Caller is not a collector': 'You are not registered as a collector. Please complete your registration first.',
-          'Location required': 'Please provide a valid location for the collection.',
-          'Image hash required': 'Please upload a verification image for the collection.',
-          'Weight must be positive': 'Please enter a valid weight greater than 0.',
-          'Weight exceeds maximum': 'The weight exceeds the maximum allowed limit.',
-        };
-
-        // Throw a user-friendly error message
-        throw new Error(errorMessages[revertReason] || 
-          'Failed to create collection. Please try again or contact support if the issue persists.');
+      if (!hasCollectorRole) {
+        throw new Error('You are not registered as a collector. Please complete your registration first.');
       }
 
-      return hash;
+      // Check if contract is paused
+      console.log('Debug: Checking if contract is paused...');
+      const isPaused = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'paused'
+      });
+      console.log('Debug: isPaused result:', isPaused);
+
+      if (isPaused) {
+        throw new Error('The contract is currently paused. Please try again later.');
+      }
+
+      // Validate input parameters
+      if (!location.trim()) {
+        throw new Error('Please provide a valid location.');
+      }
+
+      if (!imageHash.trim()) {
+        throw new Error('Please upload a verification image.');
+      }
+
+      if (weightBigInt <= BigInt(0)) {
+        throw new Error('Weight must be greater than 0.');
+      }
+
+      console.log('Debug: Simulating contract call...');
+      try {
+        const { request } = await this.publicClient.simulateContract({
+          address: this.contractAddress,
+          abi: afriCycleAbi,
+          functionName: 'createCollection',
+          args: [wasteType, weightBigInt, location, imageHash],
+          account
+        });
+        console.log('Debug: Contract simulation successful, sending transaction...');
+        return this.walletClient.writeContract(request);
+      } catch (simError) {
+        console.error('Debug: Contract simulation error:', simError);
+        if (simError instanceof Error) {
+          // Log the full error message
+          console.error('Debug: Full simulation error message:', simError.message);
+          // Try to extract the revert reason
+          const revertMatch = simError.message.match(/execution reverted: "([^"]+)"/);
+          if (revertMatch) {
+            console.error('Debug: Extracted revert reason:', revertMatch[1]);
+          }
+        }
+        throw simError;
+      }
     } catch (error) {
-      // Handle simulation errors
+      console.error('Debug: Error in createCollection:', error);
+      
       if (error instanceof Error) {
         // Check for common simulation errors
         if (error.message.includes('insufficient funds')) {
@@ -483,51 +507,27 @@ export class AfriCycle {
         if (error.message.includes('execution reverted')) {
           // Try to extract the revert reason
           const revertReason = error.message.match(/execution reverted: "([^"]+)"/)?.[1];
+          console.error('Debug: Contract revert reason:', revertReason);
           if (revertReason) {
             const errorMessages: { [key: string]: string } = {
-              'Reward transfer failed': 'The contract does not have enough cUSD tokens to distribute rewards. Please contact support.',
-              'Caller is not a collector': 'You are not registered as a collector. Please complete your registration first.',
-              'Location required': 'Please provide a valid location for the collection.',
-              'Image hash required': 'Please upload a verification image for the collection.',
+              'TransferFailed': 'The contract does not have enough cUSD tokens to distribute rewards. Please contact support.',
+              'Not collector': 'You are not registered as a collector. Please complete your registration first.',
+              'Invalid location': 'Please provide a valid location for the collection.',
+              'Invalid image hash': 'Please upload a verification image for the collection.',
               'Weight must be positive': 'Please enter a valid weight greater than 0.',
               'Weight exceeds maximum': 'The weight exceeds the maximum allowed limit.',
+              'Invalid waste type': 'Please select a valid waste type.',
+              'Contract is paused': 'The contract is currently paused. Please try again later.'
             };
-            throw new Error(errorMessages[revertReason] || 
-              'Failed to create collection. Please try again or contact support if the issue persists.');
+            const errorMessage = errorMessages[revertReason] || 
+              `Failed to create collection: ${revertReason}. Please try again or contact support if the issue persists.`;
+            console.error('Debug: Mapped error message:', errorMessage);
+            throw new Error(errorMessage);
           }
         }
       }
       // For any other errors, throw a generic message
       throw new Error('Failed to create collection. Please try again or contact support if the issue persists.');
-    }
-  }
-
-  /**
-   * Create multiple waste collections in a batch
-   */
-  async batchCreateCollections(
-    account: Address,
-    wasteTypes: AfricycleWasteStream[],
-    weights: (number | bigint)[],
-    locations: string[],
-    qrCodes: string[],
-    imageHashes: string[]
-  ): Promise<Hash> {
-    try {
-      const weightsBigInt = weights.map(w => typeof w === 'number' ? BigInt(w) : w);
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'batchCreateCollections',
-        args: [wasteTypes, weightsBigInt, locations, qrCodes, imageHashes],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error creating batch collections:', error);
-      throw error;
     }
   }
 
@@ -570,7 +570,6 @@ export class AfriCycle {
     collectionId: number | bigint,
     weight: number | bigint,
     location: string,
-    qrCode: string,
     imageHash: string
   ): Promise<Hash> {
     try {
@@ -581,7 +580,7 @@ export class AfriCycle {
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'updateCollection',
-        args: [collectionIdBigInt, weightBigInt, location, qrCode, imageHash],
+        args: [collectionIdBigInt, weightBigInt, location, '', imageHash], // Empty string for qrCode parameter
         account
       });
 
@@ -627,29 +626,6 @@ export class AfriCycle {
     }
   }
 
-  /**
-   * Get individual collection
-   */
-  async getCollection(
-    collectionId: number | bigint
-  ): Promise<WasteCollection> {
-    try {
-      const collectionIdBigInt = typeof collectionId === 'number' ? BigInt(collectionId) : collectionId;
-      
-      const collection = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'collections',
-        args: [collectionIdBigInt]
-      });
-      
-      return collection as unknown as WasteCollection;
-    } catch (error) {
-      console.error('Error getting collection:', error);
-      throw error;
-    }
-  }
-
   // ============ Processing Functions ============
 
   /**
@@ -685,19 +661,17 @@ export class AfriCycle {
     account: Address,
     batchId: number | bigint,
     outputAmount: number | bigint,
-    outputQuality: AfricycleQualityGrade,
-    carbonOffset: number | bigint
+    outputQuality: AfricycleQualityGrade
   ): Promise<Hash> {
     try {
       const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
       const outputAmountBigInt = typeof outputAmount === 'number' ? BigInt(outputAmount) : outputAmount;
-      const carbonOffsetBigInt = typeof carbonOffset === 'number' ? BigInt(carbonOffset) : carbonOffset;
       
       const { request } = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'completeProcessing',
-        args: [batchIdBigInt, outputAmountBigInt, outputQuality, carbonOffsetBigInt],
+        args: [batchIdBigInt, outputAmountBigInt, outputQuality],
         account
       });
 
@@ -709,106 +683,26 @@ export class AfriCycle {
   }
 
   /**
-   * Update a processing batch
+   * Calculate carbon offset
    */
-  async updateProcessingBatch(
-    account: Address,
-    batchId: number | bigint,
-    newOutputAmount: number | bigint,
-    newQuality: AfricycleQualityGrade
-  ): Promise<Hash> {
+  async calculateCarbonOffset(
+    wasteType: AfricycleWasteStream,
+    amount: number | bigint,
+    quality: AfricycleQualityGrade
+  ): Promise<bigint> {
     try {
-      const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
-      const newOutputAmountBigInt = typeof newOutputAmount === 'number' ? BigInt(newOutputAmount) : newOutputAmount;
+      const amountBigInt = typeof amount === 'number' ? BigInt(amount) : amount;
       
-      const { request } = await this.publicClient.simulateContract({
+      const carbonOffset = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
-        functionName: 'updateProcessingBatch',
-        args: [batchIdBigInt, newOutputAmountBigInt, newQuality],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error updating processing batch:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get processing batch
-   */
-  async getProcessingBatch(
-    batchId: number | bigint
-  ): Promise<ProcessingBatch> {
-    try {
-      const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
-      
-      const batch = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'processingBatches',
-        args: [batchIdBigInt]
+        functionName: 'calculateCarbonOffset',
+        args: [wasteType, amountBigInt, quality]
       });
       
-      return batch as unknown as ProcessingBatch;
+      return carbonOffset as bigint;
     } catch (error) {
-      console.error('Error getting processing batch:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get processing batch details
-   */
-  async getProcessingBatchDetails(
-    batchId: number | bigint
-  ): Promise<{
-    batch: ProcessingBatch;
-    processor: Address;
-    collectionIds: bigint[];
-  }> {
-    try {
-      const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
-      
-      const details = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getProcessingBatchDetails',
-        args: [batchIdBigInt]
-      });
-      
-      return details as unknown as {
-        batch: ProcessingBatch;
-        processor: Address;
-        collectionIds: bigint[];
-      };
-    } catch (error) {
-      console.error('Error getting processing batch details:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get processing batch collections
-   */
-  async getProcessingBatchCollections(
-    batchId: number | bigint
-  ): Promise<bigint[]> {
-    try {
-      const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
-      
-      const collectionIds = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getProcessingBatchCollections',
-        args: [batchIdBigInt]
-      });
-      
-      return collectionIds as bigint[];
-    } catch (error) {
-      console.error('Error getting processing batch collections:', error);
+      console.error('Error calculating carbon offset:', error);
       throw error;
     }
   }
@@ -824,19 +718,17 @@ export class AfriCycle {
     amount: number | bigint,
     pricePerUnit: number | bigint,
     quality: AfricycleQualityGrade,
-    description: string,
-    carbonCredits: number | bigint
+    description: string
   ): Promise<Hash> {
     try {
       const amountBigInt = typeof amount === 'number' ? BigInt(amount) : amount;
       const pricePerUnitBigInt = typeof pricePerUnit === 'number' ? BigInt(pricePerUnit) : pricePerUnit;
-      const carbonCreditsBigInt = typeof carbonCredits === 'number' ? BigInt(carbonCredits) : carbonCredits;
       
       const { request } = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'createListing',
-        args: [wasteType, amountBigInt, pricePerUnitBigInt, quality, description, carbonCreditsBigInt],
+        args: [wasteType, amountBigInt, pricePerUnitBigInt, quality, description, BigInt(0)], // Carbon credits set to 0
         account
       });
 
@@ -875,83 +767,6 @@ export class AfriCycle {
   }
 
   /**
-   * Update a marketplace listing
-   */
-  async updateListing(
-    account: Address,
-    listingId: number | bigint,
-    newAmount: number | bigint,
-    newPrice: number | bigint
-  ): Promise<Hash> {
-    try {
-      const listingIdBigInt = typeof listingId === 'number' ? BigInt(listingId) : listingId;
-      const newAmountBigInt = typeof newAmount === 'number' ? BigInt(newAmount) : newAmount;
-      const newPriceBigInt = typeof newPrice === 'number' ? BigInt(newPrice) : newPrice;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'updateListing',
-        args: [listingIdBigInt, newAmountBigInt, newPriceBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error updating listing:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Cancel a marketplace listing
-   */
-  async cancelListing(
-    account: Address,
-    listingId: number | bigint
-  ): Promise<Hash> {
-    try {
-      const listingIdBigInt = typeof listingId === 'number' ? BigInt(listingId) : listingId;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'cancelListing',
-        args: [listingIdBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error cancelling listing:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get marketplace listing
-   */
-  async getListing(
-    listingId: number | bigint
-  ): Promise<MarketplaceListing> {
-    try {
-      const listingIdBigInt = typeof listingId === 'number' ? BigInt(listingId) : listingId;
-      
-      const listing = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'listings',
-        args: [listingIdBigInt]
-      });
-      
-      return listing as unknown as MarketplaceListing;
-    } catch (error) {
-      console.error('Error getting listing:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get marketplace listings by waste type
    */
   async getMarketplaceListings(
@@ -976,30 +791,26 @@ export class AfriCycle {
   // ============ Impact Credit Functions ============
 
   /**
-   * Get impact credit
+   * Get user's impact credits
    */
-  async getImpactCredit(
-    creditId: number | bigint
-  ): Promise<ImpactCredit> {
+  async getUserImpactCredits(userAddress: Address): Promise<bigint[]> {
     try {
-      const creditIdBigInt = typeof creditId === 'number' ? BigInt(creditId) : creditId;
-      
-      const credit = await this.publicClient.readContract({
+      const credits = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
-        functionName: 'impactCredits',
-        args: [creditIdBigInt]
+        functionName: 'getUserImpactCredits',
+        args: [userAddress]
       });
       
-      return credit as unknown as ImpactCredit;
+      return credits as bigint[];
     } catch (error) {
-      console.error('Error getting impact credit:', error);
+      console.error('Error getting user impact credits:', error);
       throw error;
     }
   }
 
   /**
-   * Transfer an impact credit to another address
+   * Transfer an impact credit
    */
   async transferImpactCredit(
     account: Address,
@@ -1020,50 +831,6 @@ export class AfriCycle {
       return this.walletClient.writeContract(request);
     } catch (error) {
       console.error('Error transferring impact credit:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Burn an impact credit
-   */
-  async burnImpactCredit(
-    account: Address,
-    creditId: number | bigint
-  ): Promise<Hash> {
-    try {
-      const creditIdBigInt = typeof creditId === 'number' ? BigInt(creditId) : creditId;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'burnImpactCredit',
-        args: [creditIdBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error burning impact credit:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's impact credits
-   */
-  async getUserImpactCredits(userAddress: Address): Promise<bigint[]> {
-    try {
-      const credits = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getUserImpactCredits',
-        args: [userAddress]
-      });
-      
-      return credits as bigint[];
-    } catch (error) {
-      console.error('Error getting user impact credits:', error);
       throw error;
     }
   }
@@ -1120,488 +887,37 @@ export class AfriCycle {
     }
   }
 
-  /**
-   * Withdraw corporate earnings
-   */
-  async withdrawCorporateEarnings(
-    account: Address,
-    amount: number | bigint
-  ): Promise<Hash> {
-    try {
-      const amountBigInt = typeof amount === 'number' ? BigInt(amount) : amount;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'withdrawCorporateEarnings',
-        args: [amountBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error withdrawing corporate earnings:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Withdraw collection point earnings
-   */
-  async withdrawCollectionPointEarnings(
-    account: Address,
-    amount: number | bigint
-  ): Promise<Hash> {
-    try {
-      const amountBigInt = typeof amount === 'number' ? BigInt(amount) : amount;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'withdrawCollectionPointEarnings',
-        args: [amountBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error withdrawing collection point earnings:', error);
-      throw error;
-    }
-  }
-
-  // ============ Admin Functions ============
-
-  /**
-   * Set reward rate for a waste type
-   */
-  async setRewardRate(
-    account: Address,
-    wasteType: AfricycleWasteStream,
-    rate: number | bigint
-  ): Promise<Hash> {
-    try {
-      const rateBigInt = typeof rate === 'number' ? parseEther(rate.toString()) : rate;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'setRewardRate',
-        args: [wasteType, rateBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error setting reward rate:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Set quality multiplier for a waste type and quality grade
-   */
-  async setQualityMultiplier(
-    account: Address,
-    wasteType: AfricycleWasteStream,
-    quality: AfricycleQualityGrade,
-    multiplier: number | bigint
-  ): Promise<Hash> {
-    try {
-      const multiplierBigInt = typeof multiplier === 'number' ? BigInt(multiplier) : multiplier;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'setQualityMultiplier',
-        args: [wasteType, quality, multiplierBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error setting quality multiplier:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Withdraw platform fees
-   */
-  async withdrawPlatformFees(account: Address): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'withdrawPlatformFees',
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error withdrawing platform fees:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Pause the contract
-   */
-  async pause(account: Address): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'pause',
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error pausing contract:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Unpause the contract
-   */
-  async unpause(account: Address): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'unpause',
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error unpausing contract:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Suspend a user
-   */
-  async suspendUser(
-    account: Address, 
-    user: Address, 
-    reason: string
-  ): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'suspendUser',
-        args: [user, reason],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error suspending user:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Unsuspend a user
-   */
-  async unsuspendUser(
-    account: Address, 
-    user: Address
-  ): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'unsuspendUser',
-        args: [user],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error unsuspending user:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Blacklist a user
-   */
-  async blacklistUser(
-    account: Address, 
-    user: Address, 
-    reason: string
-  ): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'blacklistUser',
-        args: [user, reason],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error blacklisting user:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Remove a user from blacklist
-   */
-  async removeFromBlacklist(
-    account: Address, 
-    user: Address
-  ): Promise<Hash> {
-    try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'removeFromBlacklist',
-        args: [user],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error removing user from blacklist:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Set verification threshold for a waste type
-   */
-  async setVerificationThreshold(
-    account: Address,
-    wasteType: AfricycleWasteStream,
-    threshold: number | bigint
-  ): Promise<Hash> {
-    try {
-      const thresholdBigInt = typeof threshold === 'number' ? BigInt(threshold) : threshold;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'setVerificationThreshold',
-        args: [wasteType, thresholdBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error setting verification threshold:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Emergency withdraw tokens
-   */
-  async emergencyWithdraw(
-    account: Address,
-    token: Address,
-    amount: number | bigint
-  ): Promise<Hash> {
-    try {
-      const amountBigInt = typeof amount === 'number' ? BigInt(amount) : amount;
-      
-      const { request } = await this.publicClient.simulateContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'emergencyWithdraw',
-        args: [token, amountBigInt],
-        account
-      });
-
-      return this.walletClient.writeContract(request);
-    } catch (error) {
-      console.error('Error performing emergency withdrawal:', error);
-      throw error;
-    }
-  }
-
   // ============ Stats Functions ============
 
   /**
-   * Get user stats
+   * Get global stats
    */
-  async getUserStats(userAddress: Address): Promise<{
-    collected: bigint[];
-    processed: bigint[];
-    totalEarnings: bigint;
-    reputationScore: bigint;
+  async getGlobalStats(): Promise<{
+    collectedStats: bigint[];
+    processedStats: bigint[];
+    marketplaceStats: bigint[];
+    platformFees: bigint;
+    rewardsPaid: bigint;
   }> {
     try {
-      const result = await this.publicClient.readContract({
+      const stats = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
-        functionName: 'getUserStats',
-        args: [userAddress]
+        functionName: 'getGlobalStats'
       });
       
-      const [collected, processed, totalEarnings, reputationScore] = result as [bigint[], bigint[], bigint, bigint];
+      const [collectedStats, processedStats, marketplaceStats, platformFees, rewardsPaid] = 
+        stats as [bigint[], bigint[], bigint[], bigint, bigint];
       
       return {
-        collected,
-        processed,
-        totalEarnings,
-        reputationScore
+        collectedStats,
+        processedStats,
+        marketplaceStats,
+        platformFees,
+        rewardsPaid
       };
     } catch (error) {
-      console.error('Error getting user stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get collector stats
-   */
-  async getCollectorStats(collectorAddress: Address): Promise<{
-    totalCollected: bigint;
-    totalEarnings: bigint;
-    pendingVerifications: bigint;
-    verifiedCollections: bigint;
-    reputationScore: bigint;
-    collectedByType: bigint[];
-  }> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getCollectorStats',
-        args: [collectorAddress]
-      });
-      
-      const [
-        totalCollected, 
-        totalEarnings, 
-        pendingVerifications, 
-        verifiedCollections,
-        reputationScore,
-        collectedByType
-      ] = result as [bigint, bigint, bigint, bigint, bigint, bigint[]];
-      
-      return {
-        totalCollected,
-        totalEarnings,
-        pendingVerifications,
-        verifiedCollections,
-        reputationScore,
-        collectedByType
-      };
-    } catch (error) {
-      console.error('Error getting collector stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get collection point stats
-   */
-  async getCollectionPointStats(collectionPointAddress: Address): Promise<{
-    totalInventory: bigint;
-    pendingVerifications: bigint;
-    scheduledPickups: bigint;
-    activeCollectors: bigint;
-    inventoryByType: bigint[];
-  }> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getCollectionPointStats',
-        args: [collectionPointAddress]
-      });
-      
-      const [
-        totalInventory, 
-        pendingVerifications, 
-        scheduledPickups, 
-        activeCollectors,
-        inventoryByType
-      ] = result as [bigint, bigint, bigint, bigint, bigint[]];
-      
-      return {
-        totalInventory,
-        pendingVerifications,
-        scheduledPickups,
-        activeCollectors,
-        inventoryByType
-      };
-    } catch (error) {
-      console.error('Error getting collection point stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get recycler stats
-   */
-  async getRecyclerStats(recyclerAddress: Address): Promise<{
-    totalEarnings: bigint;
-    activeListings: bigint;
-    reputationScore: bigint;
-    processedByType: bigint[];
-  }> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getRecyclerStats',
-        args: [recyclerAddress]
-      });
-      
-      const [totalEarnings, activeListings, reputationScore, processedByType] = 
-        result as [bigint, bigint, bigint, bigint[]];
-      
-      return {
-        totalEarnings,
-        activeListings,
-        reputationScore,
-        processedByType
-      };
-    } catch (error) {
-      console.error('Error getting recycler stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get corporate stats
-   */
-  async getCorporateStats(corporateAddress: Address): Promise<{
-    totalPurchases: bigint;
-    totalImpactCredits: bigint;
-    carbonOffset: bigint;
-    purchasedByType: bigint[];
-  }> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getCorporateStats',
-        args: [corporateAddress]
-      });
-      
-      const [totalPurchases, totalImpactCredits, carbonOffset, purchasedByType] = 
-        result as [bigint, bigint, bigint, bigint[]];
-      
-      return {
-        totalPurchases,
-        totalImpactCredits,
-        carbonOffset,
-        purchasedByType
-      };
-    } catch (error) {
-      console.error('Error getting corporate stats:', error);
+      console.error('Error getting global stats:', error);
       throw error;
     }
   }
@@ -1643,192 +959,79 @@ export class AfriCycle {
     }
   }
 
-  /**
-   * Get contract stats
-   */
-  async getContractStats(): Promise<{
-    collectedStats: bigint[];
-    processedStats: bigint[];
-    userCount: bigint;
-    listingCount: bigint;
-    creditCount: bigint;
-  }> {
-    try {
-      const result = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'getContractStats'
-      });
-      
-      const [collectedStats, processedStats, userCount, listingCount, creditCount] = 
-        result as [bigint[], bigint[], bigint, bigint, bigint];
-      
-      return {
-        collectedStats,
-        processedStats,
-        userCount,
-        listingCount,
-        creditCount
-      };
-    } catch (error) {
-      console.error('Error getting contract stats:', error);
-      throw error;
-    }
-  }
-
-  // ============ Helper Functions ============
+  // ============ Collection Point Functions ============
 
   /**
-   * Get reward rate for a waste type
+   * Register a collector at a collection point
    */
-  async getRewardRate(wasteType: AfricycleWasteStream): Promise<bigint> {
+  async registerCollectorAtPoint(
+    account: Address,
+    collector: Address
+  ): Promise<Hash> {
     try {
-      const rate = await this.publicClient.readContract({
+      const { request } = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
-        functionName: 'rewardRates',
-        args: [wasteType]
+        functionName: 'registerCollectorAtPoint',
+        args: [collector],
+        account
       });
-      
-      return rate as bigint;
+
+      return this.walletClient.writeContract(request);
     } catch (error) {
-      console.error('Error getting reward rate:', error);
+      console.error('Error registering collector at point:', error);
       throw error;
     }
   }
 
   /**
-   * Get quality multiplier for a waste type and quality grade
+   * Remove a collector from a collection point
    */
-  async getQualityMultiplier(
+  async removeCollectorFromPoint(
+    account: Address,
+    collector: Address
+  ): Promise<Hash> {
+    try {
+      const { request } = await this.publicClient.simulateContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'removeCollectorFromPoint',
+        args: [collector],
+        account
+      });
+
+      return this.walletClient.writeContract(request);
+    } catch (error) {
+      console.error('Error removing collector from point:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update collection point inventory
+   */
+  async updateCollectionPointInventory(
+    account: Address,
     wasteType: AfricycleWasteStream,
-    quality: AfricycleQualityGrade
-  ): Promise<bigint> {
+    newAmount: number | bigint
+  ): Promise<Hash> {
     try {
-      const multiplier = await this.publicClient.readContract({
+      const newAmountBigInt = typeof newAmount === 'number' ? BigInt(newAmount) : newAmount;
+      
+      const { request } = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
-        functionName: 'qualityMultipliers',
-        args: [wasteType, quality]
+        functionName: 'updateCollectionPointInventory',
+        args: [wasteType, newAmountBigInt],
+        account
       });
-      
-      return multiplier as bigint;
+
+      return this.walletClient.writeContract(request);
     } catch (error) {
-      console.error('Error getting quality multiplier:', error);
+      console.error('Error updating collection point inventory:', error);
       throw error;
     }
   }
-
-  /**
-   * Check if a user is blacklisted
-   */
-  async isUserBlacklisted(userAddress: Address): Promise<boolean> {
-    try {
-      const blacklisted = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'isBlacklisted',
-        args: [userAddress]
-      });
-      
-      return blacklisted as boolean;
-    } catch (error) {
-      console.error('Error checking if user is blacklisted:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if a user is suspended
-   */
-  async isUserSuspended(userAddress: Address): Promise<boolean> {
-    try {
-      const suspended = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'isSuspended',
-        args: [userAddress]
-      });
-      
-      return suspended as boolean;
-    } catch (error) {
-      console.error('Error checking if user is suspended:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get total processed amount for a waste type
-   */
-  async getTotalProcessed(wasteType: AfricycleWasteStream): Promise<bigint> {
-    try {
-      const total = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'totalProcessed',
-        args: [wasteType]
-      });
-      
-      return total as bigint;
-    } catch (error) {
-      console.error('Error getting total processed amount:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get verification threshold for a waste type
-   */
-  async getVerificationThreshold(wasteType: AfricycleWasteStream): Promise<bigint> {
-    try {
-      const threshold = await this.publicClient.readContract({
-        address: this.contractAddress,
-        abi: afriCycleAbi,
-        functionName: 'verificationThresholds',
-        args: [wasteType]
-      });
-      
-      return threshold as bigint;
-    } catch (error) {
-      console.error('Error getting verification threshold:', error);
-      throw error;
-    }
-  }
-}
-
-// Factory function to create a new instance of AfriCycle
-export function createAfriCycle(
-  contractAddress: Address,
-  rpcUrl: string,
-  privateKey?: string
-): AfriCycle {
-  // Create public client with specific chain type
-  const publicClient = createPublicClient({
-    chain: celoAlfajores,
-    transport: http(rpcUrl)
-  }) as PublicClient;
-
-  // Create wallet client if private key is provided
-  let walletClient: WalletClient<Transport, Chain, Account> | undefined;
-  if (privateKey) {
-    // Convert private key to account
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
-    walletClient = createWalletClient({
-      account,
-      chain: celoAlfajores,
-      transport: http(rpcUrl)
-    }) as WalletClient<Transport, Chain, Account>;
-  }
-
-  // Create AfriCycle instance with the public client and optional wallet client
-  const instance = new AfriCycle(contractAddress, rpcUrl);
-  
-  // If we have a wallet client, override the default one
-  if (walletClient) {
-    (instance as any).walletClient = walletClient;
-  }
-
-  return instance;
 }
 
 // Hook to use AfriCycle in React components

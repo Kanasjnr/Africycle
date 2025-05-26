@@ -17,10 +17,9 @@ import {
   http, 
   PublicClient,
   type Hash,
-  getContract,
-  waitForTransaction
+  getContract
 } from "viem"
-import { celoAlfajores } from "viem/chains"
+import { celo } from "viem/chains"
 import axios from "axios"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -33,7 +32,7 @@ const getCloudinaryImageUrl = (publicId: string) => {
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
-const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org"
+const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://forno.celo.org"
 
 // Add debug logging for contract configuration
 console.log('Verification Page Contract Config:', {
@@ -319,44 +318,15 @@ export default function PhotoVerificationPage() {
     }
   })
 
-  // Add state for contract balance
-  const [contractBalance, setContractBalance] = useState<bigint | null>(null)
-  const [balanceLoading, setBalanceLoading] = useState(true)
-  const [balanceError, setBalanceError] = useState<string | null>(null)
-
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL
   })
 
-  // Fetch contract balance
-  useEffect(() => {
-    async function fetchContractBalance() {
-      if (!africycle) return;
-      
-      try {
-        setBalanceLoading(true);
-        setBalanceError(null);
-        const balance = await africycle.getContractCUSDBalance();
-        setContractBalance(balance);
-      } catch (error) {
-        console.error("Error fetching contract balance:", error);
-        setBalanceError("Failed to fetch contract balance");
-      } finally {
-        setBalanceLoading(false);
-      }
-    }
-
-    fetchContractBalance();
-    // Refresh balance every minute
-    const interval = setInterval(fetchContractBalance, 60000);
-    return () => clearInterval(interval);
-  }, [africycle]);
-
   // Create public client - memoize to prevent recreation
   const publicClient = useMemo(() => createPublicClient({
-    chain: celoAlfajores,
+    chain: celo,
     transport: http(RPC_URL)
   }) as PublicClient, [])
 
@@ -396,14 +366,14 @@ export default function PhotoVerificationPage() {
     }
   }, [handleFormChange])
 
-  // Update fetchCollections to handle WasteCollection type properly
+  // Update fetchCollections to use the correct methods
   const fetchCollections = useCallback(async () => {
     if (!address || !africycle) {
       console.log('Debug: fetchCollections - Missing address or africycle:', { 
         hasAddress: !!address, 
         hasAfricycle: !!africycle
       })
-      setIsInitialLoading(false) // Make sure to set loading to false even if we can't fetch
+      setIsInitialLoading(false)
       return
     }
     
@@ -411,74 +381,27 @@ export default function PhotoVerificationPage() {
       console.log('Debug: Starting to fetch collections for address:', address)
       setIsInitialLoading(true)
       
-      // Get collector stats first
-      console.log('Debug: Fetching collector stats...')
-      const collectorStats = await africycle.getCollectorStats(address)
-      console.log('Debug: Collector stats:', collectorStats)
+      const collections: Collection[] = []
+      let currentId = 0
+      const MAX_ATTEMPTS = 100 // Safety limit
       
-      const totalCollections = Number(collectorStats.totalCollected)
-      console.log('Debug: Total collections to fetch:', totalCollections)
-      
-      if (totalCollections > 0) {
-        console.log(`Debug: Found ${totalCollections} collections for collector`)
-        
-        // Fetch all collections in parallel with a reasonable batch size
-        const BATCH_SIZE = 10
-        const batches = Math.ceil(totalCollections / BATCH_SIZE)
-        const allCollections: Collection[] = []
-        
-        console.log(`Debug: Processing ${batches} batches of size ${BATCH_SIZE}`)
-        
-        for (let batch = 0; batch < batches; batch++) {
-          const start = batch * BATCH_SIZE
-          const end = Math.min(start + BATCH_SIZE, totalCollections)
-          
-          console.log(`Debug: Processing batch ${batch + 1}/${batches} (indices ${start}-${end-1})`)
-          
-          try {
-            // Create batch of promises
-            const batchPromises = Array.from(
-              { length: end - start }, 
-              (_, i) => africycle.getCollection(BigInt(start + i))
-            )
-            
-            // Fetch batch in parallel
-            const batchResults = await Promise.all(batchPromises)
-            console.log(`Debug: Batch ${batch + 1} results:`, batchResults)
-            
-            // Process batch results
-            const validCollections = batchResults
-              .map((data, i) => {
-                const collection = arrayToCollection(data, start + i)
-                if (collection) {
-                  console.log(`Debug: Valid collection found at index ${start + i}:`, collection)
-                }
-                return collection
-              })
-              .filter((c): c is Collection => c !== null && c.collector.toLowerCase() === address.toLowerCase())
-            
-            console.log(`Debug: Batch ${batch + 1} valid collections:`, validCollections.length)
-            allCollections.push(...validCollections)
-            
-            // Update state with current batch results
-            setState(prev => ({
-              ...prev,
-              collections: [...allCollections]
-            }))
-          } catch (error) {
-            console.error(`Debug: Error processing batch ${batch + 1}:`, error)
-            // Continue with next batch even if this one fails
+      while (currentId < MAX_ATTEMPTS) {
+        try {
+          const data = await africycle.getCollectionDetails(BigInt(currentId))
+          if (data.collection.collector === '0x0000000000000000000000000000000000000000') break
+          if (data.collection.collector.toLowerCase() === address.toLowerCase()) {
+            const collection = arrayToCollection(data.collection, currentId)
+            if (collection) collections.push(collection)
           }
+          currentId++
+        } catch (error) {
+          console.log(`Debug: End of collections at ID ${currentId}`)
+          break
         }
-        
-        console.log('Debug: Final collections array:', allCollections)
-      } else {
-        console.log('Debug: No collections found for collector')
-        setState(prev => ({
-          ...prev,
-          collections: []
-        }))
       }
+      
+      setState(prev => ({ ...prev, collections }))
+      
     } catch (error) {
       console.error('Debug: Error in fetchCollections:', error)
       toast.error("Failed to fetch collections")
@@ -514,7 +437,7 @@ export default function PhotoVerificationPage() {
     ))
   }, [state.collections, loadingCollections, timeAgo])
 
-  // Update handleSubmit to use waitForTransaction
+  // Update handleSubmit to use Celo mainnet
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -524,6 +447,15 @@ export default function PhotoVerificationPage() {
     }
 
     try {
+      console.log('Debug: Starting collection submission with data:', {
+        address,
+        wasteType: state.form.wasteType,
+        weight: state.form.weight,
+        location: state.form.location,
+        imageHash: state.form.imageHash,
+        hasAfricycle: !!africycle
+      });
+
       setState(prev => ({ 
         ...prev, 
         form: { ...prev.form, submitting: true } 
@@ -542,22 +474,34 @@ export default function PhotoVerificationPage() {
         throw new Error("Please enter a valid location");
       }
 
+      console.log('Debug: Attempting to create collection with params:', {
+        account: address,
+        wasteType: state.form.wasteType,
+        weight: weight,
+        location: state.form.location,
+        imageHash: state.form.imageHash
+      });
+
       // Create the collection
       const hash = await africycle.createCollection(
         address,
         state.form.wasteType,
         weight,
         state.form.location,
-        "", // QR code is optional
         state.form.imageHash
       );
 
+      console.log('Debug: Collection creation transaction hash:', hash);
+
       // Wait for transaction to be mined using the public client
       const publicClient = createPublicClient({
-        chain: celoAlfajores,
+        chain: celo,
         transport: http(RPC_URL)
       });
-      await waitForTransaction(publicClient, { hash });
+      
+      console.log('Debug: Waiting for transaction receipt...');
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('Debug: Transaction receipt:', receipt);
 
       toast.success("Collection created successfully!");
       
@@ -810,58 +754,6 @@ export default function PhotoVerificationPage() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Add Contract Balance Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Contract Status</CardTitle>
-            <CardDescription>
-              Current cUSD balance available for rewards
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {balanceLoading ? (
-              <div className="flex items-center space-x-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span>Loading balance...</span>
-              </div>
-            ) : balanceError ? (
-              <div className="text-destructive">
-                {balanceError}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="ml-2"
-                  onClick={() => {
-                    setBalanceError(null);
-                    setBalanceLoading(true);
-                    africycle?.getContractCUSDBalance()
-                      .then(setContractBalance)
-                      .catch(error => {
-                        console.error("Error fetching balance:", error);
-                        setBalanceError("Failed to fetch balance");
-                      })
-                      .finally(() => setBalanceLoading(false));
-                  }}
-                >
-                  Retry
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-baseline space-x-2">
-                <span className="text-2xl font-bold">
-                  {formatEther(contractBalance || BigInt(0))}
-                </span>
-                <span className="text-muted-foreground">cUSD</span>
-                {contractBalance === BigInt(0) && (
-                  <Badge variant="destructive" className="ml-2">
-                    No rewards available
-                  </Badge>
-                )}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

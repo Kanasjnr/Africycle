@@ -22,11 +22,6 @@ import { MetricCard } from "@/components/dashboard/metric-card"
 import { IconBox, IconRefresh, IconStore, IconShield, IconChart } from "@/components/ui/icons"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
-import RecyclerOverview from "@/app/dashboard/recycler/page"
-import MaterialProcessing from "@/app/dashboard/recycler/processing/page"
-import MaterialTrackingOverview from "@/app/dashboard/recycler/tracking/page"
-import ProcessingOverview from "@/app/dashboard/recycler/processing/page"
-import MarketplaceOverview from "@/app/dashboard/recycler/marketplace/page"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -38,82 +33,14 @@ import {
   IconMap,
 } from "@tabler/icons-react"
 
-// Sample data for charts
-const monthlyData = [
-  { month: "Jan", plasticFootprint: 1200, recycledContent: 800, carbonReduction: 500, waterConservation: 300 },
-  { month: "Feb", plasticFootprint: 1100, recycledContent: 850, carbonReduction: 550, waterConservation: 350 },
-  { month: "Mar", plasticFootprint: 1000, recycledContent: 900, carbonReduction: 600, waterConservation: 400 },
-  { month: "Apr", plasticFootprint: 950, recycledContent: 950, carbonReduction: 650, waterConservation: 450 },
-  { month: "May", plasticFootprint: 900, recycledContent: 1000, carbonReduction: 700, waterConservation: 500 },
-  { month: "Jun", plasticFootprint: 850, recycledContent: 1050, carbonReduction: 750, waterConservation: 550 },
-]
+// Remove incorrect recycler component imports
+// import RecyclerOverview from "@/app/dashboard/recycler/page"
+// import MaterialProcessing from "@/app/dashboard/recycler/processing/page"
+// import MaterialTrackingOverview from "@/app/dashboard/recycler/tracking/page"
+// import ProcessingOverview from "@/app/dashboard/recycler/processing/page"
+// import MarketplaceOverview from "@/app/dashboard/recycler/marketplace/page"
 
-const materialData = [
-  { material: "PET", recycled: 450, virgin: 550 },
-  { material: "HDPE", recycled: 350, virgin: 650 },
-  { material: "PP", recycled: 250, virgin: 750 },
-  { material: "LDPE", recycled: 200, virgin: 800 },
-  { material: "MLP", recycled: 150, virgin: 850 },
-]
-
-interface AnalyticCardProps {
-  title: string
-  value: string
-  description: string
-  chart: React.ReactNode
-}
-
-function AnalyticCard({ title, value, description, chart }: AnalyticCardProps) {
-  return (
-    <Card>
-      <div className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold">{value}</span>
-              <span className="text-sm text-muted-foreground">{description}</span>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 h-[200px]">
-          {/* Placeholder for chart */}
-          <div className="flex h-full items-center justify-center rounded-lg border bg-muted/50">
-            {chart}
-          </div>
-        </div>
-      </div>
-    </Card>
-  )
-}
-
-interface ReportProps {
-  title: string
-  description: string
-  date: string
-  type: string
-  size: string
-}
-
-function Report({ title, description, date, type, size }: ReportProps) {
-  return (
-    <div className="flex items-center justify-between border-b py-4 last:border-0">
-      <div>
-        <h3 className="font-medium">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
-        <p className="text-sm text-muted-foreground">
-          Generated on {date} • {type} • {size}
-        </p>
-      </div>
-      <Button variant="outline" size="sm">
-        <IconDownload className="mr-2 h-4 w-4" />
-        Download
-      </Button>
-    </div>
-  )
-}
-
-export default function RecyclerDashboardPage() {
+export default function CorporatePartnerAnalyticsPage() {
   const router = useRouter()
   const { role, isLoading } = useRole()
 
@@ -134,17 +61,132 @@ export default function RecyclerDashboardPage() {
   return (
     <DashboardShell>
       <DashboardHeader
-        heading="Recycler Interface"
-        text="Track incoming materials, document processing, and manage marketplace listings"
+        heading="Analytics Dashboard"
+        text="Track supply chain metrics, environmental impact, and ESG performance"
       />
       <div className="grid gap-6">
-        <RecyclerOverview />
-        <div className="grid gap-6 md:grid-cols-2">
-          <MaterialProcessing />
+        {/* Overview Stats */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <MetricCard
+            icon={IconBox}
+            title="Total Materials"
+            value="15,250 kg"
+            description="Materials collected this month"
+            trend={{
+              value: 12,
+              label: "from last month",
+              positive: true,
+            }}
+          />
+          <MetricCard
+            icon={IconChart}
+            title="Environmental Impact"
+            value="45.2 tons"
+            description="CO2 emissions reduced"
+            trend={{
+              value: 8,
+              label: "from last month",
+              positive: true,
+            }}
+          />
+          <MetricCard
+            icon={IconStore}
+            title="Collection Points"
+            value="24"
+            description="Active collection points"
+            trend={{
+              value: 3,
+              label: "from last month",
+              positive: true,
+            }}
+          />
+          <MetricCard
+            icon={IconShield}
+            title="ESG Score"
+            value="85%"
+            description="Current ESG rating"
+            trend={{
+              value: 5,
+              label: "from last month",
+              positive: true,
+            }}
+          />
         </div>
-        <MaterialTrackingOverview />
-        <ProcessingOverview />
-        <MarketplaceOverview />
+
+        {/* Analytics Tabs */}
+        <Tabs defaultValue="supply-chain" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="supply-chain">Supply Chain</TabsTrigger>
+            <TabsTrigger value="environmental">Environmental Impact</TabsTrigger>
+            <TabsTrigger value="esg">ESG Metrics</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="supply-chain" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Supply Chain Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add supply chain analytics content */}
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[]}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="environmental" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Environmental Impact</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add environmental impact analytics content */}
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[]}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="esg" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>ESG Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add ESG metrics content */}
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[]}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="value" stroke="#8884d8" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardShell>
   )

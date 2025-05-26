@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRole } from "@/hooks/use-role"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card } from "@/components/ui/card"
@@ -74,6 +76,52 @@ function QuickAction({ title, href, icon: Icon }: QuickActionProps) {
 }
 
 export default function CollectionPointDashboard() {
+  const { role, isLoading } = useRole()
+
+  // Add debugging
+  useEffect(() => {
+    console.log("Collection Point Dashboard - Role:", role)
+    console.log("Collection Point Dashboard - Loading:", isLoading)
+  }, [role, isLoading])
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <DashboardHeader
+          heading="Collection Point"
+          text="Loading dashboard..."
+        />
+        <Card>
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </Card>
+      </DashboardShell>
+    )
+  }
+
+  if (role !== "collection_point") {
+    return (
+      <DashboardShell>
+        <DashboardHeader
+          heading="Access Denied"
+          text="You do not have permission to access this dashboard"
+        />
+        <Card>
+          <div className="p-6 text-center">
+            <p className="text-muted-foreground">
+              Current role: {role || "Not set"}
+            </p>
+            <p className="text-muted-foreground mt-2">
+              Please ensure you are logged in with a collection point account.
+            </p>
+          </div>
+        </Card>
+      </DashboardShell>
+    )
+  }
+
   return (
     <DashboardShell>
       <DashboardHeader
