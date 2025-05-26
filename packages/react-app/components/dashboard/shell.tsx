@@ -1,6 +1,6 @@
 "use client"
 
-import { Nav, recyclerNavItems, collectorNavItems } from "@/components/dashboard/nav"
+import { Nav, recyclerNavItems, collectorNavItems, collectionPointNavItems, corporatePartnerNavItems } from "@/components/dashboard/nav"
 import { IconBell, IconMoon } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -8,11 +8,20 @@ import { usePathname } from "next/navigation"
 import { useAccount } from "wagmi"
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useEffect, useState } from "react"
+import { useRole } from "@/hooks/use-role"
 
 interface UserProfile {
   name: string;
   location: string;
   contactInfo: string;
+  role: string;
+  status: number;
+  registrationDate: bigint;
+  isVerified: boolean;
+  verificationDate: bigint;
+  totalCollected: bigint;
+  totalEarnings: bigint;
+  collectorReputationScore: bigint;
 }
 
 interface DashboardShellProps {
@@ -21,10 +30,13 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname()
-  const isCollector = pathname?.startsWith("/dashboard/collector")
+  const { role, isLoading } = useRole()
+  const isCollector = role === "collector"
+  const isRecycler = role === "recycler"
+  const isCollectionPoint = role === "collection_point"
+  const isCorporatePartner = role === "corporate_partner"
   const { address } = useAccount()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   const africycle = useAfriCycle({
     contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
@@ -34,22 +46,39 @@ export function DashboardShell({ children }: DashboardShellProps) {
   useEffect(() => {
     async function loadUserProfile() {
       if (!address || !africycle) {
-        setIsLoading(false)
         return
       }
 
       try {
         const profile = await africycle.getUserProfile(address)
-        setUserProfile(profile as UserProfile)
+        const mappedProfile: UserProfile = {
+          name: profile.location,
+          location: profile.contactInfo,
+          contactInfo: profile.name,
+          role: profile.role,
+          status: profile.status,
+          registrationDate: profile.registrationDate,
+          isVerified: profile.isVerified,
+          verificationDate: profile.verificationDate,
+          totalCollected: profile.totalCollected,
+          totalEarnings: profile.totalEarnings,
+          collectorReputationScore: profile.collectorReputationScore,
+        }
+        setUserProfile(mappedProfile)
       } catch (error) {
         console.error("Error loading user profile:", error)
-      } finally {
-        setIsLoading(false)
       }
     }
 
     loadUserProfile()
   }, [address, africycle])
+
+  // Add debugging
+  useEffect(() => {
+    console.log("DashboardShell - Role:", role)
+    console.log("DashboardShell - Loading:", isLoading)
+    console.log("DashboardShell - User Profile:", userProfile)
+  }, [role, isLoading, userProfile])
 
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
@@ -62,46 +91,64 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <div className="fixed inset-y-0 z-50 flex w-72 flex-col">
-        <div className="flex h-full flex-col border-r bg-white">
-          <div className="flex flex-col gap-4 px-6 py-4">
-            {/* Logo */}
-            <div className="flex items-center gap-2 py-2">
-              <div className="rounded-full bg-gray-900 p-1">
-                <div className="h-6 w-6 rounded-full bg-white" />
+      {/* Only show sidebar when role is loaded and valid */}
+      {!isLoading && role && (
+        <div className="fixed inset-y-0 z-50 flex w-72 flex-col">
+          <div className="flex h-full flex-col border-r bg-white">
+            <div className="flex flex-col gap-4 px-6 py-4">
+              {/* Logo */}
+              <div className="flex items-center gap-2 py-2">
+                <div className="rounded-full bg-gray-900 p-1">
+                  <div className="h-6 w-6 rounded-full bg-white" />
+                </div>
+                <span className="text-lg font-semibold">
+                  {isCollector ? "Collector" :
+                   isRecycler ? "Recycler" :
+                   isCollectionPoint ? "Collection Point" :
+                   isCorporatePartner ? "Corporate Partner" : "Dashboard"}
+                </span>
               </div>
-              <span className="text-lg font-semibold">{isCollector ? "Collector" : "Recycler"}</span>
+
+              {/* Navigation */}
+              <Nav items={
+                isCollector ? collectorNavItems :
+                isRecycler ? recyclerNavItems :
+                isCollectionPoint ? collectionPointNavItems :
+                isCorporatePartner ? corporatePartnerNavItems :
+                []
+              } />
             </div>
 
-            {/* Navigation */}
-            <Nav items={isCollector ? collectorNavItems : recyclerNavItems} />
-          </div>
-
-          {/* User */}
-          <div className="mt-auto border-t bg-white px-6 py-4">
-            <div className="flex items-center gap-3 rounded-lg border bg-gray-50 p-4">
-              <Avatar>
-                <AvatarImage src="/placeholder-avatar.jpg" />
-                <AvatarFallback>
-                  {isLoading ? "..." : userProfile ? getInitials(userProfile.name) : "?"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  {isLoading ? "Loading..." : userProfile?.name || "Not Registered"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {isCollector ? "Collector" : "Recycler"}
-                </p>
+            {/* User Profile */}
+            <div className="mt-auto border-t p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  {userProfile?.name ? (
+                    <span className="text-sm font-medium text-primary">
+                      {getInitials(userProfile.name)}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-primary">
+                      {address?.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {userProfile?.name || "Not Registered"}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {userProfile?.location || "No location set"}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col pl-72">
+      <div className="flex-1 pl-0 lg:pl-72">
         {/* Header */}
         <header className="sticky top-0 z-40 border-b bg-white">
           <div className="flex h-16 items-center justify-between px-6">

@@ -12,7 +12,42 @@
   },
   {
     "inputs": [],
-    "name": "InvalidWasteStream",
+    "name": "ArrayLengthMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidListingDescription",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TooManyActiveListings",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAddress",
     "type": "error"
   },
   {
@@ -20,18 +55,49 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "bytes32",
-        "name": "operation",
-        "type": "bytes32"
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum AfriCycle.Status",
+        "name": "oldStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum AfriCycle.Status",
+        "name": "newStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "processor",
+        "type": "address"
+      }
+    ],
+    "name": "BatchProcessingStatusChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "wasteType",
+        "type": "uint8"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "itemsProcessed",
+        "name": "newMultiplier",
         "type": "uint256"
       }
     ],
-    "name": "BatchOperationCompleted",
+    "name": "CarbonOffsetMultiplierUpdated",
     "type": "event"
   },
   {
@@ -75,15 +141,40 @@
         "type": "address"
       },
       {
+        "indexed": true,
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "wasteType",
+        "type": "uint8"
+      },
+      {
         "indexed": false,
         "internalType": "uint256",
-        "name": "totalInventory",
+        "name": "oldAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "pendingVerifications",
+        "name": "newAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "CollectionPointInventoryUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collectionPoint",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalInventory",
         "type": "uint256"
       },
       {
@@ -100,31 +191,6 @@
       }
     ],
     "name": "CollectionPointStatsUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "verifier",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "CollectionRejected",
     "type": "event"
   },
   {
@@ -157,35 +223,10 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
         "internalType": "address",
-        "name": "verifier",
+        "name": "collectionPoint",
         "type": "address"
       },
-      {
-        "indexed": false,
-        "internalType": "enum AfricycleLibrary.QualityGrade",
-        "name": "quality",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "rewardAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "CollectionVerified",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
       {
         "indexed": true,
         "internalType": "address",
@@ -195,29 +236,36 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "totalCollected",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalEarnings",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "pendingVerifications",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "verifiedCollections",
+        "name": "timestamp",
         "type": "uint256"
       }
     ],
-    "name": "CollectorStatsUpdated",
+    "name": "CollectorRegisteredAtPoint",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collectionPoint",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collector",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "CollectorRemovedFromPoint",
     "type": "event"
   },
   {
@@ -369,6 +417,37 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "wasteType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalCollected",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalProcessed",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalMarketplaceVolume",
+        "type": "uint256"
+      }
+    ],
+    "name": "GlobalStatsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "id",
         "type": "uint256"
@@ -443,31 +522,6 @@
       }
     ],
     "name": "ImpactCreditTransferred",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "verifier",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "verificationProof",
-        "type": "string"
-      }
-    ],
-    "name": "ImpactCreditVerified",
     "type": "event"
   },
   {
@@ -692,6 +746,31 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalPlatformFees",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalRewardsPaid",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "PlatformStatsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "uint256",
         "name": "id",
@@ -804,6 +883,56 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "collectionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "oldGrade",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "newGrade",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assessor",
+        "type": "address"
+      }
+    ],
+    "name": "QualityAssessmentUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "quality",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newMultiplier",
+        "type": "uint256"
+      }
+    ],
+    "name": "QualityCarbonMultiplierUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "enum AfricycleLibrary.WasteStream",
         "name": "wasteType",
@@ -860,6 +989,37 @@
       }
     ],
     "name": "RecyclerStatsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldScore",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newScore",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ReputationChange",
     "type": "event"
   },
   {
@@ -1055,6 +1215,37 @@
       },
       {
         "indexed": false,
+        "internalType": "enum AfriCycle.Status",
+        "name": "oldStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum AfriCycle.Status",
+        "name": "newStatus",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "updatedBy",
+        "type": "address"
+      }
+    ],
+    "name": "UserProfileStatusChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "string",
         "name": "name",
         "type": "string"
@@ -1207,25 +1398,6 @@
       }
     ],
     "name": "UserVerified",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "enum AfricycleLibrary.WasteStream",
-        "name": "wasteType",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newThreshold",
-        "type": "uint256"
-      }
-    ],
-    "name": "VerificationThresholdUpdated",
     "type": "event"
   },
   {
@@ -1407,39 +1579,41 @@
   {
     "inputs": [
       {
-        "internalType": "enum AfricycleLibrary.WasteStream[]",
-        "name": "_wasteTypes",
+        "internalType": "uint256[]",
+        "name": "_collectionIds",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "enum AfricycleLibrary.QualityGrade[]",
+        "name": "_newGrades",
         "type": "uint8[]"
+      }
+    ],
+    "name": "batchUpdateCollectionQuality",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "_users",
+        "type": "address[]"
       },
       {
         "internalType": "uint256[]",
-        "name": "_weights",
+        "name": "_newScores",
         "type": "uint256[]"
       },
       {
-        "internalType": "string[]",
-        "name": "_locations",
-        "type": "string[]"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_qrCodes",
-        "type": "string[]"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_imageHashes",
-        "type": "string[]"
+        "internalType": "string",
+        "name": "_reason",
+        "type": "string"
       }
     ],
-    "name": "batchCreateCollections",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
-      }
-    ],
+    "name": "batchUpdateReputation",
+    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -1490,6 +1664,35 @@
   {
     "inputs": [
       {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "_wasteType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "_quality",
+        "type": "uint8"
+      }
+    ],
+    "name": "calculateCarbonOffset",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "carbonOffset",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_listingId",
         "type": "uint256"
@@ -1498,6 +1701,25 @@
     "name": "cancelListing",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "carbonOffsetMultipliers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1585,11 +1807,6 @@
         "internalType": "enum AfricycleLibrary.QualityGrade",
         "name": "_outputQuality",
         "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_carbonOffset",
-        "type": "uint256"
       }
     ],
     "name": "completeProcessing",
@@ -1616,11 +1833,6 @@
       },
       {
         "internalType": "string",
-        "name": "_qrCode",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
         "name": "_imageHash",
         "type": "string"
       }
@@ -1629,7 +1841,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "collectionId",
         "type": "uint256"
       }
     ],
@@ -1665,12 +1877,18 @@
       },
       {
         "internalType": "uint256",
-        "name": "_carbonCredits",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "createListing",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "listingId",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -1857,11 +2075,6 @@
       },
       {
         "internalType": "uint256",
-        "name": "pendingVerifications",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
         "name": "scheduledPickups",
         "type": "uint256"
       },
@@ -1897,16 +2110,6 @@
       {
         "internalType": "uint256",
         "name": "totalEarnings",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "pendingVerifications",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "verifiedCollections",
         "type": "uint256"
       },
       {
@@ -1985,6 +2188,39 @@
         "internalType": "uint256[4]",
         "name": "purchasedByType",
         "type": "uint256[4]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getGlobalStats",
+    "outputs": [
+      {
+        "internalType": "uint256[4]",
+        "name": "collectedStats",
+        "type": "uint256[4]"
+      },
+      {
+        "internalType": "uint256[4]",
+        "name": "processedStats",
+        "type": "uint256[4]"
+      },
+      {
+        "internalType": "uint256[4]",
+        "name": "marketplaceStats",
+        "type": "uint256[4]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "platformFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewardsPaid",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -2359,16 +2595,6 @@
           },
           {
             "internalType": "uint256",
-            "name": "pendingVerifications",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "verifiedCollections",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
             "name": "collectorReputationScore",
             "type": "uint256"
           },
@@ -2380,11 +2606,6 @@
           {
             "internalType": "uint256",
             "name": "totalInventory",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "collectionPointPendingVerifications",
             "type": "uint256"
           },
           {
@@ -2444,7 +2665,7 @@
           }
         ],
         "internalType": "struct AfriCycle.UserProfileView",
-        "name": "",
+        "name": "viewProfile",
         "type": "tuple"
       }
     ],
@@ -2821,6 +3042,25 @@
   {
     "inputs": [
       {
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "qualityCarbonMultipliers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "enum AfricycleLibrary.WasteStream",
         "name": "",
         "type": "uint8"
@@ -2891,6 +3131,19 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_collector",
+        "type": "address"
+      }
+    ],
+    "name": "registerCollectorAtPoint",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "string",
         "name": "_name",
         "type": "string"
@@ -2930,6 +3183,19 @@
       }
     ],
     "name": "registerRecycler",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_collector",
+        "type": "address"
+      }
+    ],
+    "name": "removeCollectorFromPoint",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3046,24 +3312,6 @@
   {
     "inputs": [
       {
-        "internalType": "enum AfricycleLibrary.WasteStream",
-        "name": "_wasteType",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_threshold",
-        "type": "uint256"
-      }
-    ],
-    "name": "setVerificationThreshold",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes4",
         "name": "interfaceId",
         "type": "bytes4"
@@ -3106,7 +3354,71 @@
         "type": "uint8"
       }
     ],
+    "name": "totalCollected",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "totalMarketplaceVolume",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalPlatformFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
     "name": "totalProcessed",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalRewardsPaid",
     "outputs": [
       {
         "internalType": "uint256",
@@ -3158,6 +3470,24 @@
   {
     "inputs": [
       {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "_wasteType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_multiplier",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateCarbonOffsetMultiplier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_collectionId",
         "type": "uint256"
@@ -3174,7 +3504,7 @@
       },
       {
         "internalType": "string",
-        "name": "_qrCode",
+        "name": "",
         "type": "string"
       },
       {
@@ -3184,6 +3514,42 @@
       }
     ],
     "name": "updateCollection",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "_wasteType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_newAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateCollectionPointInventory",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_collectionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "_newGrade",
+        "type": "uint8"
+      }
+    ],
+    "name": "updateCollectionQuality",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3237,6 +3603,24 @@
   {
     "inputs": [
       {
+        "internalType": "enum AfricycleLibrary.QualityGrade",
+        "name": "_quality",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_multiplier",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateQualityCarbonMultiplier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "string",
         "name": "_name",
         "type": "string"
@@ -3268,9 +3652,32 @@
         "internalType": "uint256",
         "name": "_newScore",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_reason",
+        "type": "string"
       }
     ],
     "name": "updateUserReputation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "enum AfriCycle.Status",
+        "name": "_newStatus",
+        "type": "uint8"
+      }
+    ],
+    "name": "updateUserStatus",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3284,25 +3691,6 @@
       }
     ],
     "name": "userActiveListings",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "enum AfricycleLibrary.WasteStream",
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "name": "verificationThresholds",
     "outputs": [
       {
         "internalType": "uint256",

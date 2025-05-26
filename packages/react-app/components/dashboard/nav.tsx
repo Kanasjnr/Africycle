@@ -6,14 +6,20 @@ import {
   IconCamera,
   IconChartBar,
   IconClipboardList,
+  IconClipboardCheck,
   IconCoin,
+  IconFileText,
   IconHome,
   IconLeaf,
+  IconMap,
   IconMap2,
+  IconPackage,
   IconQrcode,
   IconRecycle,
   IconShoppingCart,
+  IconShield,
   IconTimeline,
+  IconTruck,
   IconWallet,
   IconX,
 } from "@tabler/icons-react"
@@ -69,7 +75,7 @@ export const collectorNavItems = [
   {
     title: "Collection Map",
     href: "/dashboard/collector/map",
-    icon: <IconMap2 className="h-5 w-5 stroke-[2]" />,
+    icon: <IconMap className="h-5 w-5 stroke-[2]" />,
   },
   {
     title: "Photo Verification",
@@ -86,25 +92,38 @@ export const collectorNavItems = [
     href: "/dashboard/collector/history",
     icon: <IconTimeline className="h-5 w-5 stroke-[2]" />,
   },
-//   {
-//     title: "Verified Collections",
-//     href: "/dashboard/collector/verified",
-//     icon: <IconClipboardList className="h-5 w-5" />,
-//   },
-//   {
-//     title: "Rejected Collections",
-//     href: "/dashboard/collector/rejected",
-//     icon: <IconX className="h-5 w-5" />,
-//   },
-//   {
-//     title: "Performance Stats",
-//     href: "/dashboard/collector/stats",
-//     icon: <IconChartBar className="h-5 w-5" />,
-//   },
   {
     title: "Environmental Impact",
     href: "/dashboard/collector/impact",
     icon: <IconLeaf className="h-5 w-5 stroke-[2]" />,
+  },
+]
+
+export const collectionPointNavItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard/collection-point",
+    icon: <IconHome className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Material Verification",
+    href: "/dashboard/collection-point/verification",
+    icon: <IconClipboardCheck className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Inventory",
+    href: "/dashboard/collection-point/inventory",
+    icon: <IconPackage className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Logistics",
+    href: "/dashboard/collection-point/logistics",
+    icon: <IconTruck className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Performance",
+    href: "/dashboard/collection-point/performance",
+    icon: <IconChartBar className="h-5 w-5 stroke-[2]" />,
   },
 ]
 
@@ -120,7 +139,7 @@ export const recyclerNavItems = [
     icon: <IconBox className="h-5 w-5 stroke-[2]" />,
   },
   {
-    title: "Processing Documentation",
+    title: "Processing",
     href: "/dashboard/recycler/processing",
     icon: <IconClipboardList className="h-5 w-5 stroke-[2]" />,
   },
@@ -128,5 +147,38 @@ export const recyclerNavItems = [
     title: "Marketplace",
     href: "/dashboard/recycler/marketplace",
     icon: <IconShoppingCart className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Compliance",
+    href: "/dashboard/recycler/compliance",
+    icon: <IconShield className="h-5 w-5 stroke-[2]" />,
+  },
+]
+
+export const corporatePartnerNavItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard/corporate-partner",
+    icon: <IconHome className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Supply Chain",
+    href: "/dashboard/corporate-partner/supply-chain",
+    icon: <IconBox className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Impact Dashboard",
+    href: "/dashboard/corporate-partner/impact",
+    icon: <IconChartBar className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "Credit Marketplace",
+    href: "/dashboard/corporate-partner/marketplace",
+    icon: <IconShoppingCart className="h-5 w-5 stroke-[2]" />,
+  },
+  {
+    title: "ESG Reporting",
+    href: "/dashboard/corporate-partner/reporting",
+    icon: <IconFileText className="h-5 w-5 stroke-[2]" />,
   },
 ] 

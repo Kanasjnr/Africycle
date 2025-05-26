@@ -4,7 +4,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
 import { metaMaskWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { celoAlfajores } from 'viem/chains';
+import { celo } from 'viem/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Debug environment variable
@@ -21,9 +21,9 @@ const { connectors } = getDefaultWallets({
 
 // Create wagmi config
 const config = createConfig({
-  chains: [celoAlfajores],
+  chains: [celo],
   transports: {
-    [celoAlfajores.id]: http(process.env.NEXT_PUBLIC_CELO_RPC_URL),
+    [celo.id]: http(process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://forno.celo.org"),
   },
   connectors,
 });

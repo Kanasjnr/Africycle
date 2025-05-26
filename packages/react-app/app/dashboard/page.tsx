@@ -3,7 +3,6 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useRole } from "@/hooks/use-role"
-import { GoodDollarClaim } from '../../components/GoodDollarClaim'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -40,10 +39,6 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="mb-8">
-        <GoodDollarClaim />
-      </div>
-
       {/* ... existing dashboard content ... */}
     </div>
   )
