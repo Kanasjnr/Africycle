@@ -190,9 +190,13 @@ export default function CollectionPointDashboard() {
                 </div>
               </div>
               <div className="mt-4 h-[200px] w-full">
-                {/* Chart placeholder - To be implemented */}
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed">
-                  <p className="text-sm text-muted-foreground">Chart coming soon</p>
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed p-6">
+                  <div className="text-center space-y-2">
+                    <p className="text-sm font-medium">Inventory Analytics Coming Soon</p>
+                    <p className="text-xs text-muted-foreground">
+                      This chart will display your current inventory levels by waste category, helping you track and manage your collection point&apos;s capacity.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

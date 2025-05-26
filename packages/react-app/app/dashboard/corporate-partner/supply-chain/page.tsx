@@ -227,7 +227,10 @@ export default function SupplyChainPage() {
         </CardHeader>
         <CardContent>
           <div className="h-[400px] bg-muted rounded-lg flex items-center justify-center">
-            <p className="text-muted-foreground">Material flow visualization coming soon</p>
+            <div className="text-center space-y-2">
+              <p className="text-muted-foreground">Material flow tracking is currently being implemented</p>
+              <p className="text-sm text-muted-foreground">This feature will show the complete journey of recycled materials from collection to processing</p>
+            </div>
           </div>
         </CardContent>
       </Card>
