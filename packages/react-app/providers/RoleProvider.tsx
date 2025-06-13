@@ -4,19 +4,15 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useAfriCycle } from '@/hooks/useAfricycle';
 
-export type Role = 'collector' | 'collection_point' | 'recycler' | 'corporate_partner' | null;
+export type Role = 'collector' | 'recycler' | null;
 
 // Role mapping from bytes32 to human-readable roles
 // These values should match the keccak256 hashes of the role names in the contract
 const ROLE_MAPPING: { [key: string]: Role } = {
   // keccak256("COLLECTOR_ROLE")
   '0x14cf45180c3fcf249a5a305e9657ea05c14fd4f4e1800ee0216a8213091711d2': 'collector',
-  // keccak256("COLLECTION_POINT_ROLE")
-  '0xbfaa47f03b044d665fdcdc16f750c4b3b3aac1139fdcc9d487a720b0f072e4f7': 'collection_point',
   // keccak256("RECYCLER_ROLE")
   '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154': 'recycler',
-  // keccak256("CORPORATE_ROLE")
-  '0x636f72706f726174650000000000000000000000000000000000000000000000': 'corporate_partner',
 };
 
 interface RoleContextType {

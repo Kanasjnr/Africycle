@@ -67,9 +67,7 @@ async function main() {
     "ADMIN_ROLE",
     "COLLECTOR_ROLE",
     "COLLECTION_POINT_ROLE",
-    "RECYCLER_ROLE",
-    "CORPORATE_ROLE",
-    "VERIFIER_ROLE"
+    "RECYCLER_ROLE"
   ];
 
   for (const role of roles) {

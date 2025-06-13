@@ -54,7 +54,7 @@ const RPC_URL_SAFE = RPC_URL as string;
 
 const registrationSchema = z.object({
   role: z.enum(
-    ['collector', 'corporate_partner', 'collection_point', 'recycler'],
+    ['collector', 'recycler'],
     {
       required_error: 'Please select a role',
     }
@@ -72,7 +72,7 @@ export function RegistrationDialog() {
   const [isCheckingRegistration, setIsCheckingRegistration] = useState(true);
   const [isSwitchingChain, setIsSwitchingChain] = useState(false);
   const router = useRouter();
-  const { setRole } = useRole();
+  const { setRole, role } = useRole();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
@@ -97,47 +97,74 @@ export function RegistrationDialog() {
   // Check if user is already registered
   useEffect(() => {
     async function checkRegistration() {
+      console.log('Starting registration check...', {
+        isConnected,
+        address,
+        hasAfricycle: !!africycle
+      });
+
       if (!isConnected || !address || !africycle) {
+        console.log('Early return - missing requirements:', {
+          isConnected,
+          hasAddress: !!address,
+          hasAfricycle: !!africycle
+        });
         setIsCheckingRegistration(false);
         return;
       }
 
       try {
         // Check if user has a role
+        console.log('Checking user role for address:', address);
         const blockchainRole = await africycle.getUserRole(address);
+        console.log('Blockchain role:', blockchainRole);
 
         // Check if the role is a zero bytes32 value (unregistered)
         const isZeroRole =
           blockchainRole ===
           '0x0000000000000000000000000000000000000000000000000000000000000000';
+        console.log('Is zero role:', isZeroRole);
 
         if (!isZeroRole) {
           // User has a role, convert it to human-readable format
           const roleMapping: { [key: string]: Role } = {
             // keccak256("COLLECTOR_ROLE")
-            '0x636f6c6c6563746f720000000000000000000000000000000000000000000000': 'collector',
-            // keccak256("COLLECTION_POINT_ROLE")
-            '0xbfaa47f03b044d665fdcdc16f750c4b3b3aac1139fdcc9d487a720b0f072e4f7': 'collection_point',
+            '0x14cf45180c3fcf249a5a305e9657ea05c14fd4f4e1800ee0216a8213091711d2': 'collector',
             // keccak256("RECYCLER_ROLE")
             '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154': 'recycler',
-            // keccak256("CORPORATE_PARTNER_ROLE")
-            '0x636f72706f726174655f706172746e6572000000000000000000000000000000': 'corporate_partner',
           };
 
           const humanReadableRole = roleMapping[blockchainRole.toLowerCase()];
+          console.log('Human readable role:', humanReadableRole);
 
           if (humanReadableRole) {
-            setRole(humanReadableRole);
-            router.push('/dashboard');
+            // Check if profile exists by trying to get user profile
+            try {
+              console.log('Checking user profile...');
+              const userProfile = await africycle.getUserProfile(address);
+              console.log('User profile exists:', userProfile);
+              // If we get here, profile exists
+              setRole(humanReadableRole);
+              router.push('/dashboard');
+            } catch (profileError) {
+              // Profile doesn't exist or is not initialized
+              console.log('Profile check failed:', profileError);
+              console.log('User has role but profile is not initialized. Showing registration dialog.');
+              setRole(humanReadableRole); // Keep the role
+              setOpen(true); // Show registration dialog
+            }
           } else {
+            console.log('No human readable role found, showing registration dialog');
             setOpen(true);
           }
         } else {
+          console.log('User has no role, showing registration dialog');
           setOpen(true);
         }
       } catch (error) {
         console.error('Error checking registration:', error);
         // If there's an error, we'll show the registration dialog anyway
+        console.log('Error occurred, showing registration dialog');
         setOpen(true);
       } finally {
         setIsCheckingRegistration(false);
@@ -147,13 +174,27 @@ export function RegistrationDialog() {
     checkRegistration();
   }, [isConnected, address, router, setRole, africycle]);
 
+  // Add debug log for render conditions
+  console.log('RegistrationDialog render state:', {
+    isCheckingRegistration,
+    isConnected,
+    hasAfricycle: !!africycle,
+    isOpen: open,
+    currentRole: role
+  });
+
   // Don't show anything while checking registration
   if (isCheckingRegistration) {
+    console.log('Not rendering - still checking registration');
     return null;
   }
 
   // Don't show the dialog if wallet is not connected or africycle is not initialized
   if (!isConnected || !africycle) {
+    console.log('Not rendering - missing requirements:', {
+      isConnected,
+      hasAfricycle: !!africycle
+    });
     return null;
   }
 
@@ -237,26 +278,8 @@ export function RegistrationDialog() {
           );
           break;
 
-        case 'collection_point':
-          txHash = await africycle.registerCollectionPoint(
-            address,
-            data.name,
-            data.location,
-            data.email
-          );
-          break;
-
         case 'recycler':
           txHash = await africycle.registerRecycler(
-            address,
-            data.name,
-            data.location,
-            data.email
-          );
-          break;
-
-        case 'corporate_partner':
-          txHash = await africycle.registerCorporate(
             address,
             data.name,
             data.location,
@@ -284,14 +307,8 @@ export function RegistrationDialog() {
         case 'collector':
           router.push('/dashboard/collector');
           break;
-        case 'collection_point':
-          router.push('/dashboard/collection-point');
-          break;
         case 'recycler':
           router.push('/dashboard/recycler');
-          break;
-        case 'corporate_partner':
-          router.push('/dashboard/corporate-partner');
           break;
         default:
           router.push('/dashboard');
@@ -312,9 +329,13 @@ export function RegistrationDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Complete Your Registration</DialogTitle>
+          <DialogTitle>
+            {role ? 'Complete Your Profile' : 'Complete Your Registration'}
+          </DialogTitle>
           <DialogDescription>
-            Please provide your details to register on the AfriCycle platform.
+            {role
+              ? 'Your account has a role but needs a profile. Please provide your details to complete your profile.'
+              : 'Please provide your details to register on the AfriCycle platform.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -336,13 +357,7 @@ export function RegistrationDialog() {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="collector">Waste Collector</SelectItem>
-                      <SelectItem value="collection_point">
-                        Collection Point
-                      </SelectItem>
-                      <SelectItem value="recycler">Recycler</SelectItem>
-                      <SelectItem value="corporate_partner">
-                        Corporate Partner
-                      </SelectItem>
+                      <SelectItem value="recycler">Recycler (Collection Point & Processing)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

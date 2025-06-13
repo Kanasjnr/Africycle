@@ -33,8 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const { role, isLoading } = useRole()
   const isCollector = role === "collector"
   const isRecycler = role === "recycler"
-  const isCollectionPoint = role === "collection_point"
-  const isCorporatePartner = role === "corporate_partner"
+
   const { address } = useAccount()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
@@ -52,9 +51,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
       try {
         const profile = await africycle.getUserProfile(address)
         const mappedProfile: UserProfile = {
-          name: profile.location,
-          location: profile.contactInfo,
-          contactInfo: profile.name,
+          name: profile.name,
+          location: profile.location,
+          contactInfo: profile.contactInfo,
           role: profile.role,
           status: profile.status,
           registrationDate: profile.registrationDate,
@@ -104,8 +103,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <span className="text-lg font-semibold">
                   {isCollector ? "Collector" :
                    isRecycler ? "Recycler" :
-                   isCollectionPoint ? "Collection Point" :
-                   isCorporatePartner ? "Corporate Partner" : "Dashboard"}
+                     "Dashboard"}
                 </span>
               </div>
 
@@ -113,8 +111,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               <Nav items={
                 isCollector ? collectorNavItems :
                 isRecycler ? recyclerNavItems :
-                isCollectionPoint ? collectionPointNavItems :
-                isCorporatePartner ? corporatePartnerNavItems :
+                
                 []
               } />
             </div>

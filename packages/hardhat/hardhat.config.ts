@@ -1,7 +1,8 @@
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomicfoundation/hardhat-verify';
 import '@nomicfoundation/hardhat-ethers';
-import 'hardhat-coverage'; 
+import 'hardhat-coverage';
+import { expect } from "chai";
 import { config as dotEnvConfig } from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/config';
 
@@ -50,18 +51,23 @@ const config: HardhatUserConfig = {
   sourcify: {
     enabled: false,
   },
+  mocha: {
+    timeout: 100000,
+  },
   solidity: {
     version: '0.8.24',
     settings: {
+      viaIR: true,
+
       optimizer: {
         enabled: true,
         runs: 200,
       },
       outputSelection: {
-        "*": {
-          "*": ["evm.bytecode", "evm.deployedBytecode", "abi"]
-        }
-      }
+        '*': {
+          '*': ['evm.bytecode', 'evm.deployedBytecode', 'abi'],
+        },
+      },
     },
   },
 };
