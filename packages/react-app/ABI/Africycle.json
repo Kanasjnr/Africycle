@@ -22,17 +22,12 @@
   },
   {
     "inputs": [],
-    "name": "InvalidAmount",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "InvalidListingDescription",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "NotAuthorized",
+    "name": "ProfileUpdateTooSoon",
     "type": "error"
   },
   {
@@ -136,68 +131,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "collectionPoint",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "enum AfricycleLibrary.WasteStream",
-        "name": "wasteType",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "oldAmount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "CollectionPointInventoryUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "collectionPoint",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalInventory",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "scheduledPickups",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "activeCollectors",
-        "type": "uint256"
-      }
-    ],
-    "name": "CollectionPointStatsUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "uint256",
         "name": "id",
         "type": "uint256"
@@ -224,23 +157,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "collectionPoint",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
         "name": "collector",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "timestamp",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "CollectorRegisteredAtPoint",
+    "name": "CollectorEarningsWithdrawn",
     "type": "event"
   },
   {
@@ -249,7 +176,7 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "collectionPoint",
+        "name": "recycler",
         "type": "address"
       },
       {
@@ -265,7 +192,32 @@
         "type": "uint256"
       }
     ],
-    "name": "CollectorRemovedFromPoint",
+    "name": "CollectorRegisteredAtRecycler",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collector",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "CollectorRemovedFromRecycler",
     "type": "event"
   },
   {
@@ -292,62 +244,6 @@
       }
     ],
     "name": "ContractUnpaused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "corporate",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalPurchases",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalImpactCredits",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "carbonOffset",
-        "type": "uint256"
-      }
-    ],
-    "name": "CorporateStatsUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "collectionId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum AfriCycle.EWasteComponent",
-        "name": "component",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "name": "EWasteComponentUpdated",
     "type": "event"
   },
   {
@@ -385,6 +281,25 @@
       }
     ],
     "name": "EWasteDetailsAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "admin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "EmergencyEtherWithdrawn",
     "type": "event"
   },
   {
@@ -581,12 +496,6 @@
         "internalType": "enum AfricycleLibrary.QualityGrade",
         "name": "quality",
         "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "carbonCredits",
-        "type": "uint256"
       }
     ],
     "name": "ListingCreated",
@@ -652,37 +561,12 @@
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "isActive",
-        "type": "bool"
+        "internalType": "string",
+        "name": "newDescription",
+        "type": "string"
       }
     ],
     "name": "ListingUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "operation",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "OperationFailed",
     "type": "event"
   },
   {
@@ -696,6 +580,81 @@
       }
     ],
     "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "collectionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      }
+    ],
+    "name": "PickupConfirmed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "collectionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "PickupRejected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "collectionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collector",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "pickupTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "PickupScheduled",
     "type": "event"
   },
   {
@@ -866,25 +825,6 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "ProcessingRejected",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
         "name": "collectionId",
         "type": "uint256"
       },
@@ -952,6 +892,75 @@
       }
     ],
     "name": "QualityMultiplierUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RecyclerEarningsWithdrawn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "wasteType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RecyclerInventoryUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recycler",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RecyclerInventoryWithdrawn",
     "type": "event"
   },
   {
@@ -1151,31 +1160,6 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "description",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "SecurityIncident",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": false,
         "internalType": "address",
         "name": "account",
@@ -1202,37 +1186,6 @@
       }
     ],
     "name": "UserBlacklisted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum AfriCycle.Status",
-        "name": "oldStatus",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum AfriCycle.Status",
-        "name": "newStatus",
-        "type": "uint8"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "updatedBy",
-        "type": "address"
-      }
-    ],
-    "name": "UserProfileStatusChanged",
     "type": "event"
   },
   {
@@ -1415,33 +1368,7 @@
   },
   {
     "inputs": [],
-    "name": "COLLECTION_POINT_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "COLLECTOR_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "CORPORATE_ROLE",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -1493,6 +1420,19 @@
   },
   {
     "inputs": [],
+    "name": "MAX_PICKUP_TIME_WINDOW",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "MIN_PROFILE_UPDATE_INTERVAL",
     "outputs": [
       {
@@ -1520,19 +1460,6 @@
   {
     "inputs": [],
     "name": "RECYCLER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "VERIFIER_ROLE",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -1579,6 +1506,50 @@
   {
     "inputs": [
       {
+        "internalType": "enum AfricycleLibrary.WasteStream[]",
+        "name": "_wasteTypes",
+        "type": "uint8[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "_weights",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "_locations",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "_imageHashes",
+        "type": "string[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "_pickupTimes",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_recyclers",
+        "type": "address[]"
+      }
+    ],
+    "name": "batchCreateCollection",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256[]",
         "name": "_collectionIds",
         "type": "uint256[]"
@@ -1603,7 +1574,7 @@
       },
       {
         "internalType": "uint256[]",
-        "name": "_newScores",
+        "name": "_scores",
         "type": "uint256[]"
       },
       {
@@ -1683,7 +1654,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "carbonOffset",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1786,6 +1757,16 @@
         "internalType": "bool",
         "name": "isProcessed",
         "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "pickupTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "selectedRecycler",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -1817,6 +1798,19 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_collectionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "confirmPickup",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "enum AfricycleLibrary.WasteStream",
         "name": "_wasteType",
         "type": "uint8"
@@ -1835,13 +1829,23 @@
         "internalType": "string",
         "name": "_imageHash",
         "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_pickupTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_recycler",
+        "type": "address"
       }
     ],
     "name": "createCollection",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "collectionId",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1874,18 +1878,13 @@
         "internalType": "string",
         "name": "_description",
         "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
     "name": "createListing",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "listingId",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1906,7 +1905,13 @@
       }
     ],
     "name": "createProcessingBatch",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -1958,6 +1963,13 @@
       }
     ],
     "name": "emergencyWithdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "emergencyWithdrawEther",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -2028,6 +2040,16 @@
             "internalType": "bool",
             "name": "isProcessed",
             "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "pickupTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "selectedRecycler",
+            "type": "address"
           }
         ],
         "internalType": "struct AfriCycle.WasteCollection",
@@ -2062,40 +2084,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_collectionPoint",
-        "type": "address"
-      }
-    ],
-    "name": "getCollectionPointStats",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "totalInventory",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "scheduledPickups",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "activeCollectors",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256[4]",
-        "name": "inventoryByType",
-        "type": "uint256[4]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_collector",
         "type": "address"
       }
@@ -2104,7 +2092,7 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "totalCollected",
+        "name": "collectorTotalCollected",
         "type": "uint256"
       },
       {
@@ -2154,40 +2142,6 @@
         "internalType": "uint256",
         "name": "creditCount",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_corporate",
-        "type": "address"
-      }
-    ],
-    "name": "getCorporateStats",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "totalPurchases",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalImpactCredits",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "carbonOffset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256[4]",
-        "name": "purchasedByType",
-        "type": "uint256[4]"
       }
     ],
     "stateMutability": "view",
@@ -2424,8 +2378,28 @@
         "type": "uint256"
       },
       {
+        "internalType": "uint256",
+        "name": "totalInventory",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "scheduledPickups",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "activeCollectors",
+        "type": "uint256"
+      },
+      {
         "internalType": "uint256[4]",
         "name": "processedByType",
+        "type": "uint256[4]"
+      },
+      {
+        "internalType": "uint256[4]",
+        "name": "inventoryByType",
         "type": "uint256[4]"
       }
     ],
@@ -2605,6 +2579,21 @@
           },
           {
             "internalType": "uint256",
+            "name": "recyclerTotalEarnings",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "activeListings",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "recyclerReputationScore",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
             "name": "totalInventory",
             "type": "uint256"
           },
@@ -2620,47 +2609,12 @@
           },
           {
             "internalType": "uint256[4]",
-            "name": "inventoryByType",
-            "type": "uint256[4]"
-          },
-          {
-            "internalType": "uint256",
-            "name": "recyclerTotalEarnings",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "activeListings",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "recyclerReputationScore",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256[4]",
             "name": "processedByType",
             "type": "uint256[4]"
           },
           {
-            "internalType": "uint256",
-            "name": "totalPurchases",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "totalImpactCredits",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "carbonOffset",
-            "type": "uint256"
-          },
-          {
             "internalType": "uint256[4]",
-            "name": "purchasedByType",
+            "name": "inventoryByType",
             "type": "uint256[4]"
           }
         ],
@@ -2929,9 +2883,9 @@
         "type": "string"
       },
       {
-        "internalType": "uint256",
-        "name": "carbonCredits",
-        "type": "uint256"
+        "internalType": "enum AfriCycle.Status",
+        "name": "status",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",
@@ -3027,11 +2981,6 @@
         "internalType": "uint256",
         "name": "_listingId",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
       }
     ],
     "name": "purchaseListing",
@@ -3100,29 +3049,6 @@
         "type": "string"
       }
     ],
-    "name": "registerCollectionPoint",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_location",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_contactInfo",
-        "type": "string"
-      }
-    ],
     "name": "registerCollector",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -3136,30 +3062,7 @@
         "type": "address"
       }
     ],
-    "name": "registerCollectorAtPoint",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_location",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_contactInfo",
-        "type": "string"
-      }
-    ],
-    "name": "registerCorporate",
+    "name": "registerCollectorAtRecycler",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3190,12 +3093,30 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_collectionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_reason",
+        "type": "string"
+      }
+    ],
+    "name": "rejectPickup",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_collector",
         "type": "address"
       }
     ],
-    "name": "removeCollectorFromPoint",
+    "name": "removeCollectorFromRecycler",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3373,6 +3294,25 @@
         "type": "uint8"
       }
     ],
+    "name": "totalListings",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
     "name": "totalMarketplaceVolume",
     "outputs": [
       {
@@ -3494,7 +3434,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_weight",
+        "name": "_newWeight",
         "type": "uint256"
       },
       {
@@ -3504,34 +3444,11 @@
       },
       {
         "internalType": "string",
-        "name": "",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
         "name": "_imageHash",
         "type": "string"
       }
     ],
     "name": "updateCollection",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "enum AfricycleLibrary.WasteStream",
-        "name": "_wasteType",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_newAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateCollectionPointInventory",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3568,11 +3485,39 @@
       },
       {
         "internalType": "uint256",
-        "name": "_newPrice",
+        "name": "_newPricePerUnit",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_newDescription",
+        "type": "string"
       }
     ],
     "name": "updateListing",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_collectionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_newPickupTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_newRecycler",
+        "type": "address"
+      }
+    ],
+    "name": "updatePickupDetails",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3614,6 +3559,24 @@
       }
     ],
     "name": "updateQualityCarbonMultiplier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum AfricycleLibrary.WasteStream",
+        "name": "_wasteType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_newAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateRecyclerInventory",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3668,24 +3631,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "enum AfriCycle.Status",
-        "name": "_newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "updateUserStatus",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -3709,33 +3654,7 @@
         "type": "uint256"
       }
     ],
-    "name": "withdrawCollectionPointEarnings",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
     "name": "withdrawCollectorEarnings",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "withdrawCorporateEarnings",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -3756,6 +3675,19 @@
       }
     ],
     "name": "withdrawRecyclerEarnings",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawRecyclerInventory",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
