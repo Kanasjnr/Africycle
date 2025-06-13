@@ -1,0 +1,60 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run linting
+      run: yarn lint
+    
+    - name: Run smart contract tests
+      run: yarn workspace @africycle/hardhat test
+    
+    - name: Run frontend tests
+      run: yarn workspace @africycle/react-app test
+    
+    - name: Build frontend
+      run: yarn workspace @africycle/react-app build
+      env:
+        NEXT_PUBLIC_CELO_NETWORK: alfajores
+        NEXT_PUBLIC_CONTRACT_ADDRESS: ${{ secrets.NEXT_PUBLIC_CONTRACT_ADDRESS }}
+    
+    - name: Build smart contracts
+      run: yarn workspace @africycle/hardhat compile
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run npm audit
+      run: yarn audit
+    
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high 

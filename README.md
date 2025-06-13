@@ -14,71 +14,73 @@ AfriCycle is a blockchain-powered circular economy platform that addresses Afric
 - **Active Collection Points**: Multiple locations across Africa
 - **Corporate Partnerships**: Growing network of sustainability-focused organizations
 - **Verified Smart Contract**: [0xd8F399393958F5f29811b5786104cF90EfBeda41](https://celoscan.io/address/0xd8F399393958F5f29811b5786104cF90EfBeda41#code)
+- **Community Growth**: Active Telegram community with daily engagement
+- **Platform Updates**: Regular feature releases and improvements
+- **Mobile Optimization**: Enhanced mobile experience for collectors
 
 ## 🔄 System Workflow
 ```mermaid
 graph TD
     %% Roles
     Collector[Waste Collector]
-    CollectionPoint[Collection Point]
     Recycler[Recycler]
-    Corporate[Corporate Partner]
     
     %% Collection Process
-    Collector -->|Delivers Waste| CollectionPoint
-    CollectionPoint -->|Verifies & Weighs| CollectionPoint
-    CollectionPoint -->|Transfers cUSD| Collector
+    Collector -->|Submit Collection| Collection[Collection Submission]
+    Collection -->|Verify & Schedule Pickup| Recycler
+    Recycler -->|Confirm Pickup| Collection
+    Collection -->|Process Payment| Payment[Reward Payment]
+    Payment -->|Transfer cUSD| Collector
     
     %% Recycling Process
-    CollectionPoint -->|Sends Waste| Recycler
-    Recycler -->|Processes Waste| Recycler
-    Recycler -->|Creates NFT| RecyclingCertificate[Recycling Certificate]
+    Recycler -->|Create Processing Batch| Batch[Processing Batch]
+    Batch -->|Process Waste| Processing[Waste Processing]
+    Processing -->|Generate Impact Credits| Credits[Impact Credits]
+    Credits -->|Create Marketplace Listing| Marketplace[Marketplace]
     
-    %% Corporate Partnership
-    Corporate -->|Purchases Credits| Recycler
-    Recycler -->|Transfers cUSD| Corporate
-    Corporate -->|Tracks Impact| ImpactDashboard[Impact Dashboard]
+    %% Quality & Verification
+    Collection -->|Quality Check| Quality[Quality Control]
+    Quality -->|Update Reputation| Collector
+    Quality -->|Update Reputation| Recycler
     
     %% Styling
     style Collector fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
-    style CollectionPoint fill:#2196F3,stroke:#333,stroke-width:2px,color:white
     style Recycler fill:#FF9800,stroke:#333,stroke-width:2px,color:white
-    style Corporate fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
-    style RecyclingCertificate fill:#F44336,stroke:#333,stroke-width:2px,color:white
-    style ImpactDashboard fill:#607D8B,stroke:#333,stroke-width:2px,color:white
+    style Collection fill:#2196F3,stroke:#333,stroke-width:2px,color:white
+    style Batch fill:#F44336,stroke:#333,stroke-width:2px,color:white
+    style Credits fill:#607D8B,stroke:#333,stroke-width:2px,color:white
+    style Marketplace fill:#795548,stroke:#333,stroke-width:2px,color:white
+    style Quality fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
 ```
 
 ### Role-Based Workflow Description
 
 1. **Waste Collector**
-   - Delivers waste to collection points
-   - Receives cUSD payments based on waste weight and type
-   - Can track earnings through their wallet
+   - Complete registration and verification
+   - Submit waste collections with details (type, weight, location, image)
+   - Schedule pickups with recyclers
+   - Receive cUSD payments based on waste type and quality
+   - Build reputation through consistent quality submissions
+   - Track earnings and impact through dashboard
 
-2. **Collection Point**
-   - Verifies and weighs incoming waste
-   - Processes cUSD payments to collectors
-   - Coordinates waste transfer to recyclers
-   - Maintains quality standards
+2. **Recycler**
+   - Complete facility verification
+   - Accept and verify waste collections
+   - Create processing batches for waste recycling
+   - Generate impact credits through verified processing
+   - Create marketplace listings for processed materials
+   - Manage inventory and track processing efficiency
+   - Earn through processing fees and marketplace sales
 
-3. **Recycler**
-   - Receives waste from collection points
-   - Processes waste into recyclable materials
-   - Creates NFTs for verified recycling
-   - Sells recycling credits to corporate partners
-   - Receives cUSD payments for credits
-
-4. **Corporate Partner**
-   - Purchases recycling credits using cUSD
-   - Tracks environmental impact
-   - Monitors sustainability goals
-   - Accesses impact dashboard for reporting
-
-### Key Interactions
-- All financial transactions use cUSD
-- NFTs represent verified recycling certificates
-- Smart contracts automate payments and verification
-- Impact tracking is transparent and immutable
+### Key Features
+- **Automated Payments**: Direct cUSD transfers for collections
+- **Quality-Based Rewards**: Higher rewards for better quality waste
+- **Reputation System**: Score-based trust mechanism
+- **Impact Credits**: Verified environmental impact tokens
+- **Marketplace**: Trading platform for processed materials
+- **Batch Processing**: Efficient handling of multiple collections
+- **Carbon Offset Tracking**: Environmental impact measurement
+- **Quality Assurance**: Automated verification and quality checks
 
 ## 🚀 Features
 ### ♻️ Multi-Stream Waste Collection
@@ -242,12 +244,51 @@ africycle/
 ```
 
 ## 🧑‍💻 Contributing
-We welcome contributions! Follow these steps:
-1. **Fork the repository**.
-2. **Create a new branch**: `git checkout -b feature-branch`.
-3. **Commit changes**: `git commit -m 'Add new feature'`.
-4. **Push changes**: `git push origin feature-branch`.
-5. **Open a Pull Request**.
+We welcome contributions from developers, environmentalists, and community members! Here's how you can contribute:
+
+1. **Code Contributions**
+   - Fork the repository
+   - Create a feature branch: `git checkout -b feature/your-feature`
+   - Make your changes
+   - Run tests: `yarn hardhat:test`
+   - Submit a pull request
+
+2. **Smart Contract Development**
+   - Review our [contract documentation](docs/SMART_CONTRACTS.md)
+   - Follow our [contributing guidelines](docs/CONTRIBUTING.md)
+   - Test thoroughly using our test suite in `packages/hardhat/test`
+   - Submit improvements or bug fixes
+
+3. **Frontend Development**
+   - Check our [Next.js app](packages/react-app)
+   - Follow our [frontend guidelines](docs/FRONTEND.md)
+   - Implement new features or improvements
+   - Ensure mobile responsiveness
+
+4. **Documentation**
+   - Improve existing documentation in the `docs` directory
+   - Add code comments
+   - Create tutorials or guides
+   - Translate documentation
+
+5. **Community Support**
+   - Help users in our [Telegram community](https://t.me/+aCZcunVKdkw2NDc0)
+   - Report bugs or issues on [GitHub Issues](https://github.com/Africycle/Africycle/issues)
+   - Suggest improvements
+   - Share your experience
+
+### Development Guidelines
+- Follow our [contributing guidelines](docs/CONTRIBUTING.md)
+- Write clear commit messages
+- Include tests for new features
+- Update documentation as needed
+- Join our development discussions
+
+### Getting Help
+- Join our [Telegram Development Group](https://t.me/+aCZcunVKdkw2NDc0)
+- Check our [environment setup guide](docs/ENVIRONMENT.md)
+- Open an issue for bugs or feature requests
+- Contact the team at aficycle0@gmail.com
 
 ## 📝 License
 This project is licensed under the **MIT License**.
@@ -264,18 +305,20 @@ This project is licensed under the **MIT License**.
 - Bug bounty program for security researchers
 
 ## 📈 Roadmap
-- Q2 2025: Current Phase - Beta testing and community building
-- Q3 2025: Expansion to additional African regions
-- Q4 2025: Launch of advanced features and partnerships
-- Q1 2026: Global expansion and ecosystem growth
-- Q2 2026: Integration with international waste management networks and advanced sustainability features
+- Q2 2024: Current Phase - Beta testing and community building
+- Q3 2024: Expansion to additional African regions
+- Q4 2024: Launch of advanced features and partnerships
+- Q1 2025: Global expansion and ecosystem growth
+- Q2 2025: Integration with international waste management networks
 
 ## 📊 Beta Testing Metrics
 - **Active Users**: Growing community of waste collectors
-- **Collection Points**: Multiple verified locations
+- **Collection Points**: Multiple verified locations across Africa
 - **Waste Processed**: Real-time tracking available on dashboard
 - **Environmental Impact**: Transparent impact metrics
 - **Transaction Volume**: Live on-chain data
+- **Community Engagement**: Active participation in Telegram and social media
+- **User Satisfaction**: Positive feedback from early adopters
 
 ## 🤝 Join the Beta
 We're actively seeking:
@@ -290,5 +333,6 @@ To participate in our beta testing program:
 2. Join our [Telegram Community](https://t.me/+aCZcunVKdkw2NDc0) for updates and support
 3. Wait for our team to review your application
 4. Once approved, you'll receive instructions to access the platform
+5. Complete the onboarding process and start contributing to a sustainable future
 
 For any questions about the beta program, please contact us at aficycle0@gmail.com

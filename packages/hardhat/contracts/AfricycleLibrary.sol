@@ -7,14 +7,17 @@ pragma solidity ^0.8.24;
  */
 library AfricycleLibrary {
     // Constants
-    uint256 public constant PLATFORM_FEE_PERCENTAGE = 150; // 1.5%
-    uint256 public constant SCALE = 10000;
-    uint256 public constant MAX_BATCH_SIZE = 50;
-    uint256 public constant MIN_PROFILE_UPDATE_INTERVAL = 1 days;
-    uint256 public constant MAX_ACTIVE_LISTINGS = 20;
-    uint256 public constant MIN_REPUTATION_FOR_PROCESSING = 200;
-    uint256 public constant MAX_COLLECTION_WEIGHT = 1000;
-    uint256 public constant MAX_REPUTATION_SCORE = 1000;
+    uint256 internal constant MARKETPLACE_FEE_PERCENTAGE = 300; // 3%
+    uint256 internal constant COLLECTION_FEE_PERCENTAGE = 200;  // 2%
+    uint256 internal constant PROCESSING_FEE_PERCENTAGE = 200;  // 2%
+    uint256 internal constant IMPACT_CREDIT_FEE_PERCENTAGE = 300; // 3%
+    uint256 internal constant SCALE = 10000;
+    uint256 internal constant MAX_BATCH_SIZE = 50;
+    uint256 internal constant MIN_PROFILE_UPDATE_INTERVAL = 1 days;
+    uint256 internal constant MAX_ACTIVE_LISTINGS = 20;
+    uint256 internal constant MIN_REPUTATION_FOR_PROCESSING = 200;
+    uint256 internal constant MAX_COLLECTION_WEIGHT = 1000;
+    uint256 internal constant MAX_REPUTATION_SCORE = 1000;
 
     // Enums
     enum WasteStream {
@@ -29,6 +32,13 @@ library AfricycleLibrary {
         MEDIUM,
         HIGH,
         PREMIUM
+    }
+
+    enum FeeType {
+        MARKETPLACE,
+        COLLECTION,
+        PROCESSING,
+        IMPACT_CREDIT
     }
 
     // Structs
@@ -65,11 +75,23 @@ library AfricycleLibrary {
 
     // Internal functions
     function calculateReward(uint256 weight, uint256 rate) internal pure returns (uint256) {
-        return (weight * rate) / 1e18;
+        return weight * rate;
     }
 
-    function calculatePlatformFee(uint256 amount) internal pure returns (uint256) {
-        return (amount * PLATFORM_FEE_PERCENTAGE) / SCALE;
+    function calculatePlatformFee(uint256 amount, FeeType feeType) internal pure returns (uint256) {
+        uint256 feePercentage;
+        if (feeType == FeeType.MARKETPLACE) {
+            feePercentage = MARKETPLACE_FEE_PERCENTAGE;
+        } else if (feeType == FeeType.COLLECTION) {
+            feePercentage = COLLECTION_FEE_PERCENTAGE;
+        } else if (feeType == FeeType.PROCESSING) {
+            feePercentage = PROCESSING_FEE_PERCENTAGE;
+        } else if (feeType == FeeType.IMPACT_CREDIT) {
+            feePercentage = IMPACT_CREDIT_FEE_PERCENTAGE;
+        } else {
+            revert("Invalid fee type");
+        }
+        return (amount * feePercentage) / SCALE;
     }
 
     function validateCollection(
@@ -81,7 +103,6 @@ library AfricycleLibrary {
         require(weight > 0, 'Weight must be positive');
         require(weight <= MAX_COLLECTION_WEIGHT, 'Weight exceeds maximum');
         require(bytes(location).length > 0, 'Location required');
-        // QR code is optional for now
         require(bytes(imageHash).length > 0, 'Image hash required');
     }
 
@@ -179,14 +200,13 @@ library AfricycleLibrary {
         uint256 totalPrice,
         uint256 carbonCredits
     ) internal pure returns (uint256) {
-        uint256 baseFee = (totalPrice * PLATFORM_FEE_PERCENTAGE) / SCALE;
+        uint256 baseFee = calculatePlatformFee(totalPrice, FeeType.MARKETPLACE);
         if (carbonCredits > 0) {
-            baseFee = (baseFee * 90) / 100;
+            baseFee = (baseFee * 90) / 100; // 10% discount for carbon credits
         }
         return baseFee;
     }
 
-    // Batch Processing Functions
     function validateBatchCollections(
         uint256[] memory collectionIds,
         WasteStream expectedType
@@ -204,7 +224,7 @@ library AfricycleLibrary {
         if (wasteType == WasteStream.PLASTIC) efficiency = 90;
         else if (wasteType == WasteStream.EWASTE) efficiency = 85;
         else if (wasteType == WasteStream.METAL) efficiency = 95;
-        else efficiency = 80; // GENERAL
+        else efficiency = 80;
 
         uint256 qualityMultiplier;
         if (quality == QualityGrade.PREMIUM) qualityMultiplier = 11000;
@@ -215,7 +235,6 @@ library AfricycleLibrary {
         return (totalInput * efficiency * qualityMultiplier) / (100 * 10000);
     }
 
-    // Verification Functions
     function validateVerificationThreshold(
         uint256 amount,
         WasteStream wasteType,
@@ -244,4 +263,4 @@ library AfricycleLibrary {
         
         return baseScore + (baseScore * amountMultiplier) + proofBonus;
     }
-} 
+}
