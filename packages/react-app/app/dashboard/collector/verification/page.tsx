@@ -24,6 +24,10 @@ import axios from "axios"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { IconFilter, IconSortAscending, IconSortDescending, IconSearch } from "@tabler/icons-react"
 
 // Add this helper function before the component
 const getCloudinaryImageUrl = (publicId: string) => {
@@ -298,6 +302,145 @@ const arrayToCollection = (data: unknown, id: number): Collection | null => {
   }
 }
 
+// Add these types after the existing interfaces
+type SortField = 'timestamp' | 'weight' | 'rewardAmount'
+type SortOrder = 'asc' | 'desc'
+type FilterStatus = AfricycleStatus | 'ALL'
+
+interface CollectionFilters {
+  status: FilterStatus
+  wasteType: AfricycleWasteStream | 'ALL'
+  search: string
+  sortField: SortField
+  sortOrder: SortOrder
+}
+
+// Add this component before PhotoVerificationPage
+const CollectionSummary = memo(({ collections }: { collections: Collection[] }) => {
+  const totalCollections = collections.length
+  const totalWeight = collections.reduce((sum, c) => sum + Number(c.weight), 0)
+  const totalEarnings = collections.reduce((sum, c) => sum + Number(c.rewardAmount), 0)
+  const verifiedCollections = collections.filter(c => c.status === AfricycleStatus.VERIFIED).length
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm font-medium text-muted-foreground">Total Collections</p>
+          <p className="text-2xl font-bold">{totalCollections}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm font-medium text-muted-foreground">Total Weight</p>
+          <p className="text-2xl font-bold">{totalWeight.toFixed(2)} kg</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
+          <p className="text-2xl font-bold">{formatEther(BigInt(totalEarnings))} cUSD</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-sm font-medium text-muted-foreground">Verified Collections</p>
+          <p className="text-2xl font-bold">{verifiedCollections}</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+})
+CollectionSummary.displayName = 'CollectionSummary'
+
+// Add this component before PhotoVerificationPage
+const CollectionFilters = memo(({ 
+  filters, 
+  onFilterChange 
+}: { 
+  filters: CollectionFilters
+  onFilterChange: (filters: CollectionFilters) => void 
+}) => {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Status</label>
+        <Select
+          value={filters.status.toString()}
+          onValueChange={(value) => onFilterChange({ ...filters, status: Number(value) as FilterStatus })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            {Object.entries(AfricycleStatus)
+              .filter(([key]) => isNaN(Number(key)))
+              .map(([key, value]) => (
+                <SelectItem key={key} value={value.toString()}>
+                  {key}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Waste Type</label>
+        <Select
+          value={filters.wasteType.toString()}
+          onValueChange={(value) => onFilterChange({ ...filters, wasteType: Number(value) as AfricycleWasteStream | 'ALL' })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Types</SelectItem>
+            {Object.entries(AfricycleWasteStream)
+              .filter(([key]) => isNaN(Number(key)))
+              .map(([key, value]) => (
+                <SelectItem key={key} value={value.toString()}>
+                  {key}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Sort By</label>
+        <Select
+          value={filters.sortField}
+          onValueChange={(value) => onFilterChange({ ...filters, sortField: value as SortField })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="timestamp">Date</SelectItem>
+            <SelectItem value="weight">Weight</SelectItem>
+            <SelectItem value="rewardAmount">Reward</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Search</label>
+        <div className="relative">
+          <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search collections..."
+            value={filters.search}
+            onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
+            className="pl-8"
+          />
+        </div>
+      </div>
+    </div>
+  )
+})
+CollectionFilters.displayName = 'CollectionFilters'
+
 export default function PhotoVerificationPage() {
   const { address } = useAccount()
   const { data: walletClient } = useWalletClient()
@@ -552,6 +695,46 @@ export default function PhotoVerificationPage() {
   // Add error state
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  const [activeTab, setActiveTab] = useState("new")
+  const [filters, setFilters] = useState<CollectionFilters>({
+    status: 'ALL',
+    wasteType: 'ALL',
+    search: '',
+    sortField: 'timestamp',
+    sortOrder: 'desc'
+  })
+
+  // Add this function to filter and sort collections
+  const filteredCollections = useMemo(() => {
+    return state.collections
+      .filter(collection => {
+        if (filters.status !== 'ALL' && collection.status !== filters.status) return false
+        if (filters.wasteType !== 'ALL' && collection.wasteType !== filters.wasteType) return false
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase()
+          return (
+            collection.location.toLowerCase().includes(searchLower) ||
+            collection.collectionId.toString().includes(searchLower) ||
+            AfricycleWasteStream[collection.wasteType].toLowerCase().includes(searchLower)
+          )
+        }
+        return true
+      })
+      .sort((a, b) => {
+        const multiplier = filters.sortOrder === 'asc' ? 1 : -1
+        switch (filters.sortField) {
+          case 'timestamp':
+            return multiplier * (Number(a.timestamp) - Number(b.timestamp))
+          case 'weight':
+            return multiplier * (Number(a.weight) - Number(b.weight))
+          case 'rewardAmount':
+            return multiplier * (Number(a.rewardAmount) - Number(b.rewardAmount))
+          default:
+            return 0
+        }
+      })
+  }, [state.collections, filters])
+
   return (
     <DashboardShell>
       <DashboardHeader
@@ -559,204 +742,223 @@ export default function PhotoVerificationPage() {
         text="Submit and manage your waste collections"
       />
 
-      <div className="grid gap-4 sm:gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Submit New Collection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:gap-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Waste Type</label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={state.form.wasteType}
-                    onChange={(e) => handleFormChange('wasteType', Number(e.target.value))}
-                  >
-                    <option value={AfricycleWasteStream.PLASTIC}>Plastic</option>
-                    <option value={AfricycleWasteStream.EWASTE}>E-Waste</option>
-                    <option value={AfricycleWasteStream.METAL}>Metal</option>
-                    <option value={AfricycleWasteStream.GENERAL}>General Waste</option>
-                  </select>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Quality Grade</label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={state.form.quality}
-                    onChange={(e) => handleFormChange('quality', Number(e.target.value))}
-                  >
-                    <option value={AfricycleQualityGrade.LOW}>Low</option>
-                    <option value={AfricycleQualityGrade.MEDIUM}>Medium</option>
-                    <option value={AfricycleQualityGrade.HIGH}>High</option>
-                    <option value={AfricycleQualityGrade.PREMIUM}>Premium</option>
-                  </select>
-                </div>
-              </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="new">New Collection</TabsTrigger>
+          <TabsTrigger value="history">Collection History</TabsTrigger>
+        </TabsList>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={state.form.weight}
-                    onChange={(e) => handleFormChange('weight', e.target.value)}
-                    placeholder="Enter weight in kilograms"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Location</label>
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={state.form.location}
-                    onChange={(e) => handleFormChange('location', e.target.value)}
-                    placeholder="Enter collection location"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 sm:p-8">
-                {state.form.selectedImage ? (
-                  <div className="relative w-full max-w-md aspect-[4/3]">
-                    <Image
-                      src={state.form.selectedImage}
-                      alt="Selected collection"
-                      fill
-                      className="rounded-lg object-cover"
-                      sizes="(max-width: 400px) 100vw, 400px"
-                      onError={(e) => {
-                        toast.error('Failed to load image preview')
-                        handleFormChange('selectedImage', null)
-                      }}
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => {
-                        handleFormChange('selectedImage', null)
-                        handleFormChange('imageHash', null)
-                      }}
+        <TabsContent value="new" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Submit New Collection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Waste Type</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={state.form.wasteType}
+                      onChange={(e) => handleFormChange('wasteType', Number(e.target.value))}
                     >
-                      <IconTrash className="h-4 w-4" />
-                    </Button>
+                      <option value={AfricycleWasteStream.PLASTIC}>Plastic</option>
+                      <option value={AfricycleWasteStream.EWASTE}>E-Waste</option>
+                      <option value={AfricycleWasteStream.METAL}>Metal</option>
+                      <option value={AfricycleWasteStream.GENERAL}>General Waste</option>
+                    </select>
                   </div>
-                ) : (
-                  <>
-                    <IconCamera className="h-12 w-12 text-muted-foreground" />
-                    <div className="text-center">
-                      <p className="text-sm font-medium">Upload collection photos</p>
-                      <p className="text-xs text-muted-foreground">
-                        Take or upload photos of your collection for verification
-                      </p>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Quality Grade</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={state.form.quality}
+                      onChange={(e) => handleFormChange('quality', Number(e.target.value))}
+                    >
+                      <option value={AfricycleQualityGrade.LOW}>Low</option>
+                      <option value={AfricycleQualityGrade.MEDIUM}>Medium</option>
+                      <option value={AfricycleQualityGrade.HIGH}>High</option>
+                      <option value={AfricycleQualityGrade.PREMIUM}>Premium</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Weight (kg)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={state.form.weight}
+                      onChange={(e) => handleFormChange('weight', e.target.value)}
+                      placeholder="Enter weight in kilograms"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Location</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      value={state.form.location}
+                      onChange={(e) => handleFormChange('location', e.target.value)}
+                      placeholder="Enter collection location"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 sm:p-8">
+                  {state.form.selectedImage ? (
+                    <div className="relative w-full max-w-md aspect-[4/3]">
+                      <Image
+                        src={state.form.selectedImage}
+                        alt="Selected collection"
+                        fill
+                        className="rounded-lg object-cover"
+                        sizes="(max-width: 400px) 100vw, 400px"
+                        onError={(e) => {
+                          toast.error('Failed to load image preview')
+                          handleFormChange('selectedImage', null)
+                        }}
+                      />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          handleFormChange('selectedImage', null)
+                          handleFormChange('imageHash', null)
+                        }}
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </>
-                )}
-                
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  id="photo-upload"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    await handleImageUpload(file)
-                  }}
-                />
-                
-                <Button 
-                  onClick={() => document.getElementById('photo-upload')?.click()} 
-                  disabled={state.form.uploading}
-                  className="mt-4"
-                >
-                  {state.form.uploading ? (
-                    "Uploading..."
                   ) : (
                     <>
-                      <IconUpload className="mr-2 h-4 w-4" />
-                      {state.form.selectedImage ? "Change Photo" : "Upload Photos"}
+                      <IconCamera className="h-12 w-12 text-muted-foreground" />
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Upload collection photos</p>
+                        <p className="text-xs text-muted-foreground">
+                          Take or upload photos of your collection for verification
+                        </p>
+                      </div>
                     </>
                   )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button 
-            onClick={handleSubmit}
-            disabled={state.form.submitting || !state.form.imageHash || !state.form.weight || !state.form.location}
-            className="w-full sm:w-auto"
-          >
-            {state.form.submitting ? (
-              <>
-                <IconUpload className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <IconCheck className="mr-2 h-4 w-4" />
-                Submit Collection
-              </>
-            )}
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span>Your Collections</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                {fetchError ? "Error loading collections" : (isInitialLoading ? "Loading..." : `${state.collections.length} items`)}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="min-h-[300px]">
-              {fetchError ? (
-                <div className="py-8 text-center text-destructive">
-                  Error loading collections: {fetchError}
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => {
-                      setFetchError(null)
-                      hasFetchedRef.current = false
-                      fetchCollections()
+                  
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    id="photo-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      await handleImageUpload(file)
                     }}
+                  />
+                  
+                  <Button 
+                    onClick={() => document.getElementById('photo-upload')?.click()} 
+                    disabled={state.form.uploading}
+                    className="mt-4"
                   >
-                    Retry
+                    {state.form.uploading ? (
+                      "Uploading..."
+                    ) : (
+                      <>
+                        <IconUpload className="mr-2 h-4 w-4" />
+                        {state.form.selectedImage ? "Change Photo" : "Upload Photos"}
+                      </>
+                    )}
                   </Button>
                 </div>
-              ) : isInitialLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <CollectionSkeleton key={i} />
-                  ))}
-                </div>
-              ) : state.collections.length > 0 ? (
-                <div className="space-y-4">
-                  {collectionsList}
-                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSubmit}
+              disabled={state.form.submitting || !state.form.imageHash || !state.form.weight || !state.form.location}
+              className="w-full sm:w-auto"
+            >
+              {state.form.submitting ? (
+                <>
+                  <IconUpload className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
               ) : (
-                <div className="py-8 text-center text-muted-foreground">
-                  No collections found. Submit your first collection above!
-                </div>
+                <>
+                  <IconCheck className="mr-2 h-4 w-4" />
+                  Submit Collection
+                </>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <CollectionSummary collections={state.collections} />
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Collection History</CardTitle>
+              <CardDescription>
+                View and manage your collection history
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <CollectionFilters filters={filters} onFilterChange={setFilters} />
+              
+              <div className="min-h-[300px]">
+                {fetchError ? (
+                  <div className="py-8 text-center text-destructive">
+                    Error loading collections: {fetchError}
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => {
+                        setFetchError(null)
+                        hasFetchedRef.current = false
+                        fetchCollections()
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : isInitialLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <CollectionSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : filteredCollections.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredCollections.map((collection) => (
+                      <CollectionItem
+                        key={collection.collectionId}
+                        collection={collection}
+                        timeAgo={timeAgo}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    {filters.search || filters.status !== 'ALL' || filters.wasteType !== 'ALL'
+                      ? "No collections match your filters"
+                      : "No collections found. Submit your first collection above!"}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </DashboardShell>
   )
 }
