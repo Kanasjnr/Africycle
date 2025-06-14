@@ -17,12 +17,17 @@ import {
   IconTruck,
   IconRecycle,
   IconCircle,
+  IconPlus,
 } from "@tabler/icons-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
-import { useState, memo } from "react"
+import { useState, memo, useEffect } from "react"
 import { Header } from "@/components/dashboard/header"
+import { useAfriCycle, type WasteCollection, type ProcessingBatch } from "@/hooks/useAfricycle"
+import { AfricycleStatus, AfricycleWasteStream, AfricycleQualityGrade } from "@/hooks/useAfricycle"
+import { useAccount } from "wagmi"
+import { toast } from "sonner"
 
 interface VerificationItemProps {
   id: string
@@ -32,6 +37,7 @@ interface VerificationItemProps {
   date: string
   location: string
   waitingTime: string
+  onVerify: (approved: boolean) => void
 }
 
 function VerificationItem({
@@ -42,6 +48,7 @@ function VerificationItem({
   date,
   location,
   waitingTime,
+  onVerify,
 }: VerificationItemProps) {
   return (
     <Card className="p-6">
@@ -89,11 +96,15 @@ function VerificationItem({
           </div>
           <div className="flex gap-2">
             <Button variant="outline">View Details</Button>
-            <Button variant="outline" className="text-red-600 hover:text-red-600">
+            <Button 
+              variant="outline" 
+              className="text-red-600 hover:text-red-600"
+              onClick={() => onVerify(false)}
+            >
               <IconX className="mr-2 h-4 w-4" />
               Reject
             </Button>
-            <Button>
+            <Button onClick={() => onVerify(true)}>
               <IconCheck className="mr-2 h-4 w-4" />
               Approve
             </Button>
@@ -139,7 +150,6 @@ function Guideline({ number, title, description }: GuidelineProps) {
   )
 }
 
-type ProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
 type ProcessingStage = 'verification' | 'sorting' | 'processing' | 'packaging' | 'shipping'
 
 interface ProcessingItem {
@@ -147,7 +157,7 @@ interface ProcessingItem {
   collectionId: string
   material: string
   weight: string
-  status: ProcessingStatus
+  status: AfricycleStatus
   currentStage: ProcessingStage
   progress: number
   startDate: string
@@ -156,12 +166,42 @@ interface ProcessingItem {
   notes?: string
 }
 
+const getStatusString = (status: AfricycleStatus): string => {
+  switch (status) {
+    case AfricycleStatus.PENDING:
+      return "pending"
+    case AfricycleStatus.VERIFIED:
+      return "verified"
+    case AfricycleStatus.REJECTED:
+      return "rejected"
+    case AfricycleStatus.IN_PROGRESS:
+      return "in progress"
+    case AfricycleStatus.COMPLETED:
+      return "completed"
+    case AfricycleStatus.CANCELLED:
+      return "cancelled"
+    case AfricycleStatus.ACTIVE:
+      return "active"
+    default:
+      return "unknown"
+  }
+}
+
+const getStatusBadgeVariant = (status: AfricycleStatus): "default" | "secondary" => {
+  switch (status) {
+    case AfricycleStatus.COMPLETED:
+      return "default"
+    default:
+      return "secondary"
+  }
+}
+
 const ProcessingItem = memo(({ 
   item,
   onUpdateStatus
 }: { 
   item: ProcessingItem
-  onUpdateStatus: (id: string, status: ProcessingStatus) => void
+  onUpdateStatus: (id: string, status: AfricycleStatus) => void
 }) => {
   const stages: ProcessingStage[] = ['verification', 'sorting', 'processing', 'packaging', 'shipping']
   const currentStageIndex = stages.indexOf(item.currentStage)
@@ -177,8 +217,8 @@ const ProcessingItem = memo(({
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Badge variant={item.status === 'completed' ? 'default' : 'secondary'}>
-                {item.status.replace('_', ' ')}
+              <Badge variant={getStatusBadgeVariant(item.status)}>
+                {getStatusString(item.status)}
               </Badge>
               <span className="text-sm text-muted-foreground">
                 Started {item.startDate}
@@ -206,8 +246,8 @@ const ProcessingItem = memo(({
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => onUpdateStatus(item.id, 'completed')}
-                disabled={item.status === 'completed'}
+                onClick={() => onUpdateStatus(item.id, AfricycleStatus.COMPLETED)}
+                disabled={item.status === AfricycleStatus.COMPLETED}
               >
                 <IconCircle className="mr-2 h-4 w-4" />
                 Mark Complete
@@ -250,7 +290,7 @@ const ProcessingItem = memo(({
             <Button variant="outline" size="sm">
               Update Notes
             </Button>
-            {item.status === 'in_progress' && (
+            {item.status === AfricycleStatus.IN_PROGRESS && (
               <Button variant="outline" size="sm" className="text-red-600 hover:text-red-600">
                 <IconX className="mr-2 h-4 w-4" />
                 Pause Processing
@@ -264,39 +304,36 @@ const ProcessingItem = memo(({
 })
 ProcessingItem.displayName = 'ProcessingItem'
 
-const ProcessingStats = memo(({ items }: { items: ProcessingItem[] }) => {
-  const totalItems = items.length
-  const completedItems = items.filter(item => item.status === 'completed').length
-  const inProgressItems = items.filter(item => item.status === 'in_progress').length
-  const pendingItems = items.filter(item => item.status === 'pending').length
-  const failedItems = items.filter(item => item.status === 'failed').length
-
-  const averageProgress = items.reduce((sum, item) => sum + item.progress, 0) / totalItems
+const ProcessingStats = memo(({ batches }: { batches: ProcessingBatchItem[] }) => {
+  const totalBatches = batches.length
+  const completedBatches = batches.filter(b => b.status === AfricycleStatus.COMPLETED).length
+  const inProgressBatches = batches.filter(b => b.status === AfricycleStatus.IN_PROGRESS).length
+  const totalCarbonOffset = batches.reduce((sum, b) => sum + (b.carbonOffset || BigInt(0)), BigInt(0))
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        title="Total Processing"
-        value={totalItems.toString()}
-        description="Active items"
+        title="Total Batches"
+        value={totalBatches.toString()}
+        description="Processing batches"
         color="text-blue-600"
       />
       <StatCard
         title="Completed"
-        value={completedItems.toString()}
+        value={completedBatches.toString()}
         description="Successfully processed"
         color="text-green-600"
       />
       <StatCard
         title="In Progress"
-        value={inProgressItems.toString()}
+        value={inProgressBatches.toString()}
         description="Currently processing"
         color="text-yellow-600"
       />
       <StatCard
-        title="Average Progress"
-        value={`${Math.round(averageProgress)}%`}
-        description="Overall completion"
+        title="Total Carbon Offset"
+        value={`${totalCarbonOffset.toString()} kg CO₂`}
+        description="Environmental impact"
         color="text-purple-600"
       />
     </div>
@@ -304,299 +341,360 @@ const ProcessingStats = memo(({ items }: { items: ProcessingItem[] }) => {
 })
 ProcessingStats.displayName = 'ProcessingStats'
 
-export default function MaterialVerificationPage() {
-  const [activeTab, setActiveTab] = useState("verification")
-  const [processingItems, setProcessingItems] = useState<ProcessingItem[]>([
-    {
-      id: "1",
-      collectionId: "COL-2023-0123",
-      material: "Plastic",
-      weight: "5kg",
-      status: "in_progress",
-      currentStage: "processing",
-      progress: 65,
-      startDate: "2 days ago",
-      estimatedCompletion: "Tomorrow",
-      location: "Nairobi Central",
-      notes: "Material is being processed for recycling. Quality check passed."
-    },
-    {
-      id: "2",
-      collectionId: "COL-2023-0124",
-      material: "E-Waste",
-      weight: "3kg",
-      status: "pending",
-      currentStage: "verification",
-      progress: 20,
-      startDate: "1 day ago",
-      estimatedCompletion: "In 3 days",
-      location: "Westlands"
-    },
-    {
-      id: "3",
-      collectionId: "COL-2023-0125",
-      material: "Metal",
-      weight: "7kg",
-      status: "completed",
-      currentStage: "shipping",
-      progress: 100,
-      startDate: "5 days ago",
-      estimatedCompletion: "Completed",
-      location: "Eastleigh",
-      notes: "Successfully processed and shipped to recycling facility."
-    }
-  ])
+interface ProcessingBatchItem {
+  id: string
+  collections: WasteCollection[]
+  wasteType: AfricycleWasteStream
+  totalWeight: bigint
+  status: AfricycleStatus
+  startDate: string
+  estimatedCompletion: string
+  outputAmount?: bigint
+  outputQuality?: AfricycleQualityGrade
+  carbonOffset?: bigint
+  processDescription: string
+}
 
-  const handleUpdateStatus = (id: string, status: ProcessingStatus) => {
-    setProcessingItems(items =>
-      items.map(item =>
-        item.id === id
-          ? { ...item, status, progress: status === 'completed' ? 100 : item.progress }
-          : item
+function ProcessingBatchCard({ 
+  batch,
+  onComplete
+}: { 
+  batch: ProcessingBatchItem
+  onComplete: (id: string, outputAmount: bigint, quality: AfricycleQualityGrade) => void
+}) {
+  const [outputAmount, setOutputAmount] = useState("")
+  const [selectedQuality, setSelectedQuality] = useState<AfricycleQualityGrade>(AfricycleQualityGrade.MEDIUM)
+
+  return (
+    <Card className="p-6">
+      <div className="grid gap-6 md:grid-cols-[300px_1fr]">
+        <div className="space-y-4">
+          <div className="aspect-video overflow-hidden rounded-lg border bg-muted">
+            <div className="flex h-full items-center justify-center">
+              <IconPackage className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Badge variant={batch.status === AfricycleStatus.COMPLETED ? "default" : "secondary"}>
+                {getStatusString(batch.status)}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Started {batch.startDate}
+              </span>
+            </div>
+            {batch.carbonOffset && (
+              <div className="rounded-lg bg-green-50 p-2 text-center">
+                <p className="text-sm font-medium text-green-700">
+                  Carbon Offset: {batch.carbonOffset.toString()} kg CO₂
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium">Batch #{batch.id}</h3>
+                <Badge variant="outline">{getWasteTypeString(batch.wasteType)}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Total Weight: {batch.totalWeight.toString()}kg
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Collections: {batch.collections.length}
+              </p>
+            </div>
+            {batch.status === AfricycleStatus.IN_PROGRESS && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onComplete(batch.id, BigInt(outputAmount), selectedQuality)}
+                disabled={!outputAmount}
+              >
+                <IconCheck className="mr-2 h-4 w-4" />
+                Complete Processing
+              </Button>
+            )}
+          </div>
+
+          {batch.status === AfricycleStatus.IN_PROGRESS && (
+            <div className="grid gap-4 rounded-lg border p-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Output Amount (kg)</label>
+                <Input
+                  type="number"
+                  value={outputAmount}
+                  onChange={(e) => setOutputAmount(e.target.value)}
+                  placeholder="Enter processed amount"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Output Quality</label>
+                <Select
+                  value={selectedQuality.toString()}
+                  onValueChange={(value) => setSelectedQuality(Number(value) as AfricycleQualityGrade)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select quality grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AfricycleQualityGrade.LOW.toString()}>Low</SelectItem>
+                    <SelectItem value={AfricycleQualityGrade.MEDIUM.toString()}>Medium</SelectItem>
+                    <SelectItem value={AfricycleQualityGrade.HIGH.toString()}>High</SelectItem>
+                    <SelectItem value={AfricycleQualityGrade.PREMIUM.toString()}>Premium</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="text-sm text-muted-foreground">{batch.processDescription}</p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              View Details
+            </Button>
+            <Button variant="outline" size="sm">
+              Update Notes
+            </Button>
+            {batch.status === AfricycleStatus.IN_PROGRESS && (
+              <Button variant="outline" size="sm" className="text-red-600 hover:text-red-600">
+                <IconX className="mr-2 h-4 w-4" />
+                Pause Processing
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// Add this helper function at the top level
+const getWasteTypeString = (wasteType: AfricycleWasteStream): string => {
+  switch (wasteType) {
+    case AfricycleWasteStream.PLASTIC:
+      return "Plastic"
+    case AfricycleWasteStream.EWASTE:
+      return "E-Waste"
+    case AfricycleWasteStream.METAL:
+      return "Metal"
+    case AfricycleWasteStream.GENERAL:
+      return "General"
+    default:
+      return "Unknown"
+  }
+}
+
+export default function ProcessingDashboard() {
+  const { address } = useAccount()
+  const africycle = useAfriCycle({
+    contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
+  })
+
+  const [activeTab, setActiveTab] = useState("active")
+  const [processingBatches, setProcessingBatches] = useState<ProcessingBatchItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedCollections, setSelectedCollections] = useState<WasteCollection[]>([])
+
+  // Fetch processing batches
+  useEffect(() => {
+    async function fetchData() {
+      if (!africycle || !address) return
+
+      try {
+        setIsLoading(true)
+        
+        // Get verified collections ready for processing
+        const collectionDetails = await africycle.getCollectionDetails(0)
+        
+        if (collectionDetails?.collection) {
+          const collection = collectionDetails.collection
+          
+          // Only show collections assigned to this recycler
+          if (collection.selectedRecycler?.toLowerCase() === address.toLowerCase() && 
+              collection.status === AfricycleStatus.VERIFIED) {
+            // Create a processing batch from this collection
+            // Note: This is a placeholder. You'll need to implement proper batch creation
+            setProcessingBatches([{
+              id: "1",
+              collections: [collection],
+              wasteType: collection.wasteType,
+              totalWeight: collection.weight,
+              status: AfricycleStatus.IN_PROGRESS,
+              startDate: new Date(Number(collection.timestamp) * 1000).toLocaleDateString(),
+              estimatedCompletion: "Tomorrow",
+              processDescription: "Processing batch for verified collection"
+            }])
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        toast.error("Failed to fetch processing data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [africycle, address])
+
+  // Handle batch completion
+  const handleCompleteBatch = async (batchId: string, outputAmount: bigint, quality: AfricycleQualityGrade) => {
+    if (!africycle || !address) return
+
+    try {
+      await africycle.completeProcessing(address, BigInt(batchId), outputAmount, quality)
+      toast.success("Processing batch completed")
+
+      // Refresh batches
+      // Note: This is a placeholder. You'll need to implement proper batch refresh
+      setProcessingBatches(prev => 
+        prev.map(batch => 
+          batch.id === batchId 
+            ? { ...batch, status: AfricycleStatus.COMPLETED, outputAmount, outputQuality: quality }
+            : batch
+        )
       )
-    )
+    } catch (error) {
+      console.error("Error completing batch:", error)
+      toast.error("Failed to complete processing batch")
+    }
+  }
+
+  // Create new processing batch
+  const handleCreateBatch = async () => {
+    if (!africycle || !address || selectedCollections.length === 0) return
+
+    try {
+      const collectionIds = selectedCollections.map(c => c.id)
+      const processDescription = "New processing batch created from verified collections"
+      
+      await africycle.createProcessingBatch(address, collectionIds, processDescription)
+      toast.success("Processing batch created")
+
+      // Refresh batches
+      // Note: This is a placeholder. You'll need to implement proper batch refresh
+      setSelectedCollections([])
+    } catch (error) {
+      console.error("Error creating batch:", error)
+      toast.error("Failed to create processing batch")
+    }
   }
 
   return (
     <DashboardShell>
       <Header
-        heading="Material Verification & Processing"
-        text="Verify and process collected materials"
+        heading="Processing Dashboard"
+        text="Manage and track waste processing"
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="verification">Verification Queue</TabsTrigger>
-          <TabsTrigger value="processing">Processing Status</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="active">Active Batches</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-        <TabsContent value="verification" className="space-y-4">
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Verification Queue</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Pending material verifications
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                    <IconSearch className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search..."
-                      className="border-0 p-0 focus-visible:ring-0"
-                    />
-                  </div>
-                  <Button variant="outline">
-                    <IconFilter className="mr-2 h-4 w-4" />
-                    Filter
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-6 flex gap-2">
-                <Button variant="outline" className="text-sm">
-                  Pending (12)
-                </Button>
-                <Button variant="outline" className="text-sm">
-                  Verified (28)
-                </Button>
-                <Button variant="outline" className="text-sm">
-                  Rejected (5)
-                </Button>
-              </div>
-              <div className="mt-6 space-y-6">
-                <VerificationItem
-                  id="COL-2023-0123"
-                  collector="John Doe"
-                  material="Plastic"
-                  weight="5kg"
-                  date="2023-03-20"
-                  location="Nairobi Central"
-                  waitingTime="2 hours"
-                />
-                <VerificationItem
-                  id="COL-2023-0124"
-                  collector="Jane Smith"
-                  material="E-Waste"
-                  weight="3kg"
-                  date="2023-03-19"
-                  location="Westlands"
-                  waitingTime="2 hours"
-                />
-                <VerificationItem
-                  id="COL-2023-0125"
-                  collector="Robert Johnson"
-                  material="Metal"
-                  weight="7kg"
-                  date="2023-03-18"
-                  location="Eastleigh"
-                  waitingTime="2 hours"
-                />
-              </div>
-              <div className="mt-6 flex items-center justify-between">
-                <Button variant="outline">Previous</Button>
-                <span className="text-sm text-muted-foreground">Page 1 of 3</span>
-                <Button variant="outline">Next</Button>
-              </div>
-            </div>
-          </Card>
+          <Button onClick={handleCreateBatch} disabled={selectedCollections.length === 0}>
+            <IconPlus className="mr-2 h-4 w-4" />
+            Create Batch
+          </Button>
+        </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">Loading processing data...</p>
+          </div>
+        ) : (
+          <>
+            <ProcessingStats batches={processingBatches} />
+
             <Card>
               <div className="p-6">
-                <h2 className="text-lg font-semibold">Verification Statistics</h2>
-                <p className="text-sm text-muted-foreground">
-                  Overview of material verification activity
-                </p>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <StatCard
-                    title="Pending"
-                    value="12"
-                    description="Collections"
-                    color="text-yellow-600"
-                  />
-                  <StatCard
-                    title="Verified Today"
-                    value="8"
-                    description="Collections"
-                    color="text-green-600"
-                  />
-                  <StatCard
-                    title="Rejected Today"
-                    value="2"
-                    description="Collections"
-                    color="text-red-600"
-                  />
-                  <StatCard
-                    title="Avg. Response Time"
-                    value="1.5h"
-                    description="Per verification"
-                  />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Processing Batches</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Track and manage processing batches
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
+                      <IconSearch className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search batches..."
+                        className="border-0 p-0 focus-visible:ring-0"
+                      />
+                    </div>
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-6">
+                  {processingBatches.map(batch => (
+                    <ProcessingBatchCard
+                      key={batch.id}
+                      batch={batch}
+                      onComplete={handleCompleteBatch}
+                    />
+                  ))}
                 </div>
               </div>
             </Card>
 
             <Card>
               <div className="p-6">
-                <h2 className="text-lg font-semibold">Verification Guidelines</h2>
+                <h2 className="text-lg font-semibold">Processing Guidelines</h2>
                 <p className="text-sm text-muted-foreground">
-                  Standard procedures for material verification
+                  Standard procedures for material processing
                 </p>
                 <div className="mt-6 space-y-4">
                   <Guideline
                     number="1"
-                    title="Check Photo Evidence"
-                    description="Verify that before and after photos clearly show the collected waste"
+                    title="Batch Creation"
+                    description="Create processing batches from verified collections"
                   />
                   <Guideline
                     number="2"
-                    title="Confirm Material Type"
-                    description="Ensure the material type matches what is visible in the photos"
+                    title="Quality Control"
+                    description="Maintain high quality standards during processing"
                   />
                   <Guideline
                     number="3"
-                    title="Validate Weight"
-                    description="Check that the claimed weight is reasonable for the amount shown"
+                    title="Carbon Tracking"
+                    description="Track and report carbon offset for each batch"
                   />
                   <Guideline
                     number="4"
-                    title="Provide Feedback"
-                    description="Always include constructive feedback, especially for rejections"
+                    title="Documentation"
+                    description="Keep detailed records of processing outcomes"
                   />
                 </div>
               </div>
             </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="processing" className="space-y-4">
-          <ProcessingStats items={processingItems} />
-
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Processing Queue</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Track material processing status
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                    <IconSearch className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search..."
-                      className="border-0 p-0 focus-visible:ring-0"
-                    />
-                  </div>
-                  <Select defaultValue="all">
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-6">
-                {processingItems.map(item => (
-                  <ProcessingItem
-                    key={item.id}
-                    item={item}
-                    onUpdateStatus={handleUpdateStatus}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-6 flex items-center justify-between">
-                <Button variant="outline">Previous</Button>
-                <span className="text-sm text-muted-foreground">Page 1 of 2</span>
-                <Button variant="outline">Next</Button>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold">Processing Guidelines</h2>
-              <p className="text-sm text-muted-foreground">
-                Standard procedures for material processing
-              </p>
-              <div className="mt-6 space-y-4">
-                <Guideline
-                  number="1"
-                  title="Sorting & Classification"
-                  description="Properly sort materials by type and quality before processing"
-                />
-                <Guideline
-                  number="2"
-                  title="Processing Standards"
-                  description="Follow industry standards for material processing and recycling"
-                />
-                <Guideline
-                  number="3"
-                  title="Quality Control"
-                  description="Regular quality checks during processing to ensure standards"
-                />
-                <Guideline
-                  number="4"
-                  title="Documentation"
-                  description="Maintain detailed records of processing stages and outcomes"
-                />
-              </div>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          </>
+        )}
+      </div>
     </DashboardShell>
   )
 } 

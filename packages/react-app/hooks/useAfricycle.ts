@@ -177,14 +177,25 @@ export class AfriCycle {
       if (!account || !name || !location || !contactInfo) {
         throw new Error('All registration parameters are required');
       }
-      const simulateFn = () => this.publicClient.simulateContract({
+
+      // First simulate the transaction
+      const simulation = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'registerCollector',
         args: [name, location, contactInfo],
         account
       });
-      return withDivviTracking(simulateFn, this.walletClient, account);
+
+      if (!simulation || !simulation.request) {
+        throw new Error('Transaction simulation failed: no request returned');
+      }
+
+      // Then execute with Divvi tracking
+      const simulateFn = async () => {
+        return { request: simulation.request };
+      };
+      return withDivviTracking(simulateFn, this.walletClient, account, true); // Mark as value-generating
     } catch (error) {
       console.error('Error registering collector:', error);
       throw new Error('Failed to register collector: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -201,14 +212,25 @@ export class AfriCycle {
       if (!account || !name || !location || !contactInfo) {
         throw new Error('All registration parameters are required');
       }
-      const simulateFn = () => this.publicClient.simulateContract({
+
+      // First simulate the transaction
+      const simulation = await this.publicClient.simulateContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'registerRecycler',
         args: [name, location, contactInfo],
         account
       });
-      return withDivviTracking(simulateFn, this.walletClient, account);
+
+      if (!simulation || !simulation.request) {
+        throw new Error('Transaction simulation failed: no request returned');
+      }
+
+      // Then execute with Divvi tracking
+      const simulateFn = async () => {
+        return { request: simulation.request };
+      };
+      return withDivviTracking(simulateFn, this.walletClient, account, true); // Mark as value-generating
     } catch (error) {
       console.error('Error registering recycler:', error);
       throw new Error('Failed to register recycler: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -340,7 +362,11 @@ export class AfriCycle {
       if (!recycler) throw new Error('Recycler address is required.');
 
       // Check if user is a collector
-      const COLLECTOR_ROLE = '0x14cf45180c3fcf249a5a305e9657ea05c14fd4f4e1800ee0216a8213091711d2';
+      const COLLECTOR_ROLE = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'COLLECTOR_ROLE'
+      });
       const hasCollectorRole = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
@@ -350,7 +376,11 @@ export class AfriCycle {
       if (!hasCollectorRole) throw new Error('You are not registered as a collector.');
 
       // Check if recycler is valid
-      const RECYCLER_ROLE = '0x5f4f3a6b38a7b4b79a1f4b4b6c1c4e4a7b4b79a1f4b4b6c1c4e4a7b4b79a1f4b';
+      const RECYCLER_ROLE = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'RECYCLER_ROLE'
+      });
       const hasRecyclerRole = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,

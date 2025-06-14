@@ -1,527 +1,258 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react"
-import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { IconBox, IconCamera, IconMap2, IconWallet } from "@tabler/icons-react"
-import { MetricCard } from "@/components/dashboard/metric-card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Header } from "@/components/dashboard/header"
 import { useAfriCycle } from "@/hooks/useAfricycle"
-import { useAccount, useWalletClient } from "wagmi"
-import { formatEther } from "viem"
-import { Loader } from "@/components/ui/loader"
+import { useAccount } from "wagmi"
+import { useEffect, useState } from "react"
+import { AfricycleStatus, AfricycleWasteStream } from "@/hooks/useAfricycle"
+import { 
+  IconPackage, 
+  IconRecycle, 
+  IconCoin, 
+  IconChartBar, 
+  IconTruck, 
+  IconUsers, 
+  IconCalendar,
+  IconUpload
+} from "@tabler/icons-react"
+import { toast } from "sonner"
 
-// Define the contract configuration
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
-const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || ""
-
-console.log('Contract configuration:', {
-  hasContractAddress: !!CONTRACT_ADDRESS,
-  contractAddress: CONTRACT_ADDRESS,
-  hasRpcUrl: !!RPC_URL,
-  rpcUrl: RPC_URL ? 'present' : 'missing'
-})
-
-// Add timeout constant
-const FETCH_TIMEOUT = 10000; // 10 seconds
-
-// Memoized components
-const MemoizedMetricCard = memo((props: Parameters<typeof MetricCard>[0]) => {
-  return <MetricCard {...props} />
-})
-MemoizedMetricCard.displayName = 'MemoizedMetricCard'
-
-const MemoizedDashboardHeader = memo((props: Parameters<typeof DashboardHeader>[0]) => {
-  return <DashboardHeader {...props} />
-})
-MemoizedDashboardHeader.displayName = 'MemoizedDashboardHeader'
-
-// Update the component props to include className
-interface DashboardShellProps {
-  children: React.ReactNode;
-  className?: string;
+// Utility function to format wei to cUSD
+function formatCUSD(weiValue: bigint): string {
+  const divisor = BigInt(10 ** 18) // 18 decimal places for cUSD
+  const cUSDValue = Number(weiValue) / Number(divisor)
+  return cUSDValue.toFixed(3) // Show 3 decimal places
 }
 
-interface DashboardHeaderProps {
-  heading: string;
-  text: string;
-  className?: string;
+interface StatCardProps {
+  title: string
+  value: string
+  description: string
+  icon: React.ReactNode
+  color: string
 }
 
-interface MetricCardProps {
-  title: string;
-  value: string;
-  trend: {
-    value: number;
-    label: string;
-    positive: boolean;
-  };
-  icon: React.ReactNode;
-  className?: string;
+function StatCard({ title, value, description, icon, color }: StatCardProps) {
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-4">
+        <div className={`rounded-lg p-3 ${color}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <h3 className="mt-1 text-2xl font-bold">{value}</h3>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+    </Card>
+  )
 }
 
-// Add type for collector stats
-type CollectorStats = {
-  collected: [bigint, bigint, bigint, bigint];
-  processed: [bigint, bigint, bigint, bigint];
-  totalEarnings: bigint;
-  reputationScore: bigint;
-  activeListings: bigint;
-  verifiedStatus: boolean;
-  suspendedStatus: boolean;
-  blacklistedStatus: boolean;
+interface ProgressCardProps {
+  title: string
+  value: number
+  total: number
+  description: string
+  color: string
+}
+
+function ProgressCard({ title, value, total, description, color }: ProgressCardProps) {
+  const percentage = (value / total) * 100
+  return (
+    <Card className="p-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <span className="text-sm font-medium">{value}/{total}</span>
+        </div>
+        <Progress value={percentage} className={`h-2 ${color}`} />
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </Card>
+  )
 }
 
 export default function CollectorDashboard() {
-  const { address, isConnected, status } = useAccount()
-  const { data: walletClient, isLoading: isWalletClientLoading } = useWalletClient()
-  const [isClient, setIsClient] = useState(false)
-
-  // Memoize the contract configuration
-  const contractConfig = useMemo(() => ({
-    contractAddress: CONTRACT_ADDRESS,
-    rpcUrl: RPC_URL,
-  }), [])
-
-  // Handle hydration mismatch
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  console.log('Wallet connection state:', { 
-    address, 
-    isConnected, 
-    status,
-    hasWalletClient: !!walletClient,
-    isWalletClientLoading,
-    isClient
+  const { address } = useAccount()
+  const africycle = useAfriCycle({
+    contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
   })
-  
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [collectorStats, setCollectorStats] = useState<CollectorStats | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
-  const MAX_RETRIES = 3
-  
-  // Initialize the AfriCycle hook with memoized config
-  const africycle = useAfriCycle(contractConfig)
 
-  // Check if AfriCycle is properly initialized
-  const isAfriCycleReady = useMemo(() => {
-    if (!africycle) return false
-    try {
-      // Test if getUserDetailedStats is available and callable
-      return typeof africycle.getUserDetailedStats === 'function'
-    } catch {
-      return false
-    }
-  }, [africycle])
+  const [stats, setStats] = useState({
+    totalCollected: BigInt(0),
+    totalEarnings: BigInt(0),
+    activePickups: BigInt(0),
+    scheduledPickups: BigInt(0),
+    collectedByType: [BigInt(0), BigInt(0), BigInt(0), BigInt(0)] as [bigint, bigint, bigint, bigint],
+    reputationScore: BigInt(0),
+    verifiedStatus: false
+  })
 
-  // Memoize the fetch function with stable dependencies
-  const fetchCollectorData = useCallback(async () => {
-    if (!address || !africycle || !isAfriCycleReady) {
-      console.log('Fetch prerequisites not met:', {
-        hasAddress: !!address,
-        hasAfriCycle: !!africycle,
-        isAfriCycleReady,
-        address,
-        africycleInstance: africycle ? 'present' : 'missing'
-      })
-      setLoading(false)
-      setError('Wallet or contract not ready')
-      return
-    }
-    
-    try {
-      console.log('Starting collector data fetch...', {
-        address,
-        hasAfriCycle: !!africycle,
-        isAfriCycleReady,
-        retryCount
-      })
-      
-      setLoading(true)
-      setError(null)
-      
-      // Create a promise that rejects after timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Fetch timeout')), FETCH_TIMEOUT)
-      })
-      
-      // Race between the actual fetch and the timeout
-      const stats = await Promise.race([
-        (async () => {
-          try {
-            console.log('Calling getUserDetailedStats...')
-            const result = await africycle.getUserDetailedStats(address)
-            console.log('getUserDetailedStats result:', result)
-            // Ensure the result matches our CollectorStats type
-            const typedStats: CollectorStats = {
-              collected: result.collected as [bigint, bigint, bigint, bigint],
-              processed: result.processed as [bigint, bigint, bigint, bigint],
-              totalEarnings: result.totalEarnings as bigint,
-              reputationScore: result.reputationScore as bigint,
-              activeListings: result.activeListings as bigint,
-              verifiedStatus: result.verifiedStatus as boolean,
-              suspendedStatus: result.suspendedStatus as boolean,
-              blacklistedStatus: result.blacklistedStatus as boolean
-            }
-            return typedStats
-          } catch (error) {
-            console.error('Error in getUserDetailedStats:', error)
-            throw error
-          }
-        })(),
-        timeoutPromise
-      ])
-      
-      console.log('Collector stats fetched successfully:', stats)
-      setCollectorStats(stats)
-      setRetryCount(0)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching collector data:", error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data'
-      console.log('Setting error state:', {
-        errorMessage,
-        retryCount,
-        maxRetries: MAX_RETRIES
-      })
-      setError(errorMessage)
-      
-      // Retry logic
-      if (retryCount < MAX_RETRIES) {
-        const nextRetry = retryCount + 1
-        console.log(`Scheduling retry ${nextRetry} of ${MAX_RETRIES}...`)
-        setRetryCount(nextRetry)
-        // Wait a bit before retrying, with exponential backoff
-        setTimeout(() => {
-          console.log(`Executing retry ${nextRetry} of ${MAX_RETRIES}...`)
-          fetchCollectorData()
-        }, 1000 * Math.pow(2, retryCount)) // Exponential backoff
-      } else {
-        console.log('Max retries reached, stopping fetch attempts')
-        setLoading(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchStats() {
+      if (!africycle || !address) return
+
+      try {
+        setIsLoading(true)
+        const profile = await africycle.getUserProfile(address)
+        
+        setStats({
+          totalCollected: profile.totalCollected,
+          totalEarnings: profile.totalEarnings,
+          activePickups: profile.scheduledPickups, // Using scheduledPickups as active pickups
+          scheduledPickups: profile.scheduledPickups,
+          collectedByType: profile.collectedByType,
+          reputationScore: profile.collectorReputationScore,
+          verifiedStatus: profile.isVerified
+        })
+      } catch (error) {
+        console.error("Error fetching stats:", error)
+        toast.error("Failed to fetch dashboard statistics")
+      } finally {
+        setIsLoading(false)
       }
     }
-  }, [address, africycle, isAfriCycleReady, retryCount])
 
-  // Use a ref to track if we've already fetched data
-  const hasFetchedRef = useRef(false)
+    fetchStats()
+  }, [africycle, address])
 
-  // Optimize the effect to only fetch when necessary
-  useEffect(() => {
-    console.log('Data fetch effect triggered:', {
-      hasFetched: hasFetchedRef.current,
-      hasAddress: !!address,
-      isAfriCycleReady,
-      address
-    })
-    
-    if (!hasFetchedRef.current && address && isAfriCycleReady) {
-      console.log('Initiating initial data fetch...')
-      hasFetchedRef.current = true
-      fetchCollectorData()
-    }
-  }, [address, fetchCollectorData, isAfriCycleReady])
-
-  // Reset hasFetchedRef when address changes
-  useEffect(() => {
-    console.log('Address changed, resetting fetch state:', address)
-    hasFetchedRef.current = false
-  }, [address])
-
-  // Log wallet address changes
-  useEffect(() => {
-    console.log('Wallet address changed:', address)
-  }, [address])
-  
-  // Log africycle instance changes
-  useEffect(() => {
-    console.log('AfriCycle instance changed:', !!africycle)
-  }, [africycle])
-  
-  // Log collectorStats changes
-  useEffect(() => {
-    console.log('Collector stats updated:', collectorStats)
-  }, [collectorStats])
-
-  // Log loading state changes
-  useEffect(() => {
-    console.log('Loading state changed:', loading)
-  }, [loading])
-
-  // Memoize the metrics data to prevent unnecessary re-renders
-  const metricsData = useMemo(() => {
-    console.log('Calculating metrics data with stats:', collectorStats)
-    if (!collectorStats) return null
-
-    const sumCollected = collectorStats.collected.reduce((a: bigint, b: bigint) => a + b, BigInt(0))
-
-    const data = {
-      totalCollected: {
-        title: "Total Collected",
-        value: `${sumCollected.toString() || '0'} kg`,
-        trend: { value: 12, label: "from last month", positive: true },
-        icon: <IconBox className="h-4 w-4" />
-      },
-      earnings: {
-        title: "Earnings",
-        value: `${formatEther(collectorStats.totalEarnings || BigInt(0))} cUSD`,
-        trend: { value: 8, label: "from last month", positive: true },
-        icon: <IconWallet className="h-4 w-4" />
-      },
-      pendingVerification: {
-        title: "Pending Verification",
-        value: collectorStats.activeListings.toString() || '0',
-        trend: { value: 2, label: "from last month", positive: false },
-        icon: <IconCamera className="h-4 w-4" />
-      },
-      reputation: {
-        title: "Reputation Score",
-        value: collectorStats.reputationScore.toString() || '0',
-        trend: { value: 15, label: "from last month", positive: true },
-        icon: <IconBox className="h-4 w-4" />
-      }
-    }
-    console.log('Calculated metrics data:', data)
-    return data
-  }, [collectorStats])
-  
-  // Log metricsData changes
-  useEffect(() => {
-    console.log('Metrics data updated:', !!metricsData)
-  }, [metricsData])
-
-  // Show loading state during initial client-side render
-  if (!isClient) {
-    return (
-      <DashboardShell>
-        <MemoizedDashboardHeader
-          heading="Collector Dashboard"
-          text="Track your collections and manage your recycling activities"
-        />
-        <Card>
-          <Loader message="Loading dashboard..." />
-        </Card>
-      </DashboardShell>
-    )
-  }
-
-  // Show wallet connection message if needed
-  if (!isConnected || status !== 'connected') {
-    return (
-      <DashboardShell>
-        <MemoizedDashboardHeader
-          heading="Collector Dashboard"
-          text="Track your collections and manage your recycling activities"
-        />
-        <Card>
-          <div className="p-6 text-center">
-            <h2 className="text-lg font-semibold mb-2">Wallet Connection Required</h2>
-            <p className="text-muted-foreground mb-4">
-              {status === 'reconnecting' 
-                ? "Reconnecting to your wallet..."
-                : "Please connect your wallet to view your collector dashboard."}
-            </p>
-            {status === 'reconnecting' ? (
-              <Loader size="sm" message="Establishing secure connection..." />
-            ) : (
-              <Button onClick={() => window.location.reload()}>
-                Connect Wallet
-              </Button>
-            )}
-          </div>
-        </Card>
-      </DashboardShell>
-    )
-  }
-
-  // Show loading state while wallet client is initializing
-  if (isWalletClientLoading || !walletClient) {
-    return (
-      <DashboardShell>
-        <MemoizedDashboardHeader
-          heading="Collector Dashboard"
-          text="Track your collections and manage your recycling activities"
-        />
-        <Card>
-          <Loader message="Initializing wallet connection..." />
-        </Card>
-      </DashboardShell>
-    )
-  }
-
-  // Show loading state while AfriCycle is initializing
-  if (!isAfriCycleReady) {
-    return (
-      <DashboardShell>
-        <MemoizedDashboardHeader
-          heading="Collector Dashboard"
-          text="Track your collections and manage your recycling activities"
-        />
-        <Card>
-          <Loader message="Connecting to smart contract..." />
-        </Card>
-      </DashboardShell>
-    )
-  }
+  const totalCollected = stats.collectedByType.reduce((sum, val) => sum + val, BigInt(0))
 
   return (
-    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden">
-      <DashboardShell>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          <div className="mb-6">
-            <MemoizedDashboardHeader
-              heading="Collector Dashboard"
-              text="Track your collections and manage your recycling activities"
-            />
+    <DashboardShell>
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <Header
+          heading="Collector Dashboard"
+          text="Track your collection activities and earnings"
+        />
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground">Loading dashboard statistics...</p>
           </div>
-          
-          {/* Main Content Grid */}
-          <div className="grid gap-6">
-            {/* Metrics Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {loading ? (
-                <div className="col-span-full">
-                  <Card>
-                    <Loader 
-                      message={retryCount > 0 
-                        ? `Loading metrics... (Retry ${retryCount}/${MAX_RETRIES})`
-                        : "Loading metrics..."
-                      } 
-                    />
-                  </Card>
-                </div>
-              ) : error ? (
-                <div className="col-span-full">
-                  <Card>
-                    <div className="p-6 text-center text-red-500">
-                      <p className="mb-4">{error}</p>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setRetryCount(0)
-                          setLoading(true)
-                          fetchCollectorData()
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    </div>
-                  </Card>
-                </div>
-              ) : metricsData ? (
-                <>
-                  <div className="h-full">
-                    <MemoizedMetricCard {...metricsData.totalCollected} />
-                  </div>
-                  <div className="h-full">
-                    <MemoizedMetricCard {...metricsData.earnings} />
-                  </div>
-                  <div className="h-full">
-                    <MemoizedMetricCard {...metricsData.pendingVerification} />
-                  </div>
-                  <div className="h-full">
-                    <MemoizedMetricCard {...metricsData.reputation} />
-                  </div>
-                </>
-              ) : (
-                <div className="col-span-full">
-                  <Card>
-                    <div className="p-6 text-center text-muted-foreground">
-                      No data available
-                    </div>
-                  </Card>
-                </div>
-              )}
+        ) : (
+          <div className="space-y-6">
+            {/* Main Stats */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+              <StatCard
+                title="Total Collected"
+                value={`${totalCollected.toString()} kg`}
+                description="Total waste collected"
+                icon={<IconPackage className="h-6 w-6 text-white" />}
+                color="bg-blue-500"
+              />
+              <StatCard
+                title="Total Earnings"
+                value={`${formatCUSD(stats.totalEarnings)} cUSD`}
+                description="Total earnings from collections"
+                icon={<IconCoin className="h-6 w-6 text-white" />}
+                color="bg-green-500"
+              />
+              <StatCard
+                title="Active Pickups"
+                value={stats.activePickups.toString()}
+                description="Scheduled pickups"
+                icon={<IconCalendar className="h-6 w-6 text-white" />}
+                color="bg-purple-500"
+              />
+              <StatCard
+                title="Reputation Score"
+                value={stats.reputationScore.toString()}
+                description="Your collector reputation"
+                icon={<IconChartBar className="h-6 w-6 text-white" />}
+                color="bg-yellow-500"
+              />
             </div>
 
-            {/* Collection History */}
-            <Card className="w-full">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-lg font-semibold mb-2">Collection History</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Your waste collection history over time
-                </p>
-                <div className="mt-4 h-[200px] w-full">
-                  {loading ? (
-                    <Loader 
-                      size="sm"
-                      message={retryCount > 0 
-                        ? `Loading history... (Retry ${retryCount}/${MAX_RETRIES})`
-                        : "Loading collection history..."
-                      }
-                    />
-                  ) : error ? (
-                    <div className="flex h-full items-center justify-center text-red-500 px-4 text-center">
-                      {error}
+            {/* Progress Cards */}
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+              <ProgressCard
+                title="Collection Progress"
+                value={Number(totalCollected)}
+                total={Number(totalCollected) + 1000} // Example target
+                description="Progress towards monthly goal"
+                color="bg-blue-500"
+              />
+              <ProgressCard
+                title="Verification Status"
+                value={stats.verifiedStatus ? 100 : 0}
+                total={100}
+                description={stats.verifiedStatus ? "Verified Collector" : "Verification Pending"}
+                color="bg-green-500"
+              />
+            </div>
+
+            {/* Waste Type Distribution */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold">Collection Distribution</h3>
+              <p className="text-sm text-muted-foreground mb-4">Total waste collected by type</p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+                {Object.values(AfricycleWasteStream)
+                  .filter(value => typeof value === 'number')
+                  .map((wasteType) => (
+                    <div key={wasteType} className="rounded-lg border p-4">
+                      <div className="flex items-center gap-2">
+                        <IconRecycle className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {wasteType === AfricycleWasteStream.PLASTIC ? "Plastic" :
+                           wasteType === AfricycleWasteStream.EWASTE ? "E-Waste" :
+                           wasteType === AfricycleWasteStream.METAL ? "Metal" : "General"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-2xl font-bold">
+                        {stats.collectedByType[Number(wasteType)].toString()} kg
+                      </p>
+                      <Progress 
+                        value={Number(stats.collectedByType[Number(wasteType)]) / Number(totalCollected) * 100} 
+                        className="mt-2 h-2" 
+                      />
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8 px-4">
-                      {collectorStats && collectorStats.activeListings > BigInt(0)
-                        ? "Collection history chart will appear here" 
-                        : "No collection history available yet"}
-                    </p>
-                  )}
-                </div>
+                  ))}
               </div>
             </Card>
 
             {/* Quick Actions */}
-            <Card>
-              <div className="p-4 sm:p-6">
-                <h2 className="text-lg font-semibold mb-2">Quick Actions</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Common tasks for waste collectors
-                </p>
-                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Scan QR Code */}
-                  <Button
-                    variant="outline"
-                    className="group relative w-full h-[72px] sm:h-[88px] flex flex-col items-center justify-center p-3 space-y-2 hover:bg-accent transition-colors"
-                    onClick={() => window.location.href = "/dashboard/collector/scanner"}
-                  >
-                    <IconBox className="h-6 w-6 sm:h-7 sm:w-7 text-primary group-hover:scale-110 transition-transform" />
-                    <span className="text-sm sm:text-base font-medium text-center">Scan QR Code</span>
-                  </Button>
-
-                  {/* View Collection Map */}
-                  <Button
-                    variant="outline"
-                    className="group relative w-full h-[72px] sm:h-[88px] flex flex-col items-center justify-center p-3 space-y-2 hover:bg-accent transition-colors"
-                    onClick={() => window.location.href = "/dashboard/collector/map"}
-                  >
-                    <IconMap2 className="h-6 w-6 sm:h-7 sm:w-7 text-primary group-hover:scale-110 transition-transform" />
-                    <span className="text-sm sm:text-base font-medium text-center">View Collection Map</span>
-                  </Button>
-
-                  {/* Upload Verification Photo */}
-                  <Button
-                    variant="outline"
-                    className="group relative w-full h-[72px] sm:h-[88px] flex flex-col items-center justify-center p-3 space-y-2 hover:bg-accent transition-colors"
-                    onClick={() => window.location.href = "/dashboard/collector/verification"}
-                  >
-                    <IconCamera className="h-6 w-6 sm:h-7 sm:w-7 text-primary group-hover:scale-110 transition-transform" />
-                    <span className="text-sm sm:text-base font-medium text-center">Upload Verification Photo</span>
-                  </Button>
-
-                  {/* View Wallet */}
-                  <Button
-                    variant="outline"
-                    className="group relative w-full h-[72px] sm:h-[88px] flex flex-col items-center justify-center p-3 space-y-2 hover:bg-accent transition-colors"
-                    onClick={() => window.location.href = "/dashboard/collector/wallet"}
-                  >
-                    <IconWallet className="h-6 w-6 sm:h-7 sm:w-7 text-primary group-hover:scale-110 transition-transform" />
-                    <span className="text-sm sm:text-base font-medium text-center">View Wallet</span>
-                  </Button>
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3 xl:grid-cols-3">
+              <Button className="h-auto p-6" variant="outline">
+                <div className="flex items-center gap-4">
+                  <IconUpload className="h-6 w-6" />
+                  <div className="text-left">
+                    <p className="font-medium">New Collection</p>
+                    <p className="text-sm text-muted-foreground">Create a new waste collection</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Button>
+              <Button className="h-auto p-6" variant="outline">
+                <div className="flex items-center gap-4">
+                  <IconCalendar className="h-6 w-6" />
+                  <div className="text-left">
+                    <p className="font-medium">Schedule Pickup</p>
+                    <p className="text-sm text-muted-foreground">Schedule a new waste pickup</p>
+                  </div>
+                </div>
+              </Button>
+              <Button className="h-auto p-6" variant="outline">
+                <div className="flex items-center gap-4">
+                  <IconTruck className="h-6 w-6" />
+                  <div className="text-left">
+                    <p className="font-medium">Track Pickups</p>
+                    <p className="text-sm text-muted-foreground">View pickup status and history</p>
+                  </div>
+                </div>
+              </Button>
+            </div>
           </div>
-        </div>
-      </DashboardShell>
-    </div>
+        )}
+      </div>
+    </DashboardShell>
   )
 }
