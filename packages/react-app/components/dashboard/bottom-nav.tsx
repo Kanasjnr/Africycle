@@ -9,6 +9,7 @@ import {
   IconClipboardCheck,
   IconPackage,
   IconShoppingCart,
+  IconRecycle,
 } from "@tabler/icons-react"
 
 interface BottomNavProps extends React.HTMLAttributes<HTMLElement> {
@@ -86,9 +87,9 @@ export const recyclerNavItems = [
     icon: <IconHome className="h-6 w-6 stroke-[1.5]" />,
   },
   {
-    title: "Verify",
-    href: "/dashboard/recycler/verification",
-    icon: <IconClipboardCheck className="h-6 w-6 stroke-[1.5]" />,
+    title: "Processing",
+    href: "/dashboard/recycler/processing",
+    icon: <IconRecycle className="h-6 w-6 stroke-[1.5]" />,
   },
   {
     title: "Inventory",

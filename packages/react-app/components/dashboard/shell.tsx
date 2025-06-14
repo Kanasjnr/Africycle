@@ -82,13 +82,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
       {/* Header */}
       {!isLoading && role && (
         <Header 
+          heading="Dashboard"
+          text="Welcome to your dashboard"
           role={role as "collector" | "recycler"}
           name={userProfile?.name || "Not Registered"}
         />
       )}
 
       {/* Main Content */}
-      <main className="container mx-auto max-w-5xl px-4 py-6 pb-24">
+      <main className="w-full py-6 pb-24">
         {children}
       </main>
 
