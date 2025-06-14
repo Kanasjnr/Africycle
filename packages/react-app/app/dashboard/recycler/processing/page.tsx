@@ -552,248 +552,244 @@ export default function MaterialVerificationPage() {
 
   return (
     <DashboardShell>
-      <Header
-        heading="Material Verification & Processing"
-        text="Verify and process collected materials"
-      />
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <Header
+          heading="Material Verification & Processing"
+          text="Verify and process collected materials"
+        />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="verification">Verification Queue</TabsTrigger>
-          <TabsTrigger value="processing">Processing Status</TabsTrigger>
-        </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="verification">Verification Queue</TabsTrigger>
+            <TabsTrigger value="processing">Processing Status</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="verification" className="space-y-4">
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Verification Queue</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Pending material verifications
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                    <IconSearch className="h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search..."
-                      className="border-0 p-0 focus-visible:ring-0"
-                    />
-                  </div>
-                  <Button variant="outline">
-                    <IconFilter className="mr-2 h-4 w-4" />
-                    Filter
-                  </Button>
-                </div>
-              </div>
-
-              {isLoading ? (
-                <div className="mt-6 flex items-center justify-center py-8">
-                  <p className="text-muted-foreground">Loading collections...</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mt-6 flex gap-2">
-                    <Button variant="outline" className="text-sm">
-                      Pending ({stats.pending})
-                    </Button>
-                    <Button variant="outline" className="text-sm">
-                      Verified ({stats.verified})
-                    </Button>
-                    <Button variant="outline" className="text-sm">
-                      Rejected ({stats.rejected})
-                    </Button>
-                  </div>
-                  <div className="mt-6 space-y-6">
-                    {pendingCollections.map((collection) => (
-                      <VerificationItem
-                        key={collection.id.toString()}
-                        id={collection.id.toString()}
-                        collector={collection.collector}
-                        material={getWasteTypeString(collection.wasteType)}
-                        weight={`${collection.weight.toString()}kg`}
-                        date={new Date(Number(collection.timestamp) * 1000).toLocaleDateString()}
-                        location={collection.location}
-                        waitingTime={getRelativeTime(collection.timestamp)}
-                        onVerify={(approved) => handleVerifyCollection(collection.id.toString(), approved)}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="mt-6 flex items-center justify-between">
-                <Button variant="outline">Previous</Button>
-                <span className="text-sm text-muted-foreground">Page 1 of 3</span>
-                <Button variant="outline">Next</Button>
-              </div>
-            </div>
-          </Card>
-
-          <div className="grid gap-6 md:grid-cols-2">
+          <TabsContent value="verification" className="space-y-4">
             <Card>
               <div className="p-6">
-                <h2 className="text-lg font-semibold">Verification Statistics</h2>
-                <p className="text-sm text-muted-foreground">
-                  Overview of material verification activity
-                </p>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <StatCard
-                    title="Pending"
-                    value="12"
-                    description="Collections"
-                    color="text-yellow-600"
-                  />
-                  <StatCard
-                    title="Verified Today"
-                    value="8"
-                    description="Collections"
-                    color="text-green-600"
-                  />
-                  <StatCard
-                    title="Rejected Today"
-                    value="2"
-                    description="Collections"
-                    color="text-red-600"
-                  />
-                  <StatCard
-                    title="Avg. Response Time"
-                    value="1.5h"
-                    description="Per verification"
-                  />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Verification Queue</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Pending material verifications
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
+                      <IconSearch className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search..."
+                        className="border-0 p-0 focus-visible:ring-0"
+                      />
+                    </div>
+                    <Button variant="outline">
+                      <IconFilter className="mr-2 h-4 w-4" />
+                      Filter
+                    </Button>
+                  </div>
+                </div>
+
+                {isLoading ? (
+                  <div className="mt-6 flex items-center justify-center py-8">
+                    <p className="text-muted-foreground">Loading collections...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-6 flex gap-2">
+                      <Button variant="outline" className="text-sm">
+                        Pending ({stats.pending})
+                      </Button>
+                      <Button variant="outline" className="text-sm">
+                        Verified ({stats.verified})
+                      </Button>
+                      <Button variant="outline" className="text-sm">
+                        Rejected ({stats.rejected})
+                      </Button>
+                    </div>
+                    <div className="mt-6 space-y-6">
+                      {pendingCollections.map((collection) => (
+                        <VerificationItem
+                          key={collection.id.toString()}
+                          id={collection.id.toString()}
+                          collector={collection.collector}
+                          material={getWasteTypeString(collection.wasteType)}
+                          weight={`${collection.weight.toString()}kg`}
+                          date={new Date(Number(collection.timestamp) * 1000).toLocaleDateString()}
+                          location={collection.location}
+                          waitingTime={getRelativeTime(collection.timestamp)}
+                          onVerify={(approved) => handleVerifyCollection(collection.id.toString(), approved)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="mt-6 flex items-center justify-between">
+                  <Button variant="outline">Previous</Button>
+                  <span className="text-sm text-muted-foreground">Page 1 of 3</span>
+                  <Button variant="outline">Next</Button>
                 </div>
               </div>
             </Card>
 
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold">Verification Statistics</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Overview of material verification activity
+                  </p>
+                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                    <StatCard
+                      title="Pending"
+                      value="12"
+                      description="Collections"
+                      color="text-yellow-600"
+                    />
+                    <StatCard
+                      title="Verified Today"
+                      value="8"
+                      description="Collections"
+                      color="text-green-600"
+                    />
+                    <StatCard
+                      title="Rejected Today"
+                      value="2"
+                      description="Collections"
+                      color="text-red-600"
+                    />
+                    <StatCard
+                      title="Avg. Response Time"
+                      value="1.5h"
+                      description="Per verification"
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold">Verification Guidelines</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Standard procedures for material verification
+                  </p>
+                  <div className="mt-6 space-y-4">
+                    <Guideline
+                      number="1"
+                      title="Check Photo Evidence"
+                      description="Verify that before and after photos clearly show the collected waste"
+                    />
+                    <Guideline
+                      number="2"
+                      title="Confirm Material Type"
+                      description="Ensure the material type matches what is visible in the photos"
+                    />
+                    <Guideline
+                      number="3"
+                      title="Validate Weight"
+                      description="Check that the claimed weight is reasonable for the amount shown"
+                    />
+                    <Guideline
+                      number="4"
+                      title="Provide Feedback"
+                      description="Always include constructive feedback, especially for rejections"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="processing" className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading processing data...</p>
+              </div>
+            ) : (
+              <>
+                <ProcessingStats items={processingItems} />
+
+                <Card>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold">Processing Queue</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Track material processing status
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
+                          <IconSearch className="h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="search"
+                            placeholder="Search..."
+                            className="border-0 p-0 focus-visible:ring-0"
+                          />
+                        </div>
+                        <Select defaultValue="all">
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter by status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 space-y-6">
+                      {processingItems.map(item => (
+                        <ProcessingItem
+                          key={item.id}
+                          item={item}
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
+
             <Card>
               <div className="p-6">
-                <h2 className="text-lg font-semibold">Verification Guidelines</h2>
+                <h2 className="text-lg font-semibold">Processing Guidelines</h2>
                 <p className="text-sm text-muted-foreground">
-                  Standard procedures for material verification
+                  Standard procedures for material processing
                 </p>
                 <div className="mt-6 space-y-4">
                   <Guideline
                     number="1"
-                    title="Check Photo Evidence"
-                    description="Verify that before and after photos clearly show the collected waste"
+                    title="Sorting & Classification"
+                    description="Properly sort materials by type and quality before processing"
                   />
                   <Guideline
                     number="2"
-                    title="Confirm Material Type"
-                    description="Ensure the material type matches what is visible in the photos"
+                    title="Processing Standards"
+                    description="Follow industry standards for material processing and recycling"
                   />
                   <Guideline
                     number="3"
-                    title="Validate Weight"
-                    description="Check that the claimed weight is reasonable for the amount shown"
+                    title="Quality Control"
+                    description="Regular quality checks during processing to ensure standards"
                   />
                   <Guideline
                     number="4"
-                    title="Provide Feedback"
-                    description="Always include constructive feedback, especially for rejections"
+                    title="Documentation"
+                    description="Maintain detailed records of processing stages and outcomes"
                   />
                 </div>
               </div>
             </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="processing" className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading processing data...</p>
-            </div>
-          ) : (
-            <>
-              <ProcessingStats items={processingItems} />
-
-              <Card>
-                <div className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold">Processing Queue</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Track material processing status
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                        <IconSearch className="h-4 w-4 text-muted-foreground" />
-                        <Input
-                          type="search"
-                          placeholder="Search..."
-                          className="border-0 p-0 focus-visible:ring-0"
-                        />
-                      </div>
-                      <Select defaultValue="all">
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Filter by status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="failed">Failed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 space-y-6">
-                    {processingItems.map(item => (
-                      <ProcessingItem
-                        key={item.id}
-                        item={item}
-                        onUpdateStatus={(id: string, status: AfricycleStatus) => handleUpdateStatus(id, status)}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between">
-                    <Button variant="outline">Previous</Button>
-                    <span className="text-sm text-muted-foreground">Page 1 of 2</span>
-                    <Button variant="outline">Next</Button>
-                  </div>
-                </div>
-              </Card>
-            </>
-          )}
-
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold">Processing Guidelines</h2>
-              <p className="text-sm text-muted-foreground">
-                Standard procedures for material processing
-              </p>
-              <div className="mt-6 space-y-4">
-                <Guideline
-                  number="1"
-                  title="Sorting & Classification"
-                  description="Properly sort materials by type and quality before processing"
-                />
-                <Guideline
-                  number="2"
-                  title="Processing Standards"
-                  description="Follow industry standards for material processing and recycling"
-                />
-                <Guideline
-                  number="3"
-                  title="Quality Control"
-                  description="Regular quality checks during processing to ensure standards"
-                />
-                <Guideline
-                  number="4"
-                  title="Documentation"
-                  description="Maintain detailed records of processing stages and outcomes"
-                />
-              </div>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
     </DashboardShell>
   )
 } 

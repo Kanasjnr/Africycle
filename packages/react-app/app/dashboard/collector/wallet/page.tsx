@@ -15,9 +15,15 @@ import {
   IconCopy,
   IconRefresh,
   IconSend,
+  IconWallet,
+  IconCoin,
+  IconClock,
+  IconHistory,
+  IconReceipt,
+  IconDownload,
 } from "@tabler/icons-react"
 import { useAfriCycle } from "@/hooks/useAfricycle"
-import { useAccount, usePublicClient } from "wagmi"
+import { useAccount, usePublicClient, useChainId, useBalance } from "wagmi"
 import { formatEther, parseEther, createPublicClient, http } from "viem"
 import { celoAlfajores } from 'viem/chains'
 
@@ -53,6 +59,16 @@ interface TransactionProps {
   amount: string
   date: string
   hash?: string
+}
+
+interface Earning {
+  id: string
+  type: "collection" | "referral" | "bonus"
+  amount: number
+  date: string
+  status: "completed" | "pending"
+  description: string
+  collectionId?: string
 }
 
 function Transaction({ type, description, amount, date }: TransactionProps) {
@@ -97,18 +113,71 @@ function Transaction({ type, description, amount, date }: TransactionProps) {
   )
 }
 
+function EarningItem({ earning }: { earning: Earning }) {
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "collection":
+        return "bg-blue-100 text-blue-800"
+      case "referral":
+        return "bg-green-100 text-green-800"
+      case "bonus":
+        return "bg-purple-100 text-purple-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    return status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+  }
+
+  return (
+    <div className="flex items-center justify-between border-b py-4 last:border-0">
+      <div className="flex items-center gap-3">
+        <div className="rounded-lg bg-green-100 p-2">
+          <IconCoin className="h-4 w-4 text-green-600" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="font-medium capitalize">{earning.type}</p>
+            <Badge variant="secondary" className={`text-xs ${getTypeColor(earning.type)}`}>
+              {earning.type}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{earning.description}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="font-medium text-green-600">+{earning.amount.toFixed(2)} cUSD</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">{earning.date}</p>
+          <Badge variant="secondary" className={`text-xs ${getStatusColor(earning.status)}`}>
+            {earning.status}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function WalletPage() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { data: balance, isLoading: balanceLoading } = useBalance({
+    address: address,
+  })
   const publicClient = usePublicClient()
   const [loading, setLoading] = useState(true)
-  const [balance, setBalance] = useState<bigint>(BigInt(0))
   const [cusdBalance, setCusdBalance] = useState<bigint>(BigInt(0))
   const [withdrawAmount, setWithdrawAmount] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [transactions, setTransactions] = useState<TransactionProps[]>([])
   const [lastFetchedBlock, setLastFetchedBlock] = useState<bigint | null>(null)
-  
+  const [earnings, setEarnings] = useState<Earning[]>([])
+  const [collectorEarnings, setCollectorEarnings] = useState<bigint>(BigInt(0))
+  const [userStats, setUserStats] = useState<any>(null)
+
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
@@ -118,7 +187,7 @@ export default function WalletPage() {
   // Memoize the formatted balances
   const formattedBalances = useMemo(() => ({
     cusd: formatEther(cusdBalance),
-    earnings: formatEther(balance)
+    earnings: balance ? formatEther(balance.value) : "0"
   }), [cusdBalance, balance])
 
   // Memoize the copy to clipboard function
@@ -151,7 +220,7 @@ export default function WalletPage() {
       const amountInWei = BigInt(Math.floor(parseFloat(withdrawAmount) * 1e18))
       
       // Check if user has enough balance
-      if (amountInWei > balance) {
+      if (balance && amountInWei > balance.value) {
         toast.error("Insufficient balance")
         setIsWithdrawing(false)
         return
@@ -161,10 +230,6 @@ export default function WalletPage() {
       const txHash = await africycle.withdrawCollectorEarnings(address, amountInWei)
       
       toast.success(`Withdrawal successful! Transaction hash: ${txHash}`)
-      
-      // Refresh balance
-      const stats = await africycle.getCollectorStats(address)
-      setBalance(stats.totalEarnings)
       
       // Reset form
       setWithdrawAmount("")
@@ -177,16 +242,56 @@ export default function WalletPage() {
     }
   }, [address, africycle, withdrawAmount, phoneNumber, balance])
 
+  // Fetch user stats and earnings data
+  useEffect(() => {
+    async function fetchUserData() {
+      if (!address || !africycle) return
+      
+      try {
+        setLoading(true)
+        
+        // Fetch user detailed stats
+        const stats = await africycle.getUserDetailedStats(address)
+        setUserStats(stats)
+        setCollectorEarnings(stats.totalEarnings)
+        
+        // Get user's collections to create earnings history
+        // Note: We'll need to implement a way to get user's collections
+        // For now, we'll create earnings based on the stats
+        const collectionEarnings: Earning[] = []
+        
+        // If user has earnings, create a basic earnings entry
+        if (stats.totalEarnings > 0) {
+          collectionEarnings.push({
+            id: "total-earnings",
+            type: "collection",
+            amount: parseFloat(formatEther(stats.totalEarnings)),
+            date: new Date().toLocaleDateString(),
+            status: "completed",
+            description: "Total collection earnings"
+          })
+        }
+        
+        setEarnings(collectionEarnings)
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+        toast.error("Failed to fetch user data")
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    if (isConnected) {
+      fetchUserData()
+    }
+  }, [address, africycle, isConnected])
+
   // Separate effect for fetching balances
   useEffect(() => {
     async function fetchBalances() {
-      if (!address || !africycle || !publicClient) return
+      if (!address || !publicClient) return
       
       try {
-        // Fetch collector stats to get earnings
-        const stats = await africycle.getCollectorStats(address)
-        setBalance(stats.totalEarnings)
-        
         // Fetch cUSD balance
         const cusdBalance = await publicClient.readContract({
           address: CUSD_TOKEN_ADDRESS,
@@ -201,7 +306,7 @@ export default function WalletPage() {
     }
     
     fetchBalances()
-  }, [address, africycle, publicClient])
+  }, [address, publicClient])
 
   // Separate effect for fetching transactions
   useEffect(() => {
@@ -216,9 +321,7 @@ export default function WalletPage() {
           return
         }
         
-        setLoading(true)
-        
-        // Fetch recent transactions
+        // Fetch recent transactions from the last 1000 blocks
         const logs = await publicClient.getLogs({
           address: CUSD_TOKEN_ADDRESS,
           event: {
@@ -230,18 +333,18 @@ export default function WalletPage() {
               { type: 'uint256', name: 'value', indexed: false }
             ]
           },
-          fromBlock: lastFetchedBlock || blockNumber - BigInt(1000), // Only fetch new blocks
+          fromBlock: lastFetchedBlock || blockNumber - BigInt(1000),
           toBlock: blockNumber
         })
         
         if (logs.length > 0) {
-          // Get blocks for all transactions
+          // Get blocks for all transactions to get timestamps
           const blocks = await Promise.all(
             logs.map(log => publicClient.getBlock({ blockHash: log.blockHash }))
           )
           
-          // Filter transactions for this address and remove duplicates
-          const newTransactions = logs
+          // Filter transactions for this address
+          const userTransactions = logs
             .filter(log => 
               log.args.from?.toLowerCase() === address.toLowerCase() || 
               log.args.to?.toLowerCase() === address.toLowerCase()
@@ -260,7 +363,7 @@ export default function WalletPage() {
           // Update transactions, ensuring no duplicates by transaction hash
           setTransactions(prev => {
             const existingHashes = new Set(prev.map(tx => tx.hash))
-            const uniqueNewTransactions = newTransactions.filter(tx => !existingHashes.has(tx.hash))
+            const uniqueNewTransactions = userTransactions.filter(tx => !existingHashes.has(tx.hash))
             return [...uniqueNewTransactions, ...prev]
           })
           
@@ -268,17 +371,17 @@ export default function WalletPage() {
         }
       } catch (error) {
         console.error("Error fetching transactions:", error)
-      } finally {
-        setLoading(false)
       }
     }
     
-    fetchTransactions()
-    
-    // Set up polling for new transactions every 15 seconds
-    const interval = setInterval(fetchTransactions, 15000)
-    return () => clearInterval(interval)
-  }, [address, publicClient, lastFetchedBlock])
+    if (isConnected) {
+      fetchTransactions()
+      
+      // Set up polling for new transactions every 30 seconds
+      const interval = setInterval(fetchTransactions, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [address, publicClient, lastFetchedBlock, isConnected])
 
   // Memoize the transaction list
   const transactionList = useMemo(() => {
@@ -309,137 +412,211 @@ export default function WalletPage() {
     ))
   }, [loading, transactions])
 
+  const totalEarnings = userStats ? parseFloat(formatEther(userStats.totalEarnings)) : 0
+  const pendingEarnings = earnings
+    .filter(earning => earning.status === 'pending')
+    .reduce((sum, earning) => sum + earning.amount, 0)
+
+  const getChainName = (chainId: number) => {
+    switch (chainId) {
+      case 42220:
+        return "Celo Mainnet"
+      case 44787:
+        return "Celo Alfajores"
+      default:
+        return "Unknown Chain"
+    }
+  }
+
+  // Refresh data function
+  const handleRefresh = useCallback(async () => {
+    if (!address || !africycle) return
+    
+    try {
+      setLoading(true)
+      
+      // Refresh user stats
+      const stats = await africycle.getUserDetailedStats(address)
+      setUserStats(stats)
+      setCollectorEarnings(stats.totalEarnings)
+      
+      // Refresh balances
+      if (publicClient) {
+        const cusdBalance = await publicClient.readContract({
+          address: CUSD_TOKEN_ADDRESS,
+          abi: erc20ABI,
+          functionName: 'balanceOf',
+          args: [address]
+        }) as bigint
+        setCusdBalance(cusdBalance)
+      }
+      
+      toast.success("Data refreshed successfully")
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast.error("Failed to refresh data")
+    } finally {
+      setLoading(false)
+    }
+  }, [address, africycle, publicClient])
+
   return (
     <DashboardShell>
-      <DashboardHeader
-        heading="Digital Wallet"
-        text="Manage your earnings, view transaction history, and withdraw funds"
-      />
-      <div className="grid gap-6">
-        {/* Wallet Balance */}
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Wallet Balance</h2>
-            <p className="text-sm text-muted-foreground">
-              Your current balance and recent activity
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <DashboardHeader
+          heading="Wallet"
+          text="Manage your earnings and transactions"
+        />
+
+        {!isConnected ? (
+          <Card className="p-8 text-center">
+            <IconWallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
+            <p className="text-muted-foreground mb-4">
+              Connect your wallet to view your balance and transaction history
             </p>
-            <div className="mt-4">
-              {loading ? (
-                <Skeleton className="h-10 w-40" />
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold">{formattedBalances.cusd} cUSD</span>
-                    <Badge variant="secondary">Wallet Balance</Badge>
+            <Button>Connect Wallet</Button>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {/* Balance Overview */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-100 p-3">
+                    <IconWallet className="h-6 w-6 text-blue-600" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{formattedBalances.earnings} cUSD</span>
-                    <Badge variant="secondary">Available for withdrawal</Badge>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">CELO Balance</p>
+                    <h3 className="text-2xl font-bold">
+                      {balanceLoading ? (
+                        "Loading..."
+                      ) : (
+                        `${balance?.formatted || "0.00"} ${balance?.symbol || "CELO"}`
+                      )}
+                    </h3>
                   </div>
                 </div>
-              )}
-              <div className="mt-6 flex gap-2">
-                <Button className="flex-1" disabled>
-                  <IconArrowDown className="mr-2 h-4 w-4" />
-                  Deposit
-                </Button>
-                <Button 
-                  className="flex-1"
-                  onClick={() => document.getElementById('withdraw-section')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  <IconArrowUp className="mr-2 h-4 w-4" />
-                  Withdraw
-                </Button>
-                
-                <Button variant="outline" className="flex-1" disabled>
-                  <IconSend className="mr-2 h-4 w-4" />
-                  Send
-                </Button>
-              </div>
-              <div className="mt-6">
-                <label className="text-sm font-medium">Wallet Address</label>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={address || "Connect your wallet"}
-                  />
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-green-100 p-3">
+                    <IconCoin className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
+                    <h3 className="text-2xl font-bold">{totalEarnings.toFixed(4)} cUSD</h3>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-yellow-100 p-3">
+                    <IconClock className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">cUSD Balance</p>
+                    <h3 className="text-2xl font-bold">{parseFloat(formatEther(cusdBalance)).toFixed(4)} cUSD</h3>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="p-6">
+                <h3 className="font-semibold mb-4">Quick Actions</h3>
+                <div className="space-y-3">
+                  <Button className="w-full justify-start" variant="outline">
+                    <IconSend className="mr-3 h-4 w-4" />
+                    Send Funds
+                  </Button>
+                  <Button className="w-full justify-start" variant="outline">
+                    <IconDownload className="mr-3 h-4 w-4" />
+                    Withdraw Earnings
+                  </Button>
                   <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => address && copyToClipboard(address)}
-                    disabled={!address}
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={handleRefresh}
+                    disabled={loading}
                   >
-                    <IconCopy className="h-4 w-4" />
+                    <IconRefresh className="mr-3 h-4 w-4" />
+                    Refresh Balance
                   </Button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </Card>
+              </Card>
 
-        {/* Quick Actions */}
-        <Card>
-          <div className="p-6" id="withdraw-section">
-            <h2 className="text-lg font-semibold">Quick Actions</h2>
-            <p className="text-sm text-muted-foreground">Common wallet operations</p>
-            <div className="mt-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Withdraw to Mobile Money</label>
-                  <div className="mt-1.5 space-y-2">
-                    <Input 
-                      placeholder="Enter amount (cUSD)" 
-                      type="number"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                    />
-                    <Input 
-                      placeholder="Enter phone number" 
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                    <Button 
-                      className="w-full"
-                      onClick={handleWithdraw}
-                      disabled={isWithdrawing || loading || !address || balance === BigInt(0)}
-                    >
-                      {isWithdrawing ? "Processing..." : "Withdraw"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Note: This will initiate a blockchain transaction to withdraw your earnings.
-                    </p>
+              <Card className="p-6">
+                <h3 className="font-semibold mb-4">Wallet Info</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Network:</span>
+                    <span className="font-medium">{getChainName(chainId)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Address:</span>
+                    <button
+                      onClick={() => copyToClipboard(address || "")}
+                      className="font-mono text-xs hover:text-primary cursor-pointer"
+                    >
+                      {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
+                    </button>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant={isConnected ? "default" : "secondary"}>
+                      {isConnected ? "Connected" : "Disconnected"}
+                    </Badge>
+                  </div>
+                  {userStats && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Reputation:</span>
+                      <span className="font-medium">{userStats.reputationScore.toString()}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </Card>
             </div>
-          </div>
-        </Card>
 
-        {/* Transaction History */}
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Transaction History</h2>
-            <p className="text-sm text-muted-foreground">
-              Your recent wallet transactions
-            </p>
-            <div className="mt-4">
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
-                  All Transactions
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  Deposits
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  Withdrawals
+            {/* Recent Transactions */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Recent Transactions</h3>
+                <Button variant="outline" size="sm">
+                  <IconHistory className="mr-2 h-4 w-4" />
+                  View All
                 </Button>
               </div>
-              <div className="mt-4 divide-y">
-                {transactionList}
-              </div>
-            </div>
+              
+              {transactionList}
+            </Card>
+
+            {/* Earnings History */}
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4">Earnings History</h3>
+              
+              {loading ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading earnings...</p>
+                </div>
+              ) : earnings.length > 0 ? (
+                <div className="space-y-4">
+                  {earnings.slice(0, 3).map((earning) => (
+                    <EarningItem key={earning.id} earning={earning} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <IconCoin className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No earnings history</p>
+                </div>
+              )}
+            </Card>
           </div>
-        </Card>
+        )}
       </div>
     </DashboardShell>
   )

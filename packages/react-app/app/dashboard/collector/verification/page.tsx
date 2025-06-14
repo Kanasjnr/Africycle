@@ -1109,312 +1109,314 @@ export default function PhotoVerificationPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Collections</h1>
-          <p className="text-muted-foreground">
-            Submit and manage your waste collections
-          </p>
-        </div>
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Collections</h1>
+            <p className="text-muted-foreground">
+              Submit and manage your waste collections
+            </p>
+          </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-4"
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="new">New Collection</TabsTrigger>
-            <TabsTrigger value="history">Collection History</TabsTrigger>
-          </TabsList>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-4"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="new">New Collection</TabsTrigger>
+              <TabsTrigger value="history">Collection History</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="new" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit New Collection</CardTitle>
-                <CardDescription>
-                  Fill in the details of your waste collection. All fields are
-                  required.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:gap-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TabsContent value="new" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submit New Collection</CardTitle>
+                  <CardDescription>
+                    Fill in the details of your waste collection. All fields are
+                    required.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Waste Type</label>
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2"
+                          value={state.form.wasteType}
+                          onChange={(e) =>
+                            handleFormChange('wasteType', Number(e.target.value))
+                          }
+                          required
+                        >
+                          <option value={AfricycleWasteStream.PLASTIC}>
+                            Plastic
+                          </option>
+                          <option value={AfricycleWasteStream.EWASTE}>
+                            E-Waste
+                          </option>
+                          <option value={AfricycleWasteStream.METAL}>
+                            Metal
+                          </option>
+                          <option value={AfricycleWasteStream.GENERAL}>
+                            General Waste
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Weight (kg)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={MAX_COLLECTION_WEIGHT}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2"
+                          value={state.form.weight}
+                          onChange={(e) =>
+                            handleFormChange('weight', e.target.value)
+                          }
+                          placeholder="Enter weight in kilograms"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Maximum weight: {MAX_COLLECTION_WEIGHT} kg
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Location</label>
+                        <input
+                          type="text"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2"
+                          value={state.form.location}
+                          onChange={(e) =>
+                            handleFormChange('location', e.target.value)
+                          }
+                          placeholder="Enter collection location"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Pickup Time</label>
+                        <input
+                          type="datetime-local"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2"
+                          value={new Date(state.form.pickupTime * 1000)
+                            .toISOString()
+                            .slice(0, 16)}
+                          onChange={(e) => {
+                            const timestamp = Math.floor(
+                              new Date(e.target.value).getTime() / 1000
+                            );
+                            handleFormChange('pickupTime', timestamp);
+                          }}
+                          min={new Date().toISOString().slice(0, 16)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Select when you want the waste to be picked up
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Waste Type</label>
+                      <label className="text-sm font-medium">
+                        Select Recycler
+                      </label>
                       <select
                         className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={state.form.wasteType}
+                        value={state.form.recycler}
                         onChange={(e) =>
-                          handleFormChange('wasteType', Number(e.target.value))
+                          handleFormChange(
+                            'recycler',
+                            e.target.value as `0x${string}`
+                          )
                         }
                         required
+                        disabled={loadingRecyclers}
                       >
-                        <option value={AfricycleWasteStream.PLASTIC}>
-                          Plastic
+                        <option value="0x0000000000000000000000000000000000000000">
+                          {loadingRecyclers
+                            ? 'Loading recyclers...'
+                            : 'Select a recycler'}
                         </option>
-                        <option value={AfricycleWasteStream.EWASTE}>
-                          E-Waste
-                        </option>
-                        <option value={AfricycleWasteStream.METAL}>
-                          Metal
-                        </option>
-                        <option value={AfricycleWasteStream.GENERAL}>
-                          General Waste
-                        </option>
+                        {recyclers.map((recycler) => (
+                          <option key={recycler.address} value={recycler.address}>
+                            {recycler.name} - {recycler.location}
+                            {recycler.isVerified && ' ✓'}
+                            (Rep: {Number(recycler.reputationScore)})
+                          </option>
+                        ))}
                       </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Weight (kg)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max={MAX_COLLECTION_WEIGHT}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={state.form.weight}
-                        onChange={(e) =>
-                          handleFormChange('weight', e.target.value)
-                        }
-                        placeholder="Enter weight in kilograms"
-                        required
-                      />
                       <p className="text-xs text-muted-foreground">
-                        Maximum weight: {MAX_COLLECTION_WEIGHT} kg
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Location</label>
-                      <input
-                        type="text"
-                        className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={state.form.location}
-                        onChange={(e) =>
-                          handleFormChange('location', e.target.value)
-                        }
-                        placeholder="Enter collection location"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Pickup Time</label>
-                      <input
-                        type="datetime-local"
-                        className="w-full rounded-md border border-input bg-background px-3 py-2"
-                        value={new Date(state.form.pickupTime * 1000)
-                          .toISOString()
-                          .slice(0, 16)}
-                        onChange={(e) => {
-                          const timestamp = Math.floor(
-                            new Date(e.target.value).getTime() / 1000
-                          );
-                          handleFormChange('pickupTime', timestamp);
-                        }}
-                        min={new Date().toISOString().slice(0, 16)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Select when you want the waste to be picked up
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      Select Recycler
-                    </label>
-                    <select
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
-                      value={state.form.recycler}
-                      onChange={(e) =>
-                        handleFormChange(
-                          'recycler',
-                          e.target.value as `0x${string}`
-                        )
-                      }
-                      required
-                      disabled={loadingRecyclers}
-                    >
-                      <option value="0x0000000000000000000000000000000000000000">
                         {loadingRecyclers
-                          ? 'Loading recyclers...'
-                          : 'Select a recycler'}
-                      </option>
-                      {recyclers.map((recycler) => (
-                        <option key={recycler.address} value={recycler.address}>
-                          {recycler.name} - {recycler.location}
-                          {recycler.isVerified && ' ✓'}
-                          (Rep: {Number(recycler.reputationScore)})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground">
-                      {loadingRecyclers
-                        ? 'Loading available recyclers...'
-                        : recyclers.length === 0
-                        ? 'No recyclers available'
-                        : 'Choose the recycler who will process your waste'}
-                    </p>
-                  </div>
+                          ? 'Loading available recyclers...'
+                          : recyclers.length === 0
+                          ? 'No recyclers available'
+                          : 'Choose the recycler who will process your waste'}
+                      </p>
+                    </div>
 
-                  <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 sm:p-8">
-                    {state.form.selectedImage ? (
-                      <div className="relative w-full max-w-md aspect-[4/3]">
-                        <ImageWithFallback
-                          src={state.form.selectedImage}
-                          alt="Selected collection"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            handleFormChange('selectedImage', null);
-                            handleFormChange('imageHash', null);
-                          }}
-                        >
-                          <IconTrash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <IconCamera className="h-12 w-12 text-muted-foreground" />
-                        <div className="text-center">
-                          <p className="text-sm font-medium">
-                            Upload collection photos
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Take or upload photos of your collection for
-                            verification
-                          </p>
+                    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 sm:p-8">
+                      {state.form.selectedImage ? (
+                        <div className="relative w-full max-w-md aspect-[4/3]">
+                          <ImageWithFallback
+                            src={state.form.selectedImage}
+                            alt="Selected collection"
+                          />
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => {
+                              handleFormChange('selectedImage', null);
+                              handleFormChange('imageHash', null);
+                            }}
+                          >
+                            <IconTrash className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </>
-                    )}
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      id="photo-upload"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        await handleImageUpload(file);
-                      }}
-                      required
-                    />
-
-                    <Button
-                      onClick={() =>
-                        document.getElementById('photo-upload')?.click()
-                      }
-                      disabled={state.form.uploading}
-                      className="mt-4"
-                    >
-                      {state.form.uploading ? (
-                        'Uploading...'
                       ) : (
                         <>
-                          <IconUpload className="mr-2 h-4 w-4" />
-                          {state.form.selectedImage
-                            ? 'Change Photo'
-                            : 'Upload Photos'}
+                          <IconCamera className="h-12 w-12 text-muted-foreground" />
+                          <div className="text-center">
+                            <p className="text-sm font-medium">
+                              Upload collection photos
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Take or upload photos of your collection for
+                              verification
+                            </p>
+                          </div>
                         </>
                       )}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSubmit}
-                disabled={submitButtonDisabled}
-                className="w-full sm:w-auto"
-              >
-                {state.form.submitting ? (
-                  <>
-                    <IconUpload className="mr-2 h-4 w-4 animate-spin" />
-                    {submitButtonText}
-                  </>
-                ) : (
-                  <>
-                    <IconCheck className="mr-2 h-4 w-4" />
-                    {submitButtonText}
-                  </>
-                )}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-4">
-            <CollectionSummary collections={state.collections} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Collection History</CardTitle>
-                <CardDescription>
-                  View and manage your collection history
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <CollectionFilters
-                  filters={filters}
-                  onFilterChange={setFilters}
-                />
-
-                <div className="min-h-[300px]">
-                  {fetchError ? (
-                    <div className="py-8 text-center text-destructive">
-                      Error loading collections: {fetchError}
-                      <Button
-                        variant="outline"
-                        className="mt-4"
-                        onClick={() => {
-                          setFetchError(null);
-                          hasFetchedRef.current = false;
-                          fetchCollections();
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        id="photo-upload"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          await handleImageUpload(file);
                         }}
+                        required
+                      />
+
+                      <Button
+                        onClick={() =>
+                          document.getElementById('photo-upload')?.click()
+                        }
+                        disabled={state.form.uploading}
+                        className="mt-4"
                       >
-                        Retry
+                        {state.form.uploading ? (
+                          'Uploading...'
+                        ) : (
+                          <>
+                            <IconUpload className="mr-2 h-4 w-4" />
+                            {state.form.selectedImage
+                              ? 'Change Photo'
+                              : 'Upload Photos'}
+                          </>
+                        )}
                       </Button>
                     </div>
-                  ) : isInitialLoading ? (
-                    <div className="space-y-4">
-                      {[1, 2, 3].map((i) => (
-                        <CollectionSkeleton key={i} />
-                      ))}
-                    </div>
-                  ) : filteredCollections.length > 0 ? (
-                    <div className="space-y-4">
-                      {filteredCollections.map((collection) => (
-                        <CollectionItem
-                          key={collection.collectionId}
-                          collection={collection}
-                          timeAgo={timeAgo}
-                        />
-                      ))}
-                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submitButtonDisabled}
+                  className="w-full sm:w-auto"
+                >
+                  {state.form.submitting ? (
+                    <>
+                      <IconUpload className="mr-2 h-4 w-4 animate-spin" />
+                      {submitButtonText}
+                    </>
                   ) : (
-                    <div className="py-8 text-center text-muted-foreground">
-                      {filters.search ||
-                      filters.status !== 'ALL' ||
-                      filters.wasteType !== 'ALL'
-                        ? 'No collections match your filters'
-                        : 'No collections found. Submit your first collection above!'}
-                    </div>
+                    <>
+                      <IconCheck className="mr-2 h-4 w-4" />
+                      {submitButtonText}
+                    </>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-4">
+              <CollectionSummary collections={state.collections} />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Collection History</CardTitle>
+                  <CardDescription>
+                    View and manage your collection history
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <CollectionFilters
+                    filters={filters}
+                    onFilterChange={setFilters}
+                  />
+
+                  <div className="min-h-[300px]">
+                    {fetchError ? (
+                      <div className="py-8 text-center text-destructive">
+                        Error loading collections: {fetchError}
+                        <Button
+                          variant="outline"
+                          className="mt-4"
+                          onClick={() => {
+                            setFetchError(null);
+                            hasFetchedRef.current = false;
+                            fetchCollections();
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    ) : isInitialLoading ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <CollectionSkeleton key={i} />
+                        ))}
+                      </div>
+                    ) : filteredCollections.length > 0 ? (
+                      <div className="space-y-4">
+                        {filteredCollections.map((collection) => (
+                          <CollectionItem
+                            key={collection.collectionId}
+                            collection={collection}
+                            timeAgo={timeAgo}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        {filters.search ||
+                        filters.status !== 'ALL' ||
+                        filters.wasteType !== 'ALL'
+                          ? 'No collections match your filters'
+                          : 'No collections found. Submit your first collection above!'}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </DashboardShell>
   );

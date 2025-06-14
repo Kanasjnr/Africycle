@@ -13,26 +13,35 @@ import {
   IconEdit,
   IconTrash,
   IconPlus,
+  IconShoppingCart,
+  IconArrowUpRight,
+  IconStar,
 } from "@tabler/icons-react"
 
 interface ListingCardProps {
   id: string
+  title: string
   material: string
   quantity: string
   price: string
-  grade: string
+  location: string
+  posted: string
+  grade?: string
   status: "Active" | "Pending" | "Sold"
-  createdAt: string
+  offers: number
 }
 
 function ListingCard({
   id,
+  title,
   material,
   quantity,
   price,
+  location,
+  posted,
   grade,
   status,
-  createdAt,
+  offers,
 }: ListingCardProps) {
   return (
     <Card>
@@ -41,7 +50,7 @@ function ListingCard({
           <div>
             <div className="flex items-center gap-2">
               <IconPackage className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-medium">{material}</h3>
+              <h3 className="font-medium">{title}</h3>
               <Badge
                 variant={
                   status === "Active"
@@ -55,7 +64,7 @@ function ListingCard({
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              ID: {id} • Listed on {createdAt}
+              ID: {id} • Posted {posted} • {location}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -69,18 +78,22 @@ function ListingCard({
             </Button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Material</p>
+            <p className="font-medium">{material}</p>
+          </div>
           <div>
             <p className="text-sm text-muted-foreground">Quantity</p>
             <p className="font-medium">{quantity}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Price</p>
+            <p className="text-sm text-muted-foreground">Price (cUSD/kg)</p>
             <p className="font-medium">{price}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Grade</p>
-            <p className="font-medium">{grade}</p>
+            <p className="text-sm text-muted-foreground">Offers</p>
+            <p className="font-medium">{offers}</p>
           </div>
         </div>
       </div>
@@ -146,154 +159,185 @@ function OrderCard({ id, buyer, items, total, status, date }: OrderCardProps) {
   )
 }
 
+interface ActivityItemProps {
+  type: "offer" | "sale" | "listing"
+  title: string
+  description: string
+  time: string
+}
+
+function ActivityItem({ type, title, description, time }: ActivityItemProps) {
+  const getIcon = () => {
+    switch (type) {
+      case "offer":
+        return <IconCoin className="h-4 w-4 text-blue-500" />
+      case "sale":
+        return <IconShoppingCart className="h-4 w-4 text-green-500" />
+      case "listing":
+        return <IconPackage className="h-4 w-4 text-orange-500" />
+      default:
+        return <IconPackage className="h-4 w-4 text-muted-foreground" />
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg border">
+      <div className="mt-0.5">{getIcon()}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <p className="text-xs text-muted-foreground">{time}</p>
+    </div>
+  )
+}
+
 export default function MarketplacePage() {
   return (
     <DashboardShell>
-      <DashboardHeader
-        heading="Marketplace"
-        text="List and manage your recycled materials"
-      />
-      <div className="grid gap-6">
-        {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <DashboardHeader
+          heading="Marketplace"
+          text="List and manage your material sales"
+        />
+        <div className="grid gap-6">
+          {/* Overview Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center gap-2">
+                  <IconShoppingCart className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Active Listings</h3>
+                </div>
+                <p className="mt-2 text-2xl font-bold">12</p>
+                <p className="text-sm text-muted-foreground">
+                  Currently listed
+                </p>
+              </div>
+            </Card>
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center gap-2">
+                  <IconCoin className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Total Sales</h3>
+                </div>
+                <p className="mt-2 text-2xl font-bold">2,450 cUSD</p>
+                <div className="mt-2 flex items-center text-sm">
+                  <IconArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-green-500">+12%</span>
+                  <span className="ml-1 text-muted-foreground">this month</span>
+                </div>
+              </div>
+            </Card>
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center gap-2">
+                  <IconTruck className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Pending Orders</h3>
+                </div>
+                <p className="mt-2 text-2xl font-bold">3</p>
+                <p className="text-sm text-muted-foreground">
+                  Awaiting delivery
+                </p>
+              </div>
+            </Card>
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center gap-2">
+                  <IconStar className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-medium">Rating</h3>
+                </div>
+                <p className="mt-2 text-2xl font-bold">4.8</p>
+                <p className="text-sm text-muted-foreground">
+                  Based on 24 reviews
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Active Listings */}
           <Card>
             <div className="p-6">
-              <div className="flex items-center gap-2">
-                <IconPackage className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-medium">Active Listings</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Active Listings</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Your current marketplace listings
+                  </p>
+                </div>
+                <Button>
+                  <IconPlus className="mr-2 h-4 w-4" />
+                  Create Listing
+                </Button>
               </div>
-              <p className="mt-2 text-2xl font-bold">12</p>
-              <p className="text-sm text-muted-foreground">3 pending approval</p>
+              <div className="mt-6 space-y-6">
+                <ListingCard
+                  id="LST-2023-001"
+                  title="Premium PET Plastic Flakes"
+                  material="PET Plastic"
+                  quantity="500kg"
+                  price="2.50"
+                  location="Lagos, Nigeria"
+                  posted="2 days ago"
+                  status="Active"
+                  offers={3}
+                />
+                <ListingCard
+                  id="LST-2023-002"
+                  title="Clean HDPE Bottles"
+                  material="HDPE"
+                  quantity="300kg"
+                  price="1.80"
+                  location="Lagos, Nigeria"
+                  posted="5 days ago"
+                  status="Active"
+                  offers={1}
+                />
+                <ListingCard
+                  id="LST-2023-003"
+                  title="Sorted Metal Scrap"
+                  material="Metal"
+                  quantity="200kg"
+                  price="4.20"
+                  location="Lagos, Nigeria"
+                  posted="1 week ago"
+                  status="Sold"
+                  offers={0}
+                />
+              </div>
             </div>
           </Card>
+
+          {/* Recent Activity */}
           <Card>
             <div className="p-6">
-              <div className="flex items-center gap-2">
-                <IconTruck className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-medium">Open Orders</h3>
+              <h2 className="text-lg font-semibold">Recent Activity</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Your latest marketplace activities
+              </p>
+              <div className="space-y-4">
+                <ActivityItem
+                  type="offer"
+                  title="New offer received"
+                  description="2.30 cUSD/kg for Premium PET Plastic Flakes"
+                  time="2 hours ago"
+                />
+                <ActivityItem
+                  type="sale"
+                  title="Listing sold"
+                  description="Sorted Metal Scrap - 200kg for 840 cUSD"
+                  time="1 day ago"
+                />
+                <ActivityItem
+                  type="listing"
+                  title="New listing created"
+                  description="Clean HDPE Bottles - 300kg"
+                  time="5 days ago"
+                />
               </div>
-              <p className="mt-2 text-2xl font-bold">5</p>
-              <p className="text-sm text-muted-foreground">2 need shipping</p>
-            </div>
-          </Card>
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center gap-2">
-                <IconCoin className="h-5 w-5 text-muted-foreground" />
-                <h3 className="font-medium">Revenue (MTD)</h3>
-              </div>
-              <p className="mt-2 text-2xl font-bold">$2,450</p>
-              <p className="text-sm text-muted-foreground">+15% from last month</p>
             </div>
           </Card>
         </div>
-
-        {/* Listings */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Material Listings</h2>
-                <p className="text-sm text-muted-foreground">
-                  Manage your listed materials
-                </p>
-              </div>
-              <Button>
-                <IconPlus className="mr-2 h-4 w-4" />
-                New Listing
-              </Button>
-            </div>
-            <Tabs defaultValue="active" className="mt-6">
-              <TabsList>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="sold">Sold</TabsTrigger>
-              </TabsList>
-              <div className="mt-4">
-                <TabsContent value="active" className="space-y-4">
-                  <ListingCard
-                    id="LST-2023-0045"
-                    material="PET Plastic Flakes"
-                    quantity="500 kg"
-                    price="$1.20/kg"
-                    grade="Grade A"
-                    status="Active"
-                    createdAt="Mar 20, 2023"
-                  />
-                  <ListingCard
-                    id="LST-2023-0046"
-                    material="HDPE Pellets"
-                    quantity="300 kg"
-                    price="$1.50/kg"
-                    grade="Grade B"
-                    status="Active"
-                    createdAt="Mar 19, 2023"
-                  />
-                </TabsContent>
-                <TabsContent value="pending" className="space-y-4">
-                  <ListingCard
-                    id="LST-2023-0047"
-                    material="Mixed Paper"
-                    quantity="1000 kg"
-                    price="$0.30/kg"
-                    grade="Grade C"
-                    status="Pending"
-                    createdAt="Mar 21, 2023"
-                  />
-                </TabsContent>
-                <TabsContent value="sold" className="space-y-4">
-                  <ListingCard
-                    id="LST-2023-0044"
-                    material="Aluminum Cans"
-                    quantity="200 kg"
-                    price="$2.00/kg"
-                    grade="Grade A"
-                    status="Sold"
-                    createdAt="Mar 15, 2023"
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-        </Card>
-
-        {/* Orders */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Recent Orders</h2>
-                <p className="text-sm text-muted-foreground">
-                  Track and manage incoming orders
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 space-y-4">
-              <OrderCard
-                id="ORD-2023-0089"
-                buyer="EcoPlastics Ltd"
-                items={[
-                  "300kg PET Plastic Flakes",
-                  "200kg HDPE Pellets",
-                ]}
-                total="$660.00"
-                status="Processing"
-                date="Mar 21, 2023"
-              />
-              <OrderCard
-                id="ORD-2023-0088"
-                buyer="Green Recycling Co"
-                items={[
-                  "500kg Mixed Paper",
-                  "100kg Aluminum Cans",
-                ]}
-                total="$350.00"
-                status="Shipped"
-                date="Mar 20, 2023"
-              />
-            </div>
-          </div>
-        </Card>
       </div>
     </DashboardShell>
   )

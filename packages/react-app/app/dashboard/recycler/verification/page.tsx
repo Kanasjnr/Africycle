@@ -590,110 +590,112 @@ export default function ProcessingDashboard() {
 
   return (
     <DashboardShell>
-      <Header
-        heading="Processing Dashboard"
-        text="Manage and track waste processing"
-      />
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <Header
+          heading="Processing Dashboard"
+          text="Manage and track waste processing"
+        />
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="active">Active Batches</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="active">Active Batches</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-          <Button onClick={handleCreateBatch} disabled={selectedCollections.length === 0}>
-            <IconPlus className="mr-2 h-4 w-4" />
-            Create Batch
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <p className="text-muted-foreground">Loading processing data...</p>
+            <Button onClick={handleCreateBatch} disabled={selectedCollections.length === 0}>
+              <IconPlus className="mr-2 h-4 w-4" />
+              Create Batch
+            </Button>
           </div>
-        ) : (
-          <>
-            <ProcessingStats batches={processingBatches} />
 
-            <Card>
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold">Processing Batches</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Track and manage processing batches
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                      <IconSearch className="h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="search"
-                        placeholder="Search batches..."
-                        className="border-0 p-0 focus-visible:ring-0"
-                      />
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Loading processing data...</p>
+            </div>
+          ) : (
+            <>
+              <ProcessingStats batches={processingBatches} />
+
+              <Card>
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">Processing Batches</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Track and manage processing batches
+                      </p>
                     </div>
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-4">
+                      <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
+                        <IconSearch className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="search"
+                          placeholder="Search batches..."
+                          className="border-0 p-0 focus-visible:ring-0"
+                        />
+                      </div>
+                      <Select defaultValue="all">
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-6">
+                    {processingBatches.map(batch => (
+                      <ProcessingBatchCard
+                        key={batch.id}
+                        batch={batch}
+                        onComplete={handleCompleteBatch}
+                      />
+                    ))}
                   </div>
                 </div>
+              </Card>
 
-                <div className="mt-6 space-y-6">
-                  {processingBatches.map(batch => (
-                    <ProcessingBatchCard
-                      key={batch.id}
-                      batch={batch}
-                      onComplete={handleCompleteBatch}
+              <Card>
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold">Processing Guidelines</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Standard procedures for material processing
+                  </p>
+                  <div className="mt-6 space-y-4">
+                    <Guideline
+                      number="1"
+                      title="Batch Creation"
+                      description="Create processing batches from verified collections"
                     />
-                  ))}
+                    <Guideline
+                      number="2"
+                      title="Quality Control"
+                      description="Maintain high quality standards during processing"
+                    />
+                    <Guideline
+                      number="3"
+                      title="Carbon Tracking"
+                      description="Track and report carbon offset for each batch"
+                    />
+                    <Guideline
+                      number="4"
+                      title="Documentation"
+                      description="Keep detailed records of processing outcomes"
+                    />
+                  </div>
                 </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-6">
-                <h2 className="text-lg font-semibold">Processing Guidelines</h2>
-                <p className="text-sm text-muted-foreground">
-                  Standard procedures for material processing
-                </p>
-                <div className="mt-6 space-y-4">
-                  <Guideline
-                    number="1"
-                    title="Batch Creation"
-                    description="Create processing batches from verified collections"
-                  />
-                  <Guideline
-                    number="2"
-                    title="Quality Control"
-                    description="Maintain high quality standards during processing"
-                  />
-                  <Guideline
-                    number="3"
-                    title="Carbon Tracking"
-                    description="Track and report carbon offset for each batch"
-                  />
-                  <Guideline
-                    number="4"
-                    title="Documentation"
-                    description="Keep detailed records of processing outcomes"
-                  />
-                </div>
-              </div>
-            </Card>
-          </>
-        )}
+              </Card>
+            </>
+          )}
+        </div>
       </div>
     </DashboardShell>
   )
