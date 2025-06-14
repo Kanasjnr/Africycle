@@ -92,100 +92,102 @@ function ReportCard({
 export default function ReportsPage() {
   return (
     <DashboardShell>
-      <DashboardHeader
-        heading="Reports"
-        text="Generate and manage collection point reports"
-      />
-      <div className="grid gap-6">
-        {/* Report Generation */}
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold">Generate New Report</h2>
-            <p className="text-sm text-muted-foreground">
-              Select report type and parameters
-            </p>
-            <div className="mt-4 flex items-center gap-4">
-              <Button>
-                <IconFileAnalytics className="mr-2 h-4 w-4" />
-                Analytics Report
-              </Button>
-              <Button variant="outline">
-                <IconFile className="mr-2 h-4 w-4" />
-                Collection Data
-              </Button>
-              <Button variant="outline">
-                <IconFile className="mr-2 h-4 w-4" />
-                Performance Summary
-              </Button>
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <DashboardHeader
+          heading="Reports"
+          text="Generate and manage collection point reports"
+        />
+        <div className="grid gap-6">
+          {/* Report Generation */}
+          <Card>
+            <div className="p-6">
+              <h2 className="text-lg font-semibold">Generate New Report</h2>
+              <p className="text-sm text-muted-foreground">
+                Select report type and parameters
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                <Button>
+                  <IconFileAnalytics className="mr-2 h-4 w-4" />
+                  Analytics Report
+                </Button>
+                <Button variant="outline">
+                  <IconFile className="mr-2 h-4 w-4" />
+                  Collection Data
+                </Button>
+                <Button variant="outline">
+                  <IconFile className="mr-2 h-4 w-4" />
+                  Performance Summary
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Report List */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">Recent Reports</h2>
-                <p className="text-sm text-muted-foreground">
-                  View and download generated reports
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
-                  <IconSearch className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search reports..."
-                    className="border-0 p-0 focus-visible:ring-0"
-                  />
+          {/* Report List */}
+          <Card>
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Recent Reports</h2>
+                  <p className="text-sm text-muted-foreground">
+                    View and download generated reports
+                  </p>
                 </div>
-                <Button variant="outline">
-                  <IconCalendar className="mr-2 h-4 w-4" />
-                  Date Range
-                </Button>
-                <Button variant="outline">
-                  <IconFilter className="mr-2 h-4 w-4" />
-                  Filter
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex w-[200px] items-center gap-2 rounded-md border px-3">
+                    <IconSearch className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search reports..."
+                      className="border-0 p-0 focus-visible:ring-0"
+                    />
+                  </div>
+                  <Button variant="outline">
+                    <IconCalendar className="mr-2 h-4 w-4" />
+                    Date Range
+                  </Button>
+                  <Button variant="outline">
+                    <IconFilter className="mr-2 h-4 w-4" />
+                    Filter
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-6 space-y-4">
+                <ReportCard
+                  title="Monthly Analytics Report"
+                  description="Detailed analysis of collection metrics and trends"
+                  type="analytics"
+                  date="March 2024"
+                  size="2.5 MB"
+                  status="Generated"
+                />
+                <ReportCard
+                  title="Collection Data Export"
+                  description="Raw data export of all collections"
+                  type="spreadsheet"
+                  date="March 15, 2024"
+                  size="1.8 MB"
+                  status="Generated"
+                />
+                <ReportCard
+                  title="Quarterly Performance Report"
+                  description="Q1 2024 performance metrics and insights"
+                  type="pdf"
+                  date="March 31, 2024"
+                  size="3.2 MB"
+                  status="Processing"
+                />
+                <ReportCard
+                  title="System Logs"
+                  description="Collection point activity logs"
+                  type="text"
+                  date="March 20, 2024"
+                  size="500 KB"
+                  status="Generated"
+                />
               </div>
             </div>
-            <div className="mt-6 space-y-4">
-              <ReportCard
-                title="Monthly Analytics Report"
-                description="Detailed analysis of collection metrics and trends"
-                type="analytics"
-                date="March 2024"
-                size="2.5 MB"
-                status="Generated"
-              />
-              <ReportCard
-                title="Collection Data Export"
-                description="Raw data export of all collections"
-                type="spreadsheet"
-                date="March 15, 2024"
-                size="1.8 MB"
-                status="Generated"
-              />
-              <ReportCard
-                title="Quarterly Performance Report"
-                description="Q1 2024 performance metrics and insights"
-                type="pdf"
-                date="March 31, 2024"
-                size="3.2 MB"
-                status="Processing"
-              />
-              <ReportCard
-                title="System Logs"
-                description="Collection point activity logs"
-                type="text"
-                date="March 20, 2024"
-                size="500 KB"
-                status="Generated"
-              />
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </DashboardShell>
   )

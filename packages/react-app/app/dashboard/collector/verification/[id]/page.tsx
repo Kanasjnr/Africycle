@@ -12,6 +12,7 @@ import { useAccount } from "wagmi"
 import Image from "next/image"
 import { toast } from "sonner"
 import { cloudinaryConfig } from "@/lib/cloudinary"
+import { Badge } from "@/components/ui/badge"
 
 // Define types for collections
 interface Collection {
@@ -161,10 +162,10 @@ function CollectionDetailsPage() {
         }
 
         console.log('Debug: Fetching collection #', collectionId)
-        const wasteCollection = await africycle.getCollection(BigInt(collectionId))
-        console.log('Debug: Raw collection data:', wasteCollection)
+        const wasteCollectionDetails = await africycle.getCollectionDetails(BigInt(collectionId))
+        console.log('Debug: Raw collection data:', wasteCollectionDetails)
         
-        const collection = arrayToCollection(wasteCollection, collectionId)
+        const collection = arrayToCollection(wasteCollectionDetails.collection, collectionId)
         
         if (!collection) {
           throw new Error("Collection not found or invalid format")
@@ -191,22 +192,24 @@ function CollectionDetailsPage() {
   if (loading) {
     return (
       <DashboardShell>
-        <DashboardHeader
-          heading="Collection Details"
-          text="Loading collection information..."
-        />
-        <Card>
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-48 bg-muted rounded-lg" />
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded w-1/4" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-4 bg-muted rounded w-3/4" />
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <DashboardHeader
+            heading="Collection Details"
+            text="Loading collection information..."
+          />
+          <Card>
+            <CardContent className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-48 bg-muted rounded-lg" />
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded w-1/4" />
+                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </DashboardShell>
     )
   }
@@ -214,25 +217,27 @@ function CollectionDetailsPage() {
   if (error) {
     return (
       <DashboardShell>
-        <DashboardHeader
-          heading="Collection Details"
-          text="Error loading collection"
-        />
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <p className="text-destructive">{error}</p>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/dashboard/collector/verification")}
-                className="gap-2"
-              >
-                <IconArrowLeft className="h-4 w-4" />
-                Back to Collections
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <DashboardHeader
+            heading="Collection Details"
+            text="Error loading collection"
+          />
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center space-y-4">
+                <p className="text-destructive">{error}</p>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/dashboard/collector/verification")}
+                  className="gap-2"
+                >
+                  <IconArrowLeft className="h-4 w-4" />
+                  Back to Collections
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </DashboardShell>
     )
   }
@@ -243,94 +248,104 @@ function CollectionDetailsPage() {
 
   return (
     <DashboardShell>
-      <DashboardHeader
-        heading="Collection Details"
-        text="View detailed information about your collection"
-      />
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <DashboardHeader
+          heading="Collection Details"
+          text="View detailed information about your collection"
+        />
 
-      <div className="grid gap-4 sm:gap-6">
-        <div className="flex justify-between items-center">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/dashboard/collector/verification")}
-            className="gap-2"
-          >
-            <IconArrowLeft className="h-4 w-4" />
-            Back to Collections
-          </Button>
-        </div>
+        <div className="grid gap-4 sm:gap-6">
+          <div className="flex justify-between items-center">
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/dashboard/collector/verification")}
+              className="flex items-center gap-2"
+            >
+              <IconArrowLeft className="h-4 w-4" />
+              Back to Collections
+            </Button>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="grid gap-6">
-              <div className="relative aspect-[4/3] w-full max-w-2xl mx-auto rounded-lg overflow-hidden">
-                {collection.imageHash ? (
-                  <Image
-                    src={collection.imageUrl}
-                    alt="Collection"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 768px"
-                    priority
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                    <IconX className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Collection ID</p>
-                  <p className="font-medium">#{collection.collectionId}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <p className="font-medium">{AfricycleStatus[collection.status]}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Weight</p>
-                  <p className="font-medium">{collection.weight.toString()} kg</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Waste Type</p>
-                  <p className="font-medium">{AfricycleWasteStream[collection.wasteType]}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Quality Grade</p>
-                  <p className="font-medium">{AfricycleQualityGrade[collection.quality]}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Location</p>
-                  <p className="font-medium">{collection.location}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Reward Amount</p>
-                  <p className="font-medium">{Number(collection.rewardAmount) / 1e18} cUSD</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium text-muted-foreground">Processing Status</p>
-                  <p className="font-medium">{collection.isProcessed ? "Processed" : "Not Processed"}</p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
-                  <p className="text-sm font-medium text-muted-foreground">Collection Date</p>
-                  <p className="font-medium">
-                    {new Date(Number(collection.timestamp) * 1000).toLocaleString()}
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={collection?.status === AfricycleStatus.VERIFIED ? "default" : "secondary"}
+              >
+                {collection?.status === AfricycleStatus.VERIFIED ? "Verified" : "Pending"}
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="grid gap-6">
+                <div className="relative aspect-[4/3] w-full max-w-2xl mx-auto rounded-lg overflow-hidden">
+                  {collection.imageHash ? (
+                    <Image
+                      src={collection.imageUrl}
+                      alt="Collection"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 768px"
+                      priority
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                      <IconX className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Collection ID</p>
+                    <p className="font-medium">#{collection.collectionId}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <p className="font-medium">{AfricycleStatus[collection.status]}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Weight</p>
+                    <p className="font-medium">{collection.weight.toString()} kg</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Waste Type</p>
+                    <p className="font-medium">{AfricycleWasteStream[collection.wasteType]}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Quality Grade</p>
+                    <p className="font-medium">{AfricycleQualityGrade[collection.quality]}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Location</p>
+                    <p className="font-medium">{collection.location}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Reward Amount</p>
+                    <p className="font-medium">{Number(collection.rewardAmount) / 1e18} cUSD</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Processing Status</p>
+                    <p className="font-medium">{collection.isProcessed ? "Processed" : "Not Processed"}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Collection Date</p>
+                    <p className="font-medium">
+                      {new Date(Number(collection.timestamp) * 1000).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardShell>
   )
