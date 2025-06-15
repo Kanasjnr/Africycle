@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Header } from "@/components/dashboard/header"
+import { Loader } from "@/components/ui/loader"
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useAccount } from "wagmi"
 import { useEffect, useState } from "react"
@@ -90,7 +91,6 @@ export default function CollectorDashboard() {
   const [stats, setStats] = useState({
     totalCollected: BigInt(0),
     totalEarnings: BigInt(0),
-    activePickups: BigInt(0),
     scheduledPickups: BigInt(0),
     collectedByType: [BigInt(0), BigInt(0), BigInt(0), BigInt(0)] as [bigint, bigint, bigint, bigint],
     reputationScore: BigInt(0),
@@ -110,7 +110,6 @@ export default function CollectorDashboard() {
         setStats({
           totalCollected: profile.totalCollected,
           totalEarnings: profile.totalEarnings,
-          activePickups: profile.scheduledPickups, // Using scheduledPickups as active pickups
           scheduledPickups: profile.scheduledPickups,
           collectedByType: profile.collectedByType,
           reputationScore: profile.collectorReputationScore,
@@ -138,8 +137,6 @@ export default function CollectorDashboard() {
   }
 
   const handleTrackPickups = () => {
-    // For now, we'll navigate to the map page since it shows pickup information
-    // You could create a dedicated pickups page later if needed
     router.push("/dashboard/collector/map")
     toast.info("Track your scheduled pickups on the map")
   }
@@ -147,19 +144,16 @@ export default function CollectorDashboard() {
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <Header
-          heading="Collector Dashboard"
-          text="Track your collection activities and earnings"
-        />
-
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <p className="text-muted-foreground">Loading dashboard statistics...</p>
-          </div>
+          <Loader 
+            message="Loading dashboard statistics..." 
+            size="lg"
+            className="py-16"
+          />
         ) : (
           <div className="space-y-6">
             {/* Main Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
               <StatCard
                 title="Total Collected"
                 value={`${totalCollected.toString()} kg`}
@@ -175,36 +169,11 @@ export default function CollectorDashboard() {
                 color="bg-green-500"
               />
               <StatCard
-                title="Active Pickups"
-                value={stats.activePickups.toString()}
-                description="Scheduled pickups"
-                icon={<IconCalendar className="h-6 w-6 text-white" />}
-                color="bg-purple-500"
-              />
-              <StatCard
                 title="Reputation Score"
                 value={stats.reputationScore.toString()}
                 description="Your collector reputation"
                 icon={<IconChartBar className="h-6 w-6 text-white" />}
                 color="bg-yellow-500"
-              />
-            </div>
-
-            {/* Progress Cards */}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
-              <ProgressCard
-                title="Collection Progress"
-                value={Number(totalCollected)}
-                total={Number(totalCollected) + 1000} // Example target
-                description="Progress towards monthly goal"
-                color="bg-blue-500"
-              />
-              <ProgressCard
-                title="Verification Status"
-                value={stats.verifiedStatus ? 100 : 0}
-                total={100}
-                description={stats.verifiedStatus ? "Verified Collector" : "Verification Pending"}
-                color="bg-green-500"
               />
             </div>
 
