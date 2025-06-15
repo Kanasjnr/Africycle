@@ -19,6 +19,7 @@ import {
   IconPlus,
   IconTrash,
   IconEye,
+  IconRefresh,
 } from "@tabler/icons-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -631,6 +632,17 @@ export default function MaterialVerificationPage() {
 
         console.log('Debug: Collections data:', collectionsData)
         console.log('Debug: Batches data:', batchesData)
+        console.log('Debug: Batches length:', batchesData.length)
+        
+        // Log individual batch statuses
+        batchesData.forEach((batch, index) => {
+          console.log(`Debug: Batch ${index}:`, {
+            id: batch.id.toString(),
+            status: batch.status,
+            statusName: batch.status === AfricycleStatus.IN_PROGRESS ? 'IN_PROGRESS' : 
+                       batch.status === AfricycleStatus.COMPLETED ? 'COMPLETED' : 'UNKNOWN'
+          })
+        })
 
         setCollections(collectionsData)
         setProcessingBatches(batchesData)
@@ -650,6 +662,75 @@ export default function MaterialVerificationPage() {
 
     fetchData()
   }, [africycle, address])
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    if (!africycle || !address) return
+    
+    try {
+      setIsLoading(true)
+      console.log('Manual refresh triggered...')
+      console.log('Current address:', address)
+      
+      // Try to get user role first
+      try {
+        const userRole = await africycle.getUserRole(address)
+        console.log('User role during refresh:', userRole)
+      } catch (roleError) {
+        console.log('Could not get user role during refresh:', roleError)
+      }
+      
+      // Debug the batch fetching process
+      console.log('Attempting to fetch batches for recycler:', address)
+      
+      const [updatedCollections, updatedBatches] = await Promise.all([
+        africycle.getRecyclerCollections(address),
+        africycle.getRecyclerProcessingBatches(address).catch(error => {
+          console.error('Error fetching batches specifically:', error)
+          return []
+        })
+      ])
+      
+      console.log('Manual refresh - Updated collections:', updatedCollections)
+      console.log('Manual refresh - Updated batches:', updatedBatches)
+      
+      // Check if any collections are processed
+      const processedCollections = updatedCollections.filter(c => c.isProcessed)
+      console.log('Processed collections count:', processedCollections.length)
+      processedCollections.forEach(c => {
+        console.log('Processed collection:', {
+          id: c.id.toString(),
+          isProcessed: c.isProcessed,
+          status: c.status
+        })
+      })
+      
+      // Try alternative approach - maybe fetch all batches and filter
+      try {
+        console.log('Trying alternative batch fetch approach...')
+        // If there's a method to get all batches, we could try that
+        // For now, let's just log more details about the current approach
+        console.log('africycle methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(africycle)))
+      } catch (altError) {
+        console.log('Alternative approach failed:', altError)
+      }
+      
+      setCollections(updatedCollections)
+      setProcessingBatches(updatedBatches)
+      
+      if (updatedCollections.length > 0) {
+        const names = await fetchCollectorNames(updatedCollections)
+        setCollectorNames(names)
+      }
+      
+      toast.success("Data refreshed successfully")
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast.error("Failed to refresh data")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Handle collection verification
   const handleVerifyCollection = async (collection: WasteCollection, approved: boolean, reason?: string) => {
@@ -690,17 +771,31 @@ export default function MaterialVerificationPage() {
     try {
       setIsProcessing(true)
       
+      console.log('Creating batch with collections:', collectionIds, 'description:', description)
+      
       await africycle.createProcessingBatch(address, collectionIds, description)
       toast.success("Processing batch created successfully")
 
+      // Add a small delay to ensure blockchain state has propagated
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
       // Refresh data
+      console.log('Refreshing data after batch creation...')
       const [updatedCollections, updatedBatches] = await Promise.all([
         africycle.getRecyclerCollections(address),
         africycle.getRecyclerProcessingBatches(address)
       ])
       
+      console.log('Updated collections:', updatedCollections)
+      console.log('Updated batches:', updatedBatches)
+      
       setCollections(updatedCollections)
       setProcessingBatches(updatedBatches)
+      
+      // Log the filtered batches for debugging
+      const newInProgressBatches = updatedBatches.filter(b => b.status === AfricycleStatus.IN_PROGRESS)
+      console.log('New in-progress batches:', newInProgressBatches)
+      
     } catch (error) {
       console.error("Error creating batch:", error)
       toast.error("Failed to create processing batch")
@@ -740,8 +835,22 @@ export default function MaterialVerificationPage() {
     <DashboardShell>
       <div className="w-full px-3 sm:px-4 lg:px-6">
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Material Verification & Processing</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Verify collections and manage processing batches</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Material Verification & Processing</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Verify collections and manage processing batches</p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <IconRefresh className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 sm:space-y-4">

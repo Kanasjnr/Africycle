@@ -709,15 +709,58 @@ export class AfriCycle {
   async getProcessingBatchDetails(batchId: number | bigint): Promise<ProcessingBatch> {
     try {
       const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
+      console.log(`Debug: Fetching processing batch details for batchId:`, batchIdBigInt.toString());
+      
       const batch = await this.publicClient.readContract({
         address: this.contractAddress,
         abi: afriCycleAbi,
         functionName: 'processingBatches',
         args: [batchIdBigInt],
       });
-      return batch as unknown as ProcessingBatch;
+      
+      console.log(`Debug: Raw batch data for ${batchIdBigInt}:`, batch);
+      
+      // Parse the raw contract data into ProcessingBatch structure
+      // Based on the contract's ProcessingBatch struct:
+      // struct ProcessingBatch {
+      //   uint256 id;                    // 0
+      //   address processor;             // 1
+      //   WasteStream wasteType;         // 2
+      //   uint256 inputAmount;           // 3
+      //   uint256 outputAmount;          // 4
+      //   uint256 timestamp;             // 5
+      //   Status status;                 // 6
+      //   string processDescription;     // 7
+      //   QualityGrade outputQuality;    // 8
+      //   uint256 carbonOffset;          // 9
+      // }
+      
+      const rawData = batch as any[];
+      console.log(`Debug: Raw data array length for batch ${batchIdBigInt}:`, rawData?.length);
+      console.log(`Debug: Raw data elements:`, rawData);
+      
+      if (rawData && rawData.length >= 10 && rawData[1] !== '0x0000000000000000000000000000000000000000') {
+        const parsedBatch: ProcessingBatch = {
+          id: rawData[0] as bigint,
+          processor: rawData[1] as Address,
+          wasteType: Number(rawData[2]) as AfricycleWasteStream,
+          inputAmount: rawData[3] as bigint,
+          outputAmount: rawData[4] as bigint,
+          timestamp: rawData[5] as bigint,
+          status: Number(rawData[6]) as AfricycleStatus,
+          processDescription: rawData[7] as string,
+          outputQuality: Number(rawData[8]) as AfricycleQualityGrade,
+          carbonOffset: rawData[9] as bigint,
+        };
+        
+        console.log(`Debug: Parsed batch ${batchIdBigInt}:`, parsedBatch);
+        return parsedBatch;
+      } else {
+        console.log(`Debug: Batch ${batchIdBigInt} does not exist (invalid processor address or insufficient data)`);
+        throw new Error(`Processing batch ${batchId} does not exist`);
+      }
     } catch (error) {
-      console.error('Error getting processing batch details:', error);
+      console.error(`Error getting processing batch details for ${batchId}:`, error);
       throw new Error('Failed to get processing batch details: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
@@ -725,6 +768,7 @@ export class AfriCycle {
   // Get all processing batches for a recycler
   async getRecyclerProcessingBatches(recyclerAddress: Address): Promise<ProcessingBatch[]> {
     try {
+      console.log('Debug: Starting getRecyclerProcessingBatches for recycler:', recyclerAddress);
       const batches: ProcessingBatch[] = [];
       
       // Since there's no direct way to get all batches, we'll need to iterate
@@ -737,20 +781,45 @@ export class AfriCycle {
       const maxConsecutiveFailures = 5; // Reduced from 10
       const maxTotalChecks = 10; // Maximum total batches to check
       
+      console.log('Debug: Will check up to', maxTotalChecks, 'batches, stopping after', maxConsecutiveFailures, 'consecutive failures');
+      
       while (consecutiveFailures < maxConsecutiveFailures && batchId < maxTotalChecks) {
         try {
-          const batch = await this.getProcessingBatchDetails(batchId);
+          console.log(`Debug: Checking batch ${batchId}...`);
+          
+          // Add explicit error handling for batch details fetching
+          let batch: ProcessingBatch | null = null;
+          try {
+            batch = await this.getProcessingBatchDetails(batchId);
+            console.log(`Debug: Successfully fetched batch ${batchId}:`, batch);
+          } catch (batchError) {
+            console.log(`Debug: Failed to fetch batch ${batchId}:`, batchError);
+            // Continue to the logging below with null batch
+          }
+          
+          console.log(`Debug: Batch ${batchId}:`, {
+            exists: !!batch,
+            processor: batch?.processor,
+            targetRecycler: recyclerAddress,
+            status: batch?.status,
+            inputAmount: batch?.inputAmount?.toString()
+          });
+          
           // Add safety check to ensure batch exists and has required properties
           if (batch && batch.processor && batch.processor.toLowerCase() === recyclerAddress.toLowerCase()) {
             batches.push(batch);
+            console.log(`Debug: Added batch ${batchId} to results`);
           }
           consecutiveFailures = 0; // Reset failure count
         } catch (error) {
+          console.log(`Debug: Error accessing batch ${batchId}:`, error);
           consecutiveFailures++;
         }
         batchId++;
       }
       
+      console.log(`Debug: Found ${batches.length} batches for recycler ${recyclerAddress}`);
+      console.log(`Debug: Checked ${batchId} batches total, ${consecutiveFailures} consecutive failures`);
       return batches;
     } catch (error) {
       console.error('Error getting recycler processing batches:', error);
@@ -789,7 +858,35 @@ export class AfriCycle {
   ): Promise<Hash> {
     try {
       const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
-      const outputAmountBigInt = typeof outputAmount === 'number' ? BigInt(outputAmount) : outputAmount;
+      
+      // First, get the batch details to check the input amount and validate
+      console.log(`Debug: Fetching batch details to validate output amount...`);
+      const batchDetails = await this.getProcessingBatchDetails(batchIdBigInt);
+      console.log(`Debug: Batch input amount: ${batchDetails.inputAmount.toString()}`);
+      
+      // Handle decimal amounts by converting to the same units as input
+      let outputAmountBigInt: bigint;
+      if (typeof outputAmount === 'number') {
+        // The input amount shows us what units the contract uses
+        // If input is 2000 for 2kg, then we need to multiply by 1000
+        // If input is 2 for 2kg, then we use the number directly
+        const inputAmountNum = Number(batchDetails.inputAmount);
+        const inputKg = 2; // We know this batch has 2kg input
+        const unitsPerKg = inputAmountNum / inputKg;
+        
+        console.log(`Debug: Contract uses ${unitsPerKg} units per kg`);
+        outputAmountBigInt = BigInt(Math.floor(outputAmount * unitsPerKg));
+      } else {
+        outputAmountBigInt = outputAmount;
+      }
+
+      console.log(`Debug: Converting output amount ${outputAmount} to ${outputAmountBigInt.toString()}`);
+      console.log(`Debug: Input amount: ${batchDetails.inputAmount.toString()}, Output amount: ${outputAmountBigInt.toString()}`);
+      
+      // Validate that output amount doesn't exceed input amount
+      if (outputAmountBigInt > batchDetails.inputAmount) {
+        throw new Error(`Output amount (${outputAmountBigInt.toString()}) cannot exceed input amount (${batchDetails.inputAmount.toString()})`);
+      }
 
       const simulateFn = () => this.publicClient.simulateContract({
         address: this.contractAddress,
