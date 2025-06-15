@@ -98,18 +98,35 @@ export default function RecyclerDashboard() {
         setIsLoading(true);
         const profile = await africycle.getUserProfile(address);
         
-        // Get the real active collectors count
-        const realActiveCollectors = await africycle.getRealActiveCollectorsCount(address);
-        
-        setStats({
+        // Debug: Log the entire profile to see what we're getting
+        console.log('Debug: Full profile data:', profile);
+        console.log('Debug: Profile recycler data:', {
           totalInventory: profile.totalInventory,
-          totalEarnings: profile.recyclerTotalEarnings,
-          activeCollectors: realActiveCollectors, // Use real count instead of profile.activeCollectors
+          recyclerTotalEarnings: profile.recyclerTotalEarnings,
+          activeCollectors: profile.activeCollectors,
           scheduledPickups: profile.scheduledPickups,
           processedByType: profile.processedByType,
           inventoryByType: profile.inventoryByType,
-          reputationScore: profile.recyclerReputationScore,
+          recyclerReputationScore: profile.recyclerReputationScore,
           activeListings: profile.activeListings
+        });
+        
+        // Get the real active collectors count
+        const realActiveCollectors = await africycle.getRealActiveCollectorsCount(address);
+        
+        // Get the real recycler stats from actual batch and collection data
+        const realStats = await africycle.getRealRecyclerStats(address);
+        console.log('Debug: Real calculated stats:', realStats);
+        
+        setStats({
+          totalInventory: realStats.totalInventory,
+          totalEarnings: realStats.totalEarnings,
+          activeCollectors: realActiveCollectors,
+          scheduledPickups: profile.scheduledPickups,
+          processedByType: realStats.processedByType,
+          inventoryByType: realStats.inventoryByType,
+          reputationScore: profile.recyclerReputationScore,
+          activeListings: realStats.activeListings
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
