@@ -177,6 +177,8 @@ export default function WalletPage() {
   const [earnings, setEarnings] = useState<Earning[]>([])
   const [collectorEarnings, setCollectorEarnings] = useState<bigint>(BigInt(0))
   const [userStats, setUserStats] = useState<any>(null)
+  const [isRegistered, setIsRegistered] = useState<boolean>(false)
+  const [isRegistering, setIsRegistering] = useState(false)
 
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
@@ -196,6 +198,91 @@ export default function WalletPage() {
     toast.success("Address copied to clipboard")
   }, [])
 
+  // Check if user is registered as collector
+  useEffect(() => {
+    async function checkRegistration() {
+      if (!address || !publicClient) return
+      
+      try {
+        // Get COLLECTOR_ROLE constant from contract
+        const COLLECTOR_ROLE = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: [
+            {
+              inputs: [],
+              name: "COLLECTOR_ROLE",
+              outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+              stateMutability: "view",
+              type: "function"
+            }
+          ],
+          functionName: 'COLLECTOR_ROLE'
+        }) as `0x${string}`
+        
+        // Check if user has COLLECTOR_ROLE
+        const hasRole = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: [
+            {
+              inputs: [
+                { internalType: "bytes32", name: "role", type: "bytes32" },
+                { internalType: "address", name: "account", type: "address" }
+              ],
+              name: "hasRole",
+              outputs: [{ internalType: "bool", name: "", type: "bool" }],
+              stateMutability: "view",
+              type: "function"
+            }
+          ],
+          functionName: 'hasRole',
+          args: [COLLECTOR_ROLE, address]
+        }) as boolean
+        
+        setIsRegistered(hasRole)
+      } catch (error) {
+        console.error("Error checking registration:", error)
+        setIsRegistered(false)
+      }
+    }
+    
+    if (isConnected) {
+      checkRegistration()
+    }
+  }, [address, publicClient, isConnected])
+
+  // Handle collector registration
+  const handleRegisterCollector = useCallback(async () => {
+    if (!address || !africycle) {
+      toast.error("Please connect your wallet")
+      return
+    }
+    
+    try {
+      setIsRegistering(true)
+      
+      // Register as collector with default info
+      const txHash = await africycle.registerCollector(
+        address,
+        "Collector User", // Default name
+        "Lagos, Nigeria", // Default location
+        "collector@africycle.com" // Default contact
+      )
+      
+      toast.success(`Registration successful! Transaction hash: ${txHash}`)
+      
+      // Wait a bit then check registration status
+      setTimeout(() => {
+        setIsRegistered(true)
+      }, 3000)
+      
+    } catch (error) {
+      console.error("Error registering collector:", error)
+      toast.error("Registration failed. Please try again.")
+    } finally {
+      setIsRegistering(false)
+    }
+  }, [address, africycle])
+
   // Memoize the withdraw handler
   const handleWithdraw = useCallback(async () => {
     if (!address || !africycle) {
@@ -203,13 +290,13 @@ export default function WalletPage() {
       return
     }
     
-    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      toast.error("Please enter a valid amount")
+    if (!isRegistered) {
+      toast.error("Please register as a collector first")
       return
     }
     
-    if (!phoneNumber) {
-      toast.error("Please enter a phone number")
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      toast.error("Please enter a valid amount")
       return
     }
     
@@ -219,28 +306,111 @@ export default function WalletPage() {
       // Convert amount to wei (bigint)
       const amountInWei = BigInt(Math.floor(parseFloat(withdrawAmount) * 1e18))
       
-      // Check if user has enough balance
-      if (balance && amountInWei > balance.value) {
-        toast.error("Insufficient balance")
+      // Debug: Check actual earnings in contract
+      console.log("Debug - Checking contract state before withdrawal...")
+      
+      if (!publicClient) {
+        toast.error("Unable to verify earnings. Please try again.")
         setIsWithdrawing(false)
         return
       }
       
-      // Call the withdraw function with phone number
+      try {
+        // Get collector-specific stats directly from contract
+        const collectorStats = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: [
+            {
+              inputs: [{ internalType: "address", name: "_collector", type: "address" }],
+              name: "getCollectorStats",
+              outputs: [
+                { internalType: "uint256", name: "collectorTotalCollected", type: "uint256" },
+                { internalType: "uint256", name: "totalEarnings", type: "uint256" },
+                { internalType: "uint256", name: "reputationScore", type: "uint256" },
+                { internalType: "uint256[4]", name: "collectedByType", type: "uint256[4]" }
+              ],
+              stateMutability: "view",
+              type: "function"
+            }
+          ],
+          functionName: 'getCollectorStats',
+          args: [address]
+        }) as [bigint, bigint, bigint, [bigint, bigint, bigint, bigint]]
+        
+        const actualEarnings = collectorStats[1] // totalEarnings from collector stats
+        console.log("Debug - Actual collector earnings from getCollectorStats:", actualEarnings.toString())
+        console.log("Debug - Trying to withdraw:", amountInWei.toString())
+        console.log("Debug - UI showing earnings:", collectorEarnings.toString())
+        console.log("Debug - Collector total collected:", collectorStats[0].toString())
+        console.log("Debug - Collector reputation score:", collectorStats[2].toString())
+        
+        if (actualEarnings === BigInt(0)) {
+          toast.error("You have no earnings to withdraw. You need to complete waste collections first.")
+          setIsWithdrawing(false)
+          return
+        }
+        
+        if (amountInWei > actualEarnings) {
+          toast.error(`Insufficient earnings. You have ${formatEther(actualEarnings)} cUSD available.`)
+          setIsWithdrawing(false)
+          return
+        }
+        
+      } catch (profileError) {
+        console.error("Error checking collector stats:", profileError)
+        toast.error("Failed to verify earnings. You may not have any earnings yet.")
+        setIsWithdrawing(false)
+        return
+      }
+      
+      // Check if user has enough earnings (from our local state)
+      if (amountInWei > collectorEarnings) {
+        toast.error("Insufficient earnings")
+        setIsWithdrawing(false)
+        return
+      }
+      
+      // Call the withdraw function with correct parameters
       const txHash = await africycle.withdrawCollectorEarnings(address, amountInWei)
       
       toast.success(`Withdrawal successful! Transaction hash: ${txHash}`)
       
-      // Reset form
+      // Reset form and refresh data
       setWithdrawAmount("")
-      setPhoneNumber("")
+      
+      // Refresh user data after successful withdrawal
+      setTimeout(async () => {
+        if (africycle && address) {
+          const stats = await africycle.getUserDetailedStats(address)
+          setUserStats(stats)
+          setCollectorEarnings(stats.totalEarnings)
+        }
+      }, 2000) // Wait 2 seconds for transaction to be mined
+      
     } catch (error) {
       console.error("Error withdrawing funds:", error)
-      toast.error("Withdrawal failed. Please try again.")
+      
+      // Better error handling
+      if (error instanceof Error) {
+        if (error.message.includes("Caller is not a collector")) {
+          toast.error("You need to register as a collector first.")
+          setIsRegistered(false)
+        } else if (error.message.includes("Insufficient balance")) {
+          toast.error("Insufficient earnings to withdraw.")
+        } else if (error.message.includes("User is suspended")) {
+          toast.error("Your account is suspended. Contact support.")
+        } else if (error.message.includes("User is blacklisted")) {
+          toast.error("Your account is blacklisted. Contact support.")
+        } else {
+          toast.error("Withdrawal failed. Please try again.")
+        }
+      } else {
+        toast.error("Withdrawal failed. Please try again.")
+      }
     } finally {
       setIsWithdrawing(false)
     }
-  }, [address, africycle, withdrawAmount, phoneNumber, balance])
+  }, [address, africycle, withdrawAmount, collectorEarnings, isRegistered, publicClient])
 
   // Fetch user stats and earnings data
   useEffect(() => {
@@ -480,25 +650,7 @@ export default function WalletPage() {
         ) : (
           <div className="space-y-6">
             {/* Balance Overview */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-blue-100 p-3">
-                    <IconWallet className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">CELO Balance</p>
-                    <h3 className="text-2xl font-bold">
-                      {balanceLoading ? (
-                        "Loading..."
-                      ) : (
-                        `${balance?.formatted || "0.00"} ${balance?.symbol || "CELO"}`
-                      )}
-                    </h3>
-                  </div>
-                </div>
-              </Card>
-
+            <div className="grid gap-4 md:grid-cols-1 max-w-md">
               <Card className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-green-100 p-3">
@@ -510,47 +662,58 @@ export default function WalletPage() {
                   </div>
                 </div>
               </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-yellow-100 p-3">
-                    <IconClock className="h-6 w-6 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">cUSD Balance</p>
-                    <h3 className="text-2xl font-bold">{parseFloat(formatEther(cusdBalance)).toFixed(4)} cUSD</h3>
-                  </div>
-                </div>
-              </Card>
             </div>
 
-            {/* Quick Actions */}
+            {/* Withdraw Earnings */}
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="p-6">
-                <h3 className="font-semibold mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  <Button className="w-full justify-start" variant="outline">
-                    <IconSend className="mr-3 h-4 w-4" />
-                    Send Funds
-                  </Button>
-                  <Button className="w-full justify-start" variant="outline">
-                    <IconDownload className="mr-3 h-4 w-4" />
-                    Withdraw Earnings
-                  </Button>
-                  <Button 
-                    className="w-full justify-start" 
-                    variant="outline"
-                    onClick={handleRefresh}
-                    disabled={loading}
-                  >
-                    <IconRefresh className="mr-3 h-4 w-4" />
-                    Refresh Balance
-                  </Button>
-                </div>
+                <h3 className="font-semibold mb-4">Withdraw Earnings</h3>
+                {!isRegistered ? (
+                  <div className="text-center py-8">
+                    <IconWallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h4 className="text-lg font-medium mb-2">Register as Collector</h4>
+                    <p className="text-muted-foreground mb-4">
+                      You need to register as a collector to earn and withdraw funds
+                    </p>
+                    <Button 
+                      onClick={handleRegisterCollector}
+                      disabled={isRegistering}
+                      className="w-full"
+                    >
+                      {isRegistering ? "Registering..." : "Register as Collector"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Amount (cUSD)</label>
+                      <Input
+                        type="number"
+                        placeholder="Enter amount to withdraw"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        max={totalEarnings}
+                        step="0.01"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleWithdraw}
+                      disabled={isWithdrawing || !withdrawAmount || totalEarnings <= 0}
+                    >
+                      {isWithdrawing ? "Processing..." : "Withdraw Earnings"}
+                    </Button>
+                    {totalEarnings <= 0 && (
+                      <p className="text-sm text-muted-foreground text-center">
+                        No earnings available to withdraw
+                      </p>
+                    )}
+                  </div>
+                )}
               </Card>
 
               <Card className="p-6">
-                <h3 className="font-semibold mb-4">Wallet Info</h3>
+                <h3 className="font-semibold mb-4">Account Status</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network:</span>
@@ -571,7 +734,13 @@ export default function WalletPage() {
                       {isConnected ? "Connected" : "Disconnected"}
                     </Badge>
                   </div>
-                  {userStats && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Collector Status:</span>
+                    <Badge variant={isRegistered ? "default" : "destructive"}>
+                      {isRegistered ? "Registered" : "Not Registered"}
+                    </Badge>
+                  </div>
+                  {userStats && isRegistered && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Reputation:</span>
                       <span className="font-medium">{userStats.reputationScore.toString()}</span>
