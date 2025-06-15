@@ -98,10 +98,13 @@ export default function RecyclerDashboard() {
         setIsLoading(true);
         const profile = await africycle.getUserProfile(address);
         
+        // Get the real active collectors count
+        const realActiveCollectors = await africycle.getRealActiveCollectorsCount(address);
+        
         setStats({
           totalInventory: profile.totalInventory,
           totalEarnings: profile.recyclerTotalEarnings,
-          activeCollectors: profile.activeCollectors,
+          activeCollectors: realActiveCollectors, // Use real count instead of profile.activeCollectors
           scheduledPickups: profile.scheduledPickups,
           processedByType: profile.processedByType,
           inventoryByType: profile.inventoryByType,
@@ -152,7 +155,7 @@ export default function RecyclerDashboard() {
               <StatCard
                 title="Active Collectors"
                 value={stats.activeCollectors.toString()}
-                description="Registered collectors"
+                description="Collectors who chose your facility"
                 icon={<IconUsers className="h-6 w-6 text-white" />}
                 color="bg-purple-500"
               />

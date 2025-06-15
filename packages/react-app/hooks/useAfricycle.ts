@@ -1274,6 +1274,121 @@ export class AfriCycle {
       throw new Error('Failed to remove user from blacklist: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
+
+  // ============ Helper Functions for Real Active Collectors ============
+
+  async getRealActiveCollectorsCount(recyclerAddress: Address): Promise<bigint> {
+    try {
+      console.log('Debug: Starting getRealActiveCollectorsCount for recycler:', recyclerAddress);
+      
+      // Get unique collectors who have chosen this recycler
+      const uniqueCollectors = new Set<string>();
+      
+      // Query collections incrementally until we hit the end
+      let collectionId = 0;
+      const batchSize = 10;
+      const maxCollections = 20; // Safety limit to prevent infinite loops
+      
+      while (collectionId < maxCollections) {
+        const promises = [];
+        const end = Math.min(collectionId + batchSize, maxCollections);
+        
+        // Create batch of promises
+        for (let j = collectionId; j < end; j++) {
+          promises.push(
+            this.publicClient.readContract({
+              address: this.contractAddress,
+              abi: afriCycleAbi,
+              functionName: 'collections',
+              args: [BigInt(j)]
+            }).catch(() => null) // Return null for failed queries
+          );
+        }
+
+        const batchResults = await Promise.allSettled(promises);
+        let foundValidCollection = false;
+        
+        batchResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            // The contract returns an array, not an object
+            const rawData = result.value as any[];
+            
+            // Parse the array data based on the contract's collection struct
+            // struct WasteCollection { 
+            //   uint256 id;                     // 0
+            //   address collector;              // 1
+            //   WasteStream wasteType;          // 2
+            //   uint256 weight;                 // 3
+            //   string location;                // 4
+            //   string imageHash;               // 5
+            //   Status status;                  // 6
+            //   uint256 timestamp;              // 7
+            //   QualityGrade quality;           // 8
+            //   uint256 rewardAmount;           // 9
+            //   bool isProcessed;               // 10
+            //   uint256 pickupTime;             // 11
+            //   address selectedRecycler;       // 12
+            // }
+            
+            if (rawData && rawData.length >= 13) {
+              const collectionIdInArray = Number(rawData[0]);
+              const collector = rawData[1] as Address;
+              const selectedRecycler = rawData[12] as Address;
+              const status = Number(rawData[6]);
+              const isProcessed = Boolean(rawData[10]);
+              
+              console.log(`Debug: Checking collection ${collectionId + index}:`, {
+                collector,
+                selectedRecycler,
+                status,
+                isProcessed,
+                recyclerAddress
+              });
+              
+              // Check if collection exists and has valid addresses
+              if (collector && 
+                  collector !== '0x0000000000000000000000000000000000000000' &&
+                  selectedRecycler &&
+                  selectedRecycler !== '0x0000000000000000000000000000000000000000') {
+                foundValidCollection = true;
+                
+                // Only count collections that are active (not completed/processed)
+                if (selectedRecycler.toLowerCase() === recyclerAddress.toLowerCase() && 
+                    !isProcessed && 
+                    status !== 4) { // 4 = COMPLETED status
+                  uniqueCollectors.add(collector.toLowerCase());
+                  console.log(`Debug: Added collector ${collector} for recycler ${recyclerAddress}`);
+                }
+              }
+            }
+          }
+        });
+
+        // If no valid collections found in this batch, we've likely reached the end
+        if (!foundValidCollection) {
+          console.log('Debug: No more valid collections found, stopping search');
+          break;
+        }
+        
+        collectionId = end;
+      }
+
+      console.log('Debug: Final unique collectors count:', uniqueCollectors.size);
+      console.log('Debug: Unique collectors:', Array.from(uniqueCollectors));
+      
+      return BigInt(uniqueCollectors.size);
+    } catch (error) {
+      console.error('Error getting real active collectors count:', error);
+      // Fallback to contract's activeCollectors if our calculation fails
+      try {
+        const profile = await this.getUserProfile(recyclerAddress);
+        return profile.activeCollectors;
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        return BigInt(0); // Return 0 if everything fails
+      }
+    }
+  }
 }
 
 export function useAfriCycle({ contractAddress, rpcUrl }: { contractAddress: Address, rpcUrl: string }): (AfriCycle & { account: Address }) | null {
