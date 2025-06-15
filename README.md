@@ -134,7 +134,7 @@ AfriCycle is built on the **Celo blockchain** for:
 
 ### 📦 Blockchain Integration
 - **ContractKit** for Celo-specific features
-- **Web3.js/Ethers.js** for smart contract interactions
+- **wagami/viem** for smart contract interactions
 - **Metamask and Valora wallet integrations**
 - **Hardhat Network** for local development
 
