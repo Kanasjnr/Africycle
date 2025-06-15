@@ -90,7 +90,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       )}
 
       {/* Main Content */}
-      <main className="w-full py-6 pb-24">
+      <main className="w-full px-4 py-6 pb-24 pt-8">
         {children}
       </main>
 

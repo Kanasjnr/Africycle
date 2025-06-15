@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Header } from "@/components/dashboard/header";
+import { Loader } from "@/components/ui/loader";
 import { useAfriCycle } from "@/hooks/useAfricycle";
 import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
@@ -124,15 +125,12 @@ export default function RecyclerDashboard() {
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <Header
-          heading="Recycler Dashboard"
-          text="Track your recycling operations and impact"
-        />
-
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <p className="text-muted-foreground">Loading dashboard statistics...</p>
-          </div>
+          <Loader 
+            message="Loading dashboard statistics..." 
+            size="lg"
+            className="py-16"
+          />
         ) : (
           <div className="space-y-6">
             {/* Main Stats */}
