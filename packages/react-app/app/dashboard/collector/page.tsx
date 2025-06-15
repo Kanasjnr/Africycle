@@ -21,6 +21,7 @@ import {
   IconUpload
 } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 // Utility function to format wei to cUSD
 function formatCUSD(weiValue: bigint): string {
@@ -80,6 +81,7 @@ function ProgressCard({ title, value, total, description, color }: ProgressCardP
 
 export default function CollectorDashboard() {
   const { address } = useAccount()
+  const router = useRouter()
   const africycle = useAfriCycle({
     contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
     rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
@@ -126,6 +128,21 @@ export default function CollectorDashboard() {
   }, [africycle, address])
 
   const totalCollected = stats.collectedByType.reduce((sum, val) => sum + val, BigInt(0))
+
+  const handleCreateCollection = () => {
+    router.push("/dashboard/collector/verification")
+  }
+
+  const handleSchedulePickup = () => {
+    router.push("/dashboard/collector/map")
+  }
+
+  const handleTrackPickups = () => {
+    // For now, we'll navigate to the map page since it shows pickup information
+    // You could create a dedicated pickups page later if needed
+    router.push("/dashboard/collector/map")
+    toast.info("Track your scheduled pickups on the map")
+  }
 
   return (
     <DashboardShell>
@@ -222,16 +239,16 @@ export default function CollectorDashboard() {
 
             {/* Quick Actions */}
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3 xl:grid-cols-3">
-              <Button className="h-auto p-6" variant="outline">
+              <Button className="h-auto p-6" variant="outline" onClick={handleCreateCollection}>
                 <div className="flex items-center gap-4">
                   <IconUpload className="h-6 w-6" />
                   <div className="text-left">
-                    <p className="font-medium">New Collection</p>
+                    <p className="font-medium">Create Collection</p>
                     <p className="text-sm text-muted-foreground">Create a new waste collection</p>
                   </div>
                 </div>
               </Button>
-              <Button className="h-auto p-6" variant="outline">
+              <Button className="h-auto p-6" variant="outline" onClick={handleSchedulePickup}>
                 <div className="flex items-center gap-4">
                   <IconCalendar className="h-6 w-6" />
                   <div className="text-left">
@@ -240,7 +257,7 @@ export default function CollectorDashboard() {
                   </div>
                 </div>
               </Button>
-              <Button className="h-auto p-6" variant="outline">
+              <Button className="h-auto p-6" variant="outline" onClick={handleTrackPickups}>
                 <div className="flex items-center gap-4">
                   <IconTruck className="h-6 w-6" />
                   <div className="text-left">

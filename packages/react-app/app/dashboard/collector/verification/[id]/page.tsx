@@ -27,6 +27,8 @@ interface Collection {
   quality: AfricycleQualityGrade;
   rewardAmount: bigint;
   isProcessed: boolean;
+  pickupTime: bigint;
+  selectedRecycler: string;
   imageUrl: string; // Computed field for display
 }
 
@@ -34,101 +36,60 @@ interface Collection {
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org"
 
-// Define the raw collection data type from smart contract
-type RawCollectionData = [
-  bigint,    // id
-  string,    // collector
-  number,    // status
-  bigint,    // weight
-  string,    // location
-  string,    // imageHash
-  number,    // wasteType
-  bigint,    // timestamp
-  number,    // quality
-  bigint,    // earnings
-  boolean    // isVerified
-]
-
-// Update the type guard for collection data
-const isValidCollectionData = (data: unknown): data is RawCollectionData => {
-  // Check if data is an array with at least 7 elements (minimum required fields)
-  if (!Array.isArray(data) || data.length < 7) {
-    console.log('Debug: Data is not an array or too short:', data)
-    return false
-  }
-
-  // Check if required fields exist and have valid types
-  const [
-    id,
-    collector,
-    status,
-    weight,
-    location,
-    imageHash,
-    wasteType,
-    timestamp,
-    quality,
-    earnings,
-    isVerified
-  ] = data as RawCollectionData
-
-  // Basic type checks for required fields
-  return (
-    typeof collector === 'string' &&
-    typeof status === 'number' &&
-    typeof wasteType === 'number' &&
-    typeof timestamp === 'bigint' &&
-    typeof weight === 'bigint' &&
-    typeof location === 'string' &&
-    typeof imageHash === 'string'
-  )
-}
-
-// Helper function to convert array data to Collection object
-const arrayToCollection = (data: unknown, id: number): Collection | null => {
-  if (!isValidCollectionData(data)) {
-    console.error(`Debug: Invalid collection data format for #${id}:`, data)
-    return null
+// Helper function to convert WasteCollection data to Collection object
+const arrayToCollection = (data: WasteCollection, id: number): Collection | null => {
+  console.log(`Debug: Processing collection ${id} with data:`, data);
+  
+  // Check if the data is valid
+  if (!data || !data.collector) {
+    console.error(`Debug: Invalid collection data format for #${id}:`, data);
+    return null;
   }
 
   // Skip empty collections (where collector is zero address)
-  if (data[1] === '0x0000000000000000000000000000000000000000') {
-    console.log(`Debug: Skipping empty collection #${id}`)
-    return null
+  if (data.collector === '0x0000000000000000000000000000000000000000') {
+    console.log(`Debug: Skipping empty collection #${id}`);
+    return null;
   }
 
-  // Destructure the data array according to the contract's WasteCollection struct
-  const [
-    _id,           // uint256 id
-    collector,     // address collector
-    wasteType,     // WasteStream wasteType
-    weight,        // uint256 weight
-    location,      // string location
-    imageHash,     // string imageHash
-    status,        // Status status
-    timestamp,     // uint256 timestamp
-    quality,       // QualityGrade quality
-    rewardAmount,  // uint256 rewardAmount
-    isProcessed    // bool isProcessed
-  ] = data as any[]
+  console.log(`Debug: Processing valid collection ${id}:`, {
+    id: data.id,
+    collector: data.collector,
+    wasteType: data.wasteType,
+    weight: data.weight,
+    location: data.location,
+    imageHash: data.imageHash,
+    status: data.status,
+    timestamp: data.timestamp,
+    quality: data.quality,
+    rewardAmount: data.rewardAmount,
+    isProcessed: data.isProcessed,
+    pickupTime: data.pickupTime,
+    selectedRecycler: data.selectedRecycler
+  });
 
-  return {
+  const processedCollection: Collection = {
     collectionId: id,
-    collector,
-    wasteType,
-    weight,
-    location,
-    imageHash,
-    status,
-    timestamp,
-    quality,
-    rewardAmount,
-    isProcessed,
-    imageUrl: imageHash ? 
-      `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${imageHash}` : 
-      ''
-  }
-}
+    collector: data.collector,
+    wasteType: data.wasteType,
+    weight: data.weight,
+    location: data.location,
+    imageHash: data.imageHash,
+    status: data.status,
+    timestamp: data.timestamp,
+    quality: data.quality,
+    rewardAmount: data.rewardAmount,
+    isProcessed: data.isProcessed,
+    pickupTime: data.pickupTime,
+    selectedRecycler: data.selectedRecycler,
+    imageUrl: data.imageHash
+      ? `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${data.imageHash}`
+      : '',
+  };
+
+  console.log(`Debug: Final processed collection ${id}:`, processedCollection);
+  return processedCollection;
+};
 
 function CollectionDetailsPage() {
   const params = useParams()
@@ -137,12 +98,49 @@ function CollectionDetailsPage() {
   const [collection, setCollection] = useState<Collection | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [recyclerProfile, setRecyclerProfile] = useState<{
+    name: string;
+    location: string;
+    loading: boolean;
+  } | null>(null)
 
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL
   })
+
+  // Fetch recycler profile when collection is loaded
+  useEffect(() => {
+    const fetchRecyclerProfile = async () => {
+      if (!collection || !africycle || !collection.selectedRecycler) {
+        return
+      }
+
+      try {
+        setRecyclerProfile({
+          name: '',
+          location: '',
+          loading: true
+        })
+        const profile = await africycle.getUserProfile(collection.selectedRecycler as `0x${string}`)
+        setRecyclerProfile({
+          name: profile.name || 'Unknown Recycler',
+          location: profile.location || 'Location not specified',
+          loading: false
+        })
+      } catch (error) {
+        console.error("Error fetching recycler profile:", error)
+        setRecyclerProfile({
+          name: 'Unknown Recycler',
+          location: 'Location not specified',
+          loading: false
+        })
+      }
+    }
+
+    fetchRecyclerProfile()
+  }, [collection, africycle])
 
   useEffect(() => {
     const fetchCollection = async () => {
@@ -165,7 +163,19 @@ function CollectionDetailsPage() {
         const wasteCollectionDetails = await africycle.getCollectionDetails(BigInt(collectionId))
         console.log('Debug: Raw collection data:', wasteCollectionDetails)
         
-        const collection = arrayToCollection(wasteCollectionDetails.collection, collectionId)
+        // Handle both object structure and array structure
+        let collectionData = null;
+        if (wasteCollectionDetails?.collection) {
+          // Expected object structure
+          collectionData = wasteCollectionDetails.collection;
+        } else if (Array.isArray(wasteCollectionDetails) && (wasteCollectionDetails as any)[0]) {
+          // Actual array structure from contract - cast to any to handle unknown structure
+          collectionData = (wasteCollectionDetails as any)[0];
+        }
+        
+        console.log('Debug: Extracted collection data:', collectionData)
+        
+        const collection = arrayToCollection(collectionData as WasteCollection, collectionId)
         
         if (!collection) {
           throw new Error("Collection not found or invalid format")
@@ -333,6 +343,31 @@ function CollectionDetailsPage() {
                   <div className="p-4 rounded-lg bg-muted/50">
                     <p className="text-sm font-medium text-muted-foreground">Processing Status</p>
                     <p className="font-medium">{collection.isProcessed ? "Processed" : "Not Processed"}</p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Scheduled Pickup Time</p>
+                    <p className="font-medium">
+                      {new Date(Number(collection.pickupTime) * 1000).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium text-muted-foreground">Selected Recycler</p>
+                    {recyclerProfile?.loading ? (
+                      <div className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-32 mb-1" />
+                        <div className="h-3 bg-muted rounded w-24" />
+                      </div>
+                    ) : recyclerProfile ? (
+                      <div>
+                        <p className="font-medium">{recyclerProfile.name}</p>
+                        <p className="text-sm text-muted-foreground">{recyclerProfile.location}</p>
+                        <p className="text-xs text-muted-foreground mt-1 break-all">{collection.selectedRecycler}</p>
+                      </div>
+                    ) : (
+                      <p className="font-medium text-xs break-all">{collection.selectedRecycler}</p>
+                    )}
                   </div>
 
                   <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
