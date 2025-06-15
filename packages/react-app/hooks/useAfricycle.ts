@@ -620,6 +620,144 @@ export class AfriCycle {
     }
   }
 
+  // Get collection directly from collections mapping (simpler approach)
+  async getCollectionDirect(collectionId: number | bigint): Promise<WasteCollection | null> {
+    try {
+      const collectionIdBigInt = typeof collectionId === 'number' ? BigInt(collectionId) : collectionId;
+      const collection = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'collections',
+        args: [collectionIdBigInt],
+      });
+      
+      // Check if collection exists (non-zero collector address means it exists)
+      const rawData = collection as any[];
+      if (rawData && rawData.length >= 13 && rawData[1] !== '0x0000000000000000000000000000000000000000') {
+        // Parse the collection data based on the contract's collection struct
+        return {
+          id: rawData[0] as bigint,
+          collector: rawData[1] as Address,
+          wasteType: Number(rawData[2]) as AfricycleWasteStream,
+          weight: rawData[3] as bigint,
+          location: rawData[4] as string,
+          imageHash: rawData[5] as string,
+          status: Number(rawData[6]) as AfricycleStatus,
+          timestamp: rawData[7] as bigint,
+          quality: Number(rawData[8]) as AfricycleQualityGrade,
+          rewardAmount: rawData[9] as bigint,
+          isProcessed: Boolean(rawData[10]),
+          pickupTime: rawData[11] as bigint,
+          selectedRecycler: rawData[12] as Address,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.log(`Collection ${collectionId} not accessible:`, error);
+      return null;
+    }
+  }
+
+  // Get all collections for a recycler (by iterating through available collections)
+  async getRecyclerCollections(recyclerAddress: Address): Promise<WasteCollection[]> {
+    try {
+      console.log('Debug: Starting getRecyclerCollections for recycler:', recyclerAddress);
+      const collections: WasteCollection[] = [];
+      
+      // Use a much more efficient approach
+      let collectionId = 0;
+      let consecutiveFailures = 0;
+      const maxConsecutiveFailures = 5; // Reduced from 10
+      const maxTotalChecks = 10; // Maximum total collections to check
+      
+      while (consecutiveFailures < maxConsecutiveFailures && collectionId < maxTotalChecks) {
+        try {
+          const collection = await this.getCollectionDirect(collectionId);
+          console.log(`Debug: Collection ${collectionId}:`, {
+            exists: !!collection,
+            selectedRecycler: collection?.selectedRecycler,
+            targetRecycler: recyclerAddress,
+            status: collection?.status
+          });
+          
+          // Check if collection exists and is assigned to this recycler
+          if (collection && 
+              collection.selectedRecycler && 
+              collection.selectedRecycler.toLowerCase() === recyclerAddress.toLowerCase()) {
+            collections.push(collection);
+            console.log(`Debug: Added collection ${collectionId} to results`);
+          }
+          consecutiveFailures = 0; // Reset failure count on success
+        } catch (error) {
+          // Collection might not exist or be accessible, continue
+          console.log(`Collection ${collectionId} not accessible:`, error);
+          consecutiveFailures++;
+        }
+        collectionId++;
+      }
+      
+      console.log(`Debug: Found ${collections.length} collections for recycler ${recyclerAddress}`);
+      console.log(`Debug: Checked ${collectionId} collections total`);
+      return collections;
+    } catch (error) {
+      console.error('Error getting recycler collections:', error);
+      throw new Error('Failed to get recycler collections: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Get processing batch details
+  async getProcessingBatchDetails(batchId: number | bigint): Promise<ProcessingBatch> {
+    try {
+      const batchIdBigInt = typeof batchId === 'number' ? BigInt(batchId) : batchId;
+      const batch = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'processingBatches',
+        args: [batchIdBigInt],
+      });
+      return batch as unknown as ProcessingBatch;
+    } catch (error) {
+      console.error('Error getting processing batch details:', error);
+      throw new Error('Failed to get processing batch details: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  // Get all processing batches for a recycler
+  async getRecyclerProcessingBatches(recyclerAddress: Address): Promise<ProcessingBatch[]> {
+    try {
+      const batches: ProcessingBatch[] = [];
+      
+      // Since there's no direct way to get all batches, we'll need to iterate
+      // This is not ideal but necessary without additional contract functions
+      // In a real implementation, you'd want a contract function to return recycler batches
+      
+      // For now, we'll try to get batches by incrementing ID (not ideal)
+      let batchId = 0;
+      let consecutiveFailures = 0;
+      const maxConsecutiveFailures = 5; // Reduced from 10
+      const maxTotalChecks = 10; // Maximum total batches to check
+      
+      while (consecutiveFailures < maxConsecutiveFailures && batchId < maxTotalChecks) {
+        try {
+          const batch = await this.getProcessingBatchDetails(batchId);
+          // Add safety check to ensure batch exists and has required properties
+          if (batch && batch.processor && batch.processor.toLowerCase() === recyclerAddress.toLowerCase()) {
+            batches.push(batch);
+          }
+          consecutiveFailures = 0; // Reset failure count
+        } catch (error) {
+          consecutiveFailures++;
+        }
+        batchId++;
+      }
+      
+      return batches;
+    } catch (error) {
+      console.error('Error getting recycler processing batches:', error);
+      throw new Error('Failed to get recycler processing batches: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
   // ============ Processing Functions ============
 
   async createProcessingBatch(
