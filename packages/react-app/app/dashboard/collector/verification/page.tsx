@@ -313,100 +313,57 @@ const uploadToCloudinary = async (
   }
 };
 
-// Define the raw collection data type from smart contract
-type RawCollectionData = [
-  bigint, // id
-  string, // collector
-  number, // status
-  bigint, // weight
-  string, // location
-  string, // imageHash
-  number, // wasteType
-  bigint, // timestamp
-  number, // quality
-  bigint, // earnings
-  boolean // isVerified
-];
-
-// Update the type guard for collection data
-const isValidCollectionData = (data: unknown): data is RawCollectionData => {
-  // Check if data is an array with at least 7 elements (minimum required fields)
-  if (!Array.isArray(data) || data.length < 7) {
-    console.log('Debug: Data is not an array or too short:', data);
-    return false;
-  }
-
-  // Check if required fields exist and have valid types
-  const [
-    id,
-    collector,
-    status,
-    weight,
-    location,
-    imageHash,
-    wasteType,
-    timestamp,
-    quality,
-    earnings,
-    isVerified,
-  ] = data as RawCollectionData;
-
-  // Basic type checks for required fields
-  return (
-    typeof collector === 'string' &&
-    typeof status === 'number' &&
-    typeof wasteType === 'number' &&
-    typeof timestamp === 'bigint' &&
-    typeof weight === 'bigint' &&
-    typeof location === 'string' &&
-    typeof imageHash === 'string'
-  );
-};
-
 // Update helper function to convert array data to Collection object
-const arrayToCollection = (data: unknown, id: number): Collection | null => {
-  if (!isValidCollectionData(data)) {
+const arrayToCollection = (data: WasteCollection, id: number): Collection | null => {
+  console.log(`Debug: Processing collection ${id} with data:`, data);
+  
+  // Check if the data is valid
+  if (!data || !data.collector) {
     console.error(`Debug: Invalid collection data format for #${id}:`, data);
     return null;
   }
 
   // Skip empty collections (where collector is zero address)
-  if (data[1] === '0x0000000000000000000000000000000000000000') {
+  if (data.collector === '0x0000000000000000000000000000000000000000') {
     console.log(`Debug: Skipping empty collection #${id}`);
     return null;
   }
 
-  // Destructure the data array according to the contract's WasteCollection struct
-  const [
-    _id, // uint256 id
-    collector, // address collector
-    wasteType, // WasteStream wasteType
-    weight, // uint256 weight
-    location, // string location
-    imageHash, // string imageHash
-    status, // Status status
-    timestamp, // uint256 timestamp
-    quality, // QualityGrade quality
-    rewardAmount, // uint256 rewardAmount
-    isProcessed, // bool isProcessed
-  ] = data as any[];
+  console.log(`Debug: Processing valid collection ${id}:`, {
+    id: data.id,
+    collector: data.collector,
+    wasteType: data.wasteType,
+    weight: data.weight,
+    location: data.location,
+    imageHash: data.imageHash,
+    status: data.status,
+    timestamp: data.timestamp,
+    quality: data.quality,
+    rewardAmount: data.rewardAmount,
+    isProcessed: data.isProcessed,
+    pickupTime: data.pickupTime,
+    selectedRecycler: data.selectedRecycler
+  });
 
-  return {
+  const processedCollection: Collection = {
     collectionId: id,
-    collector,
-    wasteType,
-    weight,
-    location,
-    imageHash,
-    status,
-    timestamp,
-    quality,
-    rewardAmount,
-    isProcessed,
-    imageUrl: imageHash
-      ? `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${imageHash}`
+    collector: data.collector,
+    wasteType: data.wasteType,
+    weight: data.weight,
+    location: data.location,
+    imageHash: data.imageHash,
+    status: data.status,
+    timestamp: data.timestamp,
+    quality: data.quality,
+    rewardAmount: data.rewardAmount,
+    isProcessed: data.isProcessed,
+    imageUrl: data.imageHash
+      ? `https://res.cloudinary.com/${cloudinaryConfig.cloudName}/image/upload/${data.imageHash}`
       : '',
   };
+
+  console.log(`Debug: Final processed collection ${id}:`, processedCollection);
+  return processedCollection;
 };
 
 // Add these types after the existing interfaces
@@ -683,6 +640,16 @@ export default function PhotoVerificationPage() {
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  // Add activeTab state here before it's used in useEffect
+  const [activeTab, setActiveTab] = useState('new');
+  const [filters, setFilters] = useState<CollectionFilters>({
+    status: 'ALL',
+    wasteType: 'ALL',
+    search: '',
+    sortField: 'timestamp',
+    sortOrder: 'desc',
+  });
+
   // Move handleFormChange before it's used
   const handleFormChange = useCallback(
     (field: keyof typeof state.form, value: any) => {
@@ -693,6 +660,183 @@ export default function PhotoVerificationPage() {
     },
     []
   );
+
+  // Update fetchCollections to use the hook properly - MOVED HERE BEFORE useEffect
+  const fetchCollections = useCallback(async () => {
+    if (!address || !africycle || !isHookReady) {
+      console.log('Debug: fetchCollections - Missing requirements:', {
+        hasAddress: !!address,
+        hasAfricycle: !!africycle,
+        isHookReady,
+      });
+      setIsInitialLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Debug: Starting to fetch collections for address:', address);
+      setIsInitialLoading(true);
+      setFetchError(null);
+
+      const collections: Collection[] = [];
+
+      // Search through collection IDs systematically
+      console.log('Debug: Starting collection search...');
+      
+      let currentId = 0;
+      const MAX_ATTEMPTS = 10; // Increased search range
+      let consecutiveEmptyCount = 0;
+      const MAX_CONSECUTIVE_EMPTY = 20; // Allow more empty slots
+      
+      while (currentId < MAX_ATTEMPTS && consecutiveEmptyCount < MAX_CONSECUTIVE_EMPTY) {
+        try {
+          console.log(`Debug: Fetching collection ID ${currentId}...`);
+          const collectionDetails = await africycle.getCollectionDetails(BigInt(currentId));
+          console.log(`Debug: Raw response for ID ${currentId}:`, collectionDetails);
+          
+          // Check if collection exists by looking at the collection property
+          console.log(`Debug: Full collectionDetails structure:`, {
+            collectionDetails,
+            hasCollection: !!collectionDetails?.collection,
+            collectionData: collectionDetails?.collection,
+            isObject: typeof collectionDetails === 'object',
+            keys: Object.keys(collectionDetails || {}),
+            isArray: Array.isArray(collectionDetails),
+            arrayLength: Array.isArray(collectionDetails) ? collectionDetails.length : 0,
+            firstElement: Array.isArray(collectionDetails) ? (collectionDetails as any)[0] : null
+          });
+          
+          // Handle both object structure and array structure
+          let collectionData = null;
+          if (collectionDetails?.collection) {
+            // Expected object structure
+            collectionData = collectionDetails.collection;
+          } else if (Array.isArray(collectionDetails) && (collectionDetails as any)[0]) {
+            // Actual array structure from contract - cast to any to handle unknown structure
+            collectionData = (collectionDetails as any)[0];
+          }
+          
+          if (collectionData && 
+              collectionData.collector && 
+              collectionData.collector !== '0x0000000000000000000000000000000000000000') {
+            
+            console.log(`Debug: Found valid collection at ID ${currentId}:`, collectionData);
+            
+            // Reset consecutive empty count since we found a collection
+            consecutiveEmptyCount = 0;
+            
+            // Check if this collection belongs to the current user
+            if (collectionData.collector.toLowerCase() === address.toLowerCase()) {
+              console.log(`Debug: Collection ${currentId} belongs to current user`);
+              
+              const collection = arrayToCollection(collectionData as WasteCollection, currentId);
+              if (collection) {
+                collections.push(collection);
+                console.log(`Debug: Added collection ${currentId} to array. Total: ${collections.length}`);
+              }
+            } else {
+              console.log(`Debug: Collection ${currentId} belongs to different user: ${collectionData.collector}`);
+            }
+          } else {
+            console.log(`Debug: Empty collection slot at ID ${currentId}`);
+            consecutiveEmptyCount++;
+          }
+          
+          currentId++;
+        } catch (error) {
+          console.log(`Debug: Error fetching collection ${currentId}:`, error);
+          consecutiveEmptyCount++;
+          currentId++;
+        }
+      }
+
+      console.log(`Debug: Collection search complete. Found ${collections.length} collections for user`);
+      setState((prev) => ({ ...prev, collections }));
+      
+    } catch (error) {
+      console.error('Debug: Error in fetchCollections:', error);
+      setFetchError(error instanceof Error ? error.message : 'Failed to fetch collections');
+      toast.error('Failed to fetch collections');
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [address, africycle, isHookReady]);
+
+  // Auto-fetch collections when hook is ready and history tab is active
+  useEffect(() => {
+    if (isHookReady && activeTab === 'history') {
+      fetchCollections();
+    }
+  }, [isHookReady, activeTab, fetchCollections]);
+
+  // Add error state
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Add this function to filter and sort collections
+  const filteredCollections = useMemo(() => {
+    return state.collections
+      .filter((collection) => {
+        if (filters.status !== 'ALL' && collection.status !== filters.status)
+          return false;
+        if (
+          filters.wasteType !== 'ALL' &&
+          collection.wasteType !== filters.wasteType
+        )
+          return false;
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          return (
+            collection.location.toLowerCase().includes(searchLower) ||
+            collection.collectionId.toString().includes(searchLower) ||
+            AfricycleWasteStream[collection.wasteType]
+              .toLowerCase()
+              .includes(searchLower)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const multiplier = filters.sortOrder === 'asc' ? 1 : -1;
+        switch (filters.sortField) {
+          case 'timestamp':
+            return multiplier * (Number(a.timestamp) - Number(b.timestamp));
+          case 'weight':
+            return multiplier * (Number(a.weight) - Number(b.weight));
+          case 'rewardAmount':
+            return (
+              multiplier * (Number(a.rewardAmount) - Number(b.rewardAmount))
+            );
+          default:
+            return 0;
+        }
+      });
+  }, [state.collections, filters]);
+
+  // Memoize utility functions
+  const formatDate = useCallback((timestamp: bigint) => {
+    return new Date(Number(timestamp) * 1000).toLocaleDateString();
+  }, []);
+
+  const timeAgo = useCallback((timestamp: bigint) => {
+    const seconds = Math.floor(Date.now() / 1000) - Number(timestamp);
+
+    if (seconds < 60) return `${seconds} seconds ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    return `${Math.floor(seconds / 86400)} days ago`;
+  }, []);
+
+  // Add a memoized version of the collections list to prevent unnecessary re-renders
+  const collectionsList = useMemo(() => {
+    return filteredCollections.map((collection) => (
+      <CollectionItem
+        key={collection.collectionId}
+        collection={collection}
+        timeAgo={timeAgo}
+        isLoading={loadingCollections.has(collection.collectionId)}
+      />
+    ));
+  }, [filteredCollections, loadingCollections, timeAgo]);
 
   // Update handleImageUpload to use handleFormChange
   const handleImageUpload = useCallback(
@@ -721,86 +865,6 @@ export default function PhotoVerificationPage() {
     },
     [handleFormChange]
   );
-
-  // Update fetchCollections to use the hook properly
-  const fetchCollections = useCallback(async () => {
-    if (!address || !africycle || !isHookReady) {
-      console.log('Debug: fetchCollections - Missing requirements:', {
-        hasAddress: !!address,
-        hasAfricycle: !!africycle,
-        isHookReady,
-      });
-      setIsInitialLoading(false);
-      return;
-    }
-
-    try {
-      console.log('Debug: Starting to fetch collections for address:', address);
-      setIsInitialLoading(true);
-      setFetchError(null);
-
-      const collections: Collection[] = [];
-      let currentId = 0;
-      const MAX_ATTEMPTS = 100; // Safety limit
-
-      while (currentId < MAX_ATTEMPTS) {
-        try {
-          const data = await africycle.getCollectionDetails(BigInt(currentId));
-          if (
-            data.collection.collector ===
-            '0x0000000000000000000000000000000000000000'
-          )
-            break;
-          if (
-            data.collection.collector.toLowerCase() === address.toLowerCase()
-          ) {
-            const collection = arrayToCollection(data.collection, currentId);
-            if (collection) collections.push(collection);
-          }
-          currentId++;
-        } catch (error) {
-          console.log(`Debug: End of collections at ID ${currentId}`);
-          break;
-        }
-      }
-
-      setState((prev) => ({ ...prev, collections }));
-    } catch (error) {
-      console.error('Debug: Error in fetchCollections:', error);
-      setFetchError(
-        error instanceof Error ? error.message : 'Failed to fetch collections'
-      );
-      toast.error('Failed to fetch collections');
-    } finally {
-      setIsInitialLoading(false);
-    }
-  }, [address, africycle, isHookReady]);
-
-  // Memoize utility functions
-  const formatDate = useCallback((timestamp: bigint) => {
-    return new Date(Number(timestamp) * 1000).toLocaleDateString();
-  }, []);
-
-  const timeAgo = useCallback((timestamp: bigint) => {
-    const seconds = Math.floor(Date.now() / 1000) - Number(timestamp);
-
-    if (seconds < 60) return `${seconds} seconds ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    return `${Math.floor(seconds / 86400)} days ago`;
-  }, []);
-
-  // Add a memoized version of the collections list to prevent unnecessary re-renders
-  const collectionsList = useMemo(() => {
-    return state.collections.map((collection) => (
-      <CollectionItem
-        key={collection.collectionId}
-        collection={collection}
-        timeAgo={timeAgo}
-        isLoading={loadingCollections.has(collection.collectionId)}
-      />
-    ));
-  }, [state.collections, loadingCollections, timeAgo]);
 
   // Update handleSubmit to check recycler role before submission
   const handleSubmit = useCallback(
@@ -952,70 +1016,6 @@ export default function PhotoVerificationPage() {
   // Use a ref to track if we've already fetched collections
   const hasFetchedRef = useRef(false);
 
-  // Initial fetch
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!hasFetchedRef.current) {
-        console.log('Debug: Starting initial fetch');
-        hasFetchedRef.current = true;
-        await fetchCollections();
-      }
-    };
-    fetchData();
-  }, [fetchCollections]);
-
-  // Add error state
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const [activeTab, setActiveTab] = useState('new');
-  const [filters, setFilters] = useState<CollectionFilters>({
-    status: 'ALL',
-    wasteType: 'ALL',
-    search: '',
-    sortField: 'timestamp',
-    sortOrder: 'desc',
-  });
-
-  // Add this function to filter and sort collections
-  const filteredCollections = useMemo(() => {
-    return state.collections
-      .filter((collection) => {
-        if (filters.status !== 'ALL' && collection.status !== filters.status)
-          return false;
-        if (
-          filters.wasteType !== 'ALL' &&
-          collection.wasteType !== filters.wasteType
-        )
-          return false;
-        if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          return (
-            collection.location.toLowerCase().includes(searchLower) ||
-            collection.collectionId.toString().includes(searchLower) ||
-            AfricycleWasteStream[collection.wasteType]
-              .toLowerCase()
-              .includes(searchLower)
-          );
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const multiplier = filters.sortOrder === 'asc' ? 1 : -1;
-        switch (filters.sortField) {
-          case 'timestamp':
-            return multiplier * (Number(a.timestamp) - Number(b.timestamp));
-          case 'weight':
-            return multiplier * (Number(a.weight) - Number(b.weight));
-          case 'rewardAmount':
-            return (
-              multiplier * (Number(a.rewardAmount) - Number(b.rewardAmount))
-            );
-          default:
-            return 0;
-        }
-      });
-  }, [state.collections, filters]);
-
   // Add state for recyclers
   const [recyclers, setRecyclers] = useState<Recycler[]>([]);
   const [loadingRecyclers, setLoadingRecyclers] = useState(true);
@@ -1107,6 +1107,47 @@ export default function PhotoVerificationPage() {
     }
   }, [isHookReady, fetchRecyclers, africycle, walletClient, address])
 
+  // Add state for user registration status
+  const [userStatus, setUserStatus] = useState<{
+    isCollector: boolean;
+    isRegistered: boolean;
+    profile: any | null;
+    loading: boolean;
+  }>({
+    isCollector: false,
+    isRegistered: false,
+    profile: null,
+    loading: true,
+  });
+
+  const checkUserStatus = useCallback(async () => {
+    if (!address || !africycle || !isHookReady) {
+      setUserStatus(prev => ({ ...prev, loading: false }));
+      return;
+    }
+
+    try {
+      console.log('Debug: Checking user status for address:', address);
+      const profile = await africycle.getUserProfile(address);
+      console.log('Debug: User profile:', profile);
+
+      setUserStatus({
+        isCollector: true, // Simplified - if they have a profile, assume they're a collector
+        isRegistered: !!profile.name,
+        profile,
+        loading: false,
+      });
+    } catch (error) {
+      console.error('Debug: Error checking user status:', error);
+      setUserStatus(prev => ({ ...prev, loading: false }));
+    }
+  }, [address, africycle, isHookReady, publicClient]);
+
+  // Check user status when hook is ready
+  useEffect(() => {
+    checkUserStatus();
+  }, [checkUserStatus]);
+
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -1120,7 +1161,13 @@ export default function PhotoVerificationPage() {
 
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              // Always fetch collections when history tab is clicked
+              if (value === 'history') {
+                fetchCollections();
+              }
+            }}
             className="space-y-4"
           >
             <TabsList className="grid w-full grid-cols-2">
@@ -1374,17 +1421,6 @@ export default function PhotoVerificationPage() {
                     {fetchError ? (
                       <div className="py-8 text-center text-destructive">
                         Error loading collections: {fetchError}
-                        <Button
-                          variant="outline"
-                          className="mt-4"
-                          onClick={() => {
-                            setFetchError(null);
-                            hasFetchedRef.current = false;
-                            fetchCollections();
-                          }}
-                        >
-                          Retry
-                        </Button>
                       </div>
                     ) : isInitialLoading ? (
                       <div className="space-y-4">
@@ -1392,15 +1428,9 @@ export default function PhotoVerificationPage() {
                           <CollectionSkeleton key={i} />
                         ))}
                       </div>
-                    ) : filteredCollections.length > 0 ? (
+                    ) : collectionsList.length > 0 ? (
                       <div className="space-y-4">
-                        {filteredCollections.map((collection) => (
-                          <CollectionItem
-                            key={collection.collectionId}
-                            collection={collection}
-                            timeAgo={timeAgo}
-                          />
-                        ))}
+                        {collectionsList}
                       </div>
                     ) : (
                       <div className="py-8 text-center text-muted-foreground">
@@ -1412,6 +1442,18 @@ export default function PhotoVerificationPage() {
                       </div>
                     )}
                   </div>
+                  {!userStatus.loading && !userStatus.isRegistered && (
+                    <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800">
+                      <p className="font-medium">Not Registered</p>
+                      <p>You need to register as a collector before you can create collections.</p>
+                    </div>
+                  )}
+                  {!userStatus.loading && userStatus.isRegistered && !userStatus.isCollector && (
+                    <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800">
+                      <p className="font-medium">Missing Collector Role</p>
+                      <p>You are registered but don&apos;t have the collector role.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
