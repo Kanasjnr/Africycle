@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useRole } from "@/hooks/use-role"
+import { useRole } from "@/providers/RoleProvider"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -13,12 +13,6 @@ export default function DashboardPage() {
       switch (role) {
         case "collector":
           router.push("/dashboard/collector")
-          break
-        case "corporate_partner":
-          router.push("/dashboard/corporate-partner")
-          break
-        case "collection_point":
-          router.push("/dashboard/collection-point")
           break
         case "recycler":
           router.push("/dashboard/recycler")
