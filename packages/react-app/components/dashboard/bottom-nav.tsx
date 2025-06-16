@@ -97,8 +97,8 @@ export const recyclerNavItems = [
     icon: <IconPackage className="h-6 w-6 stroke-[1.5]" />,
   },
   {
-    title: "Market",
-    href: "/dashboard/recycler/marketplace",
-    icon: <IconShoppingCart className="h-6 w-6 stroke-[1.5]" />,
+    title: "Wallet",
+    href: "/dashboard/recycler/wallet",
+    icon: <IconWallet className="h-6 w-6 stroke-[1.5]" />,
   },
 ] 
