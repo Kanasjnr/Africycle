@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useMemo, useCallback } from "react"
-import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -633,10 +632,10 @@ export default function WalletPage() {
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <DashboardHeader
-          heading="Wallet"
-          text="Manage your earnings and transactions"
-        />
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">Wallet</h1>
+          <p className="text-muted-foreground">Manage your recycling earnings and transactions</p>
+        </div>
 
         {!isConnected ? (
           <Card className="p-8 text-center">
