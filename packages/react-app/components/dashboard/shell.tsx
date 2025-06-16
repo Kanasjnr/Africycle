@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { useAccount } from "wagmi"
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useEffect, useState } from "react"
-import { useRole } from "@/hooks/use-role"
+import { useRole } from "@/providers/RoleProvider"
 
 interface UserProfile {
   name: string;

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRole } from "@/hooks/use-role"
+import { ReactNode } from 'react';
+import { useRole } from "@/providers/RoleProvider"
 import { BottomNav, recyclerNavItems, collectorNavItems } from "@/components/dashboard/bottom-nav"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { usePathname } from "next/navigation"
