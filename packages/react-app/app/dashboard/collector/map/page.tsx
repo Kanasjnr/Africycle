@@ -582,10 +582,10 @@ export default function MapPage() {
     return (
       <DashboardShell>
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <DashboardHeader
-            heading="Recycler Map"
-            text="Find nearby recyclers and manage your pickups"
-          />
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
+            <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+          </div>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -601,10 +601,10 @@ export default function MapPage() {
     return (
       <DashboardShell>
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <DashboardHeader
-            heading="Recycler Map"
-            text="Find nearby recyclers and manage your pickups"
-          />
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
+            <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+          </div>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <p className="text-red-600 mb-4">{error}</p>
@@ -621,10 +621,10 @@ export default function MapPage() {
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <DashboardHeader
-          heading="Recycler Map"
-          text="Find nearby recyclers and manage your pickups"
-        />
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
+          <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+        </div>
 
         <div className="space-y-6">
           {/* Map View */}

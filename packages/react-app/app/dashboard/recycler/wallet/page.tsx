@@ -796,10 +796,10 @@ export default function RecyclerWalletPage() {
   return (
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <DashboardHeader
-          heading="Wallet"
-          text="Manage your recycling earnings and transactions"
-        />
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Wallet</h1>
+          <p className="text-muted-foreground mt-2">Manage your recycling earnings and transactions</p>
+        </div>
 
         {!isConnected ? (
           <Card className="p-8 text-center">
