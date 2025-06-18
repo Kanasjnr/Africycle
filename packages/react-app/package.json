@@ -38,6 +38,7 @@
     "@types/recharts": "^1.8.29",
     "@usedapp/core": "^1.2.16",
     "@wagmi/connectors": "^2.0.0",
+    "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cross-fetch": "^4.1.0",
