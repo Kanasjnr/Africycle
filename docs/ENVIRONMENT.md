@@ -24,8 +24,6 @@ Create a `.env` file in the `packages/react-app` directory with the following va
 |----------|-------------|---------|-------|
 | `NODE_ENV` | Environment mode | `development` | Set to `production` in production |
 | `DEBUG` | Enable debug logging | `false` | Set to `true` to enable debug logs |
-| `NEXT_PUBLIC_MAPBOX_API_KEY` | Mapbox API key | - | Required if using Mapbox maps |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key | - | Required if using Google Maps |
 
 ## Smart Contract Package (packages/hardhat)
 
@@ -90,17 +88,13 @@ Create a `.env` file in the `packages/hardhat` directory with the following vari
 
 ## Troubleshooting
 
-1. **Database Connection Issues**
-   - Verify DATABASE_URL format
-   - Check database server is running
-   - Ensure database user has correct permissions
 
-2. **Contract Deployment Issues**
+1. **Contract Deployment Issues**
    - Verify PRIVATE_KEY is correct
    - Check account has sufficient funds
    - Ensure network RPC URL is accessible
 
-3. **Frontend Issues**
+2. **Frontend Issues**
    - Verify all NEXT_PUBLIC_ variables are set
    - Check browser console for errors
    - Ensure contract address is correct
@@ -110,4 +104,3 @@ Create a `.env` file in the `packages/hardhat` directory with the following vari
 - [Celo Documentation](https://docs.celo.org)
 - [WalletConnect Documentation](https://docs.walletconnect.com)
 - [Cloudinary Documentation](https://cloudinary.com/documentation)
-- [Prisma Documentation](https://www.prisma.io/docs) 

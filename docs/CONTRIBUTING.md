@@ -88,15 +88,12 @@ Examples of behavior that contributes to a positive environment:
 ### Branch Strategy
 
 - `main` - Production-ready code
-- `develop` - Integration branch for features
-- `feature/*` - New features
-- `bugfix/*` - Bug fixes
-- `hotfix/*` - Urgent production fixes
-- `release/*` - Release preparation
+- `Staging` - Integration branch for features
+
 
 ### Creating a New Feature
 
-1. Create a new branch from `develop`:
+1. Create a new branch from `staging`:
    ```bash
    git checkout develop
    git pull origin develop
@@ -117,7 +114,7 @@ Examples of behavior that contributes to a positive environment:
    git push origin feature/your-feature-name
    ```
 
-6. Create a Pull Request to the `develop` branch
+6. Create a Pull Request to the `staging` branch
 
 ## Code Style and Standards
 
