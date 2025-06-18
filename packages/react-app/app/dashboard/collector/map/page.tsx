@@ -36,7 +36,9 @@ const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://alfajores-forno
 // Known recycler addresses (from verification page)
 const KNOWN_RECYCLERS = [
   "0xF69B06cc7637c5742668a932F7eD1780742D4D78",
-  "0x817c19bD1Ba4eD47e180a3219d12d1462C8fABDC"
+  "0x817c19bD1Ba4eD47e180a3219d12d1462C8fABDC",
+  "0xF1240B5C1C468aA68Bd77DCFAf10d6d46E9CB8Ea"
+
 ] as const
 
 interface Recycler {
