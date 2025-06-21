@@ -1109,9 +1109,23 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
     );
     batch.carbonOffset = carbonOffset;
 
-    // Calculate processing fee
+    // Calculate processing rewards for recycler
     uint256 processingValue = _outputAmount * rewardRates[batch.wasteType];
     uint256 processingFee = AfricycleLibrary.calculatePlatformFee(processingValue, AfricycleLibrary.FeeType.PROCESSING);
+    uint256 recyclerProcessingReward = processingValue - processingFee;
+    
+    // Credit recycler with processing earnings immediately
+    UserProfile storage recyclerProfile = userProfiles[msg.sender];
+    recyclerProfile.recyclerProfile.totalEarnings += recyclerProcessingReward;
+    recyclerProfile.recyclerProfile.totalProcessed += _outputAmount;
+    recyclerProfile.recyclerProfile.processedByType[batch.wasteType] += _outputAmount;
+    
+    // Check contract balance and transfer processing reward
+    _checkContractBalance(recyclerProcessingReward);
+    if (!cUSDToken.transfer(msg.sender, recyclerProcessingReward)) {
+      revert TransferFailed();
+    }
+
     totalPlatformFees += processingFee;
 
     uint256 creditId = _impactCreditIdCounter++;
@@ -1142,6 +1156,14 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
       batch.wasteType,
       _outputAmount,
       carbonOffset
+    );
+    emit RewardPaid(msg.sender, recyclerProcessingReward, batch.wasteType, _batchId);
+    emit RecyclerStatsUpdated(
+      msg.sender,
+      recyclerProfile.recyclerProfile.totalInventory,
+      recyclerProfile.recyclerProfile.totalEarnings,
+      recyclerProfile.recyclerProfile.activeListings,
+      recyclerProfile.recyclerProfile.reputationScore
     );
   }
 
@@ -1276,7 +1298,15 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
       'Transfer to seller failed'
     );
 
+    // Credit seller (recycler) with marketplace earnings
+    UserProfile storage sellerProfile = userProfiles[listing.seller];
+    sellerProfile.recyclerProfile.totalEarnings += sellerAmount;
+    sellerProfile.recyclerProfile.totalSales += listing.amount;
+    sellerProfile.recyclerProfile.reputationScore += AfricycleLibrary
+      .calculateReputationIncrease(2, listing.quality);
+
     listing.status = Status.COMPLETED;
+    listing.isActive = false;
     totalMarketplaceVolume[listing.wasteType] += totalPrice;
     totalPlatformFees += platformFee;
 
@@ -1284,17 +1314,20 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
     buyerProfile.collectorProfile.reputationScore += AfricycleLibrary
       .calculateReputationIncrease(1, listing.quality);
 
-    UserProfile storage sellerProfile = userProfiles[listing.seller];
-    sellerProfile.recyclerProfile.totalSales += listing.amount;
-    sellerProfile.recyclerProfile.reputationScore += AfricycleLibrary
-      .calculateReputationIncrease(2, listing.quality);
-
     emit ListingPurchased(
       _listingId,
       msg.sender,
       listing.amount,
       totalPrice,
       platformFee
+    );
+    emit RewardPaid(listing.seller, sellerAmount, listing.wasteType, _listingId);
+    emit RecyclerStatsUpdated(
+      listing.seller,
+      sellerProfile.recyclerProfile.totalInventory,
+      sellerProfile.recyclerProfile.totalEarnings,
+      sellerProfile.recyclerProfile.activeListings,
+      sellerProfile.recyclerProfile.reputationScore
     );
     emit GlobalStatsUpdated(
       listing.wasteType,
@@ -2129,5 +2162,9 @@ contract AfriCycle is AccessControl, ReentrancyGuard, Pausable {
       require(collection.collector != address(0), 'Collection does not exist');
       require(!collection.isProcessed, 'Collection already processed');
     }
+  }
+
+  function getContractCUSDBalance() external view returns (uint256) {
+    return cUSDToken.balanceOf(address(this));
   }
 }

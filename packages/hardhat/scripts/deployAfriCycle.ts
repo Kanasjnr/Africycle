@@ -13,15 +13,7 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-// Token addresses for Celo Mainnet
-const TOKENS = {
-  celo: {
-    cUSD: "0x765de816845861e75a25fca122bb6898b8b1282a", // Celo Dollar (cUSD)
-  },
-  alfajores: {
-    cUSD: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", // Alfajores cUSD
-  }
-};
+
 
 // Waste stream enum
 const WasteStream = {
@@ -73,7 +65,7 @@ async function main() {
   console.log("==========================================");
 
   // Get the appropriate cUSD address based on network
-  const cUSDAddress = network.name === "mainnet" ? TOKENS.celo.cUSD : TOKENS.alfajores.cUSD;
+  const cUSDAddress = "0x765DE816845861e75A25fCA122bb6898B8B1282a";
   
   if (network.name === "mainnet") {
     console.log("⚠️  ATTENTION: Deploying to Celo Mainnet");
