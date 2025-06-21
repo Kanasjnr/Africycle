@@ -178,6 +178,7 @@ export default function WalletPage() {
   const [userStats, setUserStats] = useState<any>(null)
   const [isRegistered, setIsRegistered] = useState<boolean>(false)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [contractBalance, setContractBalance] = useState<bigint>(BigInt(0))
 
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
@@ -343,6 +344,16 @@ export default function WalletPage() {
         console.log("Debug - Collector total collected:", collectorStats[0].toString())
         console.log("Debug - Collector reputation score:", collectorStats[2].toString())
         
+        // Check contract's cUSD balance
+        const contractCusdBalance = await publicClient.readContract({
+          address: CUSD_TOKEN_ADDRESS,
+          abi: erc20ABI,
+          functionName: 'balanceOf',
+          args: [CONTRACT_ADDRESS]
+        }) as bigint
+        console.log("Debug - Contract cUSD balance:", contractCusdBalance.toString())
+        console.log("Debug - Contract balance in cUSD:", formatEther(contractCusdBalance))
+        
         if (actualEarnings === BigInt(0)) {
           toast.error("You have no earnings to withdraw. You need to complete waste collections first.")
           setIsWithdrawing(false)
@@ -351,6 +362,12 @@ export default function WalletPage() {
         
         if (amountInWei > actualEarnings) {
           toast.error(`Insufficient earnings. You have ${formatEther(actualEarnings)} cUSD available.`)
+          setIsWithdrawing(false)
+          return
+        }
+        
+        if (contractCusdBalance < amountInWei) {
+          toast.error(`Contract has insufficient funds. Contract balance: ${formatEther(contractCusdBalance)} cUSD, needed: ${formatEther(amountInWei)} cUSD. Please try again later or contact support.`)
           setIsWithdrawing(false)
           return
         }
@@ -396,12 +413,16 @@ export default function WalletPage() {
           setIsRegistered(false)
         } else if (error.message.includes("Insufficient balance")) {
           toast.error("Insufficient earnings to withdraw.")
+        } else if (error.message.includes("Insufficient contract balance")) {
+          toast.error("The contract doesn't have enough funds. Please try again later or contact support.")
         } else if (error.message.includes("User is suspended")) {
           toast.error("Your account is suspended. Contact support.")
         } else if (error.message.includes("User is blacklisted")) {
           toast.error("Your account is blacklisted. Contact support.")
+        } else if (error.message.includes("execution reverted") || error.message.includes("Contract call failed")) {
+          toast.error("Transaction failed. This might be due to insufficient contract funds or network issues. Please try again later.")
         } else {
-          toast.error("Withdrawal failed. Please try again.")
+          toast.error(`Withdrawal failed: ${error.message}`)
         }
       } else {
         toast.error("Withdrawal failed. Please try again.")
@@ -469,6 +490,15 @@ export default function WalletPage() {
           args: [address]
         }) as bigint
         setCusdBalance(cusdBalance)
+        
+        // Fetch contract's cUSD balance to check if withdrawals are possible
+        const contractCusdBalance = await publicClient.readContract({
+          address: CUSD_TOKEN_ADDRESS,
+          abi: erc20ABI,
+          functionName: 'balanceOf',
+          args: [CONTRACT_ADDRESS]
+        }) as bigint
+        setContractBalance(contractCusdBalance)
       } catch (error) {
         console.error("Error fetching balances:", error)
       }
@@ -518,15 +548,41 @@ export default function WalletPage() {
               log.args.from?.toLowerCase() === address.toLowerCase() || 
               log.args.to?.toLowerCase() === address.toLowerCase()
             )
-            .map((log, index) => ({
-              type: (log.args.to?.toLowerCase() === address.toLowerCase() ? "Deposit" : "Withdrawal") as "Deposit" | "Withdrawal",
-              description: log.args.to?.toLowerCase() === address.toLowerCase() 
-                ? "Received cUSD" 
-                : "Sent cUSD",
-              amount: formatEther(log.args.value || BigInt(0)),
-              date: new Date(Number(blocks[index].timestamp) * 1000).toLocaleDateString(),
-              hash: log.transactionHash
-            }))
+            .map((log, index) => {
+              const isReceiver = log.args.to?.toLowerCase() === address.toLowerCase()
+              const isSender = log.args.from?.toLowerCase() === address.toLowerCase()
+              const isFromContract = log.args.from?.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
+              
+              // Determine transaction type based on source and destination
+              let type: "Deposit" | "Withdrawal"
+              let description: string
+              
+              if (isReceiver && isFromContract) {
+                // Money received from contract = withdrawal of earnings
+                type = "Withdrawal"
+                description = "Earnings withdrawal"
+              } else if (isReceiver && !isFromContract) {
+                // Money received from another address = deposit
+                type = "Deposit"
+                description = "Received cUSD"
+              } else if (isSender) {
+                // Money sent to another address = withdrawal/transfer
+                type = "Withdrawal"
+                description = "Sent cUSD"
+              } else {
+                // Fallback
+                type = isReceiver ? "Deposit" : "Withdrawal"
+                description = isReceiver ? "Received cUSD" : "Sent cUSD"
+              }
+              
+              return {
+                type,
+                description,
+                amount: formatEther(log.args.value || BigInt(0)),
+                date: new Date(Number(blocks[index].timestamp) * 1000).toLocaleDateString(),
+                hash: log.transactionHash
+              }
+            })
             .reverse() // Most recent first
 
           // Update transactions, ensuring no duplicates by transaction hash
@@ -707,6 +763,13 @@ export default function WalletPage() {
                         No earnings available to withdraw
                       </p>
                     )}
+                    {totalEarnings > 0 && contractBalance > 0 && parseFloat(withdrawAmount) > 0 && 
+                     BigInt(Math.floor(parseFloat(withdrawAmount) * 1e18)) > contractBalance && (
+                      <p className="text-sm text-amber-600 text-center bg-amber-50 p-2 rounded">
+                        ⚠️ Warning: Contract has insufficient funds ({formatEther(contractBalance)} cUSD available). 
+                        Withdrawal may fail.
+                      </p>
+                    )}
                   </div>
                 )}
               </Card>
@@ -745,6 +808,12 @@ export default function WalletPage() {
                       <span className="font-medium">{userStats.reputationScore.toString()}</span>
                     </div>
                   )}
+                  {/* <div className="flex justify-between">
+                    <span className="text-muted-foreground">Contract Balance:</span>
+                    <span className={`font-medium ${contractBalance < BigInt(1e18) ? 'text-amber-600' : 'text-green-600'}`}>
+                      {formatEther(contractBalance)} cUSD
+                    </span>
+                  </div> */}
                 </div>
               </Card>
             </div>

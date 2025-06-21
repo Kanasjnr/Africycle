@@ -659,7 +659,7 @@ export default function PhotoVerificationPage() {
         form: { ...prev.form, [field]: value },
       }));
     },
-    []
+    [state]
   );
 
   // Update fetchCollections to use the hook properly - MOVED HERE BEFORE useEffect
@@ -1021,38 +1021,76 @@ export default function PhotoVerificationPage() {
   const [recyclers, setRecyclers] = useState<Recycler[]>([]);
   const [loadingRecyclers, setLoadingRecyclers] = useState(true);
 
-  // Update fetchRecyclers function
+  // Update fetchRecyclers function to dynamically discover recyclers
   const fetchRecyclers = useCallback(async () => {
     if (!africycle || !isHookReady) {
       console.log('Debug: fetchRecyclers - Missing requirements:', {
         hasAfricycle: !!africycle,
         isHookReady,
-        africycleInstance: africycle
       })
       return
     }
 
     try {
-      console.log('Debug: Starting to fetch recyclers')
+      console.log('Debug: Starting to fetch recyclers dynamically')
       setLoadingRecyclers(true)
       const recyclersList: Recycler[] = []
       
-      // Check known recycler addresses
-      console.log('Debug: Checking known recycler addresses:', KNOWN_RECYCLERS)
+      // Method 1: Get UserRegistered events in chunks to avoid timeout
+      console.log('Debug: Fetching UserRegistered events...')
+      let registeredAddresses: `0x${string}`[] = []
       
-      for (const address of KNOWN_RECYCLERS) {
+      try {
+        // Get current block number
+        const currentBlock = await publicClient.getBlockNumber()
+        console.log(`Debug: Current block: ${currentBlock}`)
+        
+        // Fetch events from recent blocks first (last 10,000 blocks or ~30 days worth)
+        const blocksToCheck = BigInt(10000)
+        const fromBlock = currentBlock > blocksToCheck ? currentBlock - blocksToCheck : BigInt(0)
+        
+        console.log(`Debug: Fetching events from block ${fromBlock} to ${currentBlock}`)
+        
+        const userRegisteredEvents = await publicClient.getLogs({
+          address: CONTRACT_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'UserRegistered',
+            inputs: [
+              { name: 'user', type: 'address', indexed: true },
+              { name: 'name', type: 'string', indexed: false },
+              { name: 'location', type: 'string', indexed: false }
+            ]
+          },
+          fromBlock: fromBlock,
+          toBlock: 'latest'
+        })
+        
+        console.log(`Debug: Found ${userRegisteredEvents.length} UserRegistered events`)
+        
+        // Get unique addresses from events
+        registeredAddresses = Array.from(
+          new Set(userRegisteredEvents.map(event => event.args?.user).filter(Boolean))
+        ) as `0x${string}`[]
+        
+        console.log(`Debug: Found ${registeredAddresses.length} unique registered addresses from recent events`)
+        
+      } catch (eventError) {
+        console.log('Debug: Error fetching UserRegistered events:', eventError)
+        console.log('Debug: Will rely on known recyclers only')
+        registeredAddresses = []
+      }
+      
+      // Check each registered address to see if they're recyclers
+      const recyclerRoleHash = await getRoleHash(africycle, 'RECYCLER_ROLE')
+      
+      for (const address of registeredAddresses) {
         try {
-          console.log(`Debug: Checking recycler address:`, address)
-          const profile = await africycle.getUserProfile(address as `0x${string}`)
-          console.log(`Debug: Got profile for ${address}:`, {
-            role: profile.role,
-            roleHash: profile.role,
-            name: profile.name,
-            isVerified: profile.isVerified
-          })
+          console.log(`Debug: Checking if ${address} is a recycler...`)
+          const profile = await africycle.getUserProfile(address)
           
           // Check if user is a recycler using the role hash
-          if (profile.role === await getRoleHash(africycle, 'RECYCLER_ROLE') && profile.name) {
+          if (profile.role === recyclerRoleHash && profile.name) {
             console.log(`Debug: Found recycler at ${address}:`, profile.name)
             recyclersList.push({
               address: address as `0x${string}`,
@@ -1065,22 +1103,55 @@ export default function PhotoVerificationPage() {
               activeListings: profile.activeListings
             })
           } else {
-            console.log(`Debug: Address ${address} is not a recycler or not registered:`, {
+            console.log(`Debug: Address ${address} is not a recycler:`, {
               role: profile.role,
-              expectedRole: await getRoleHash(africycle, 'RECYCLER_ROLE'),
-              hasName: !!profile.name
+              expectedRole: recyclerRoleHash,
+              hasName: !!profile.name,
+              roleMatch: profile.role === recyclerRoleHash
             })
           }
         } catch (error) {
           console.log(`Debug: Error checking address ${address}:`, error)
+          // Continue with next address
+        }
+      }
+      
+      // Fallback: Also check known recyclers in case events are not available or incomplete
+      console.log('Debug: Also checking known recycler addresses as fallback:', KNOWN_RECYCLERS)
+      
+      for (const address of KNOWN_RECYCLERS) {
+        // Skip if already found through events
+        if (recyclersList.some(r => r.address.toLowerCase() === address.toLowerCase())) {
+          console.log(`Debug: ${address} already found through events, skipping`)
+          continue
+        }
+        
+        try {
+          console.log(`Debug: Checking known recycler address:`, address)
+          const profile = await africycle.getUserProfile(address as `0x${string}`)
+          
+          // Check if user is a recycler using the role hash
+          if (profile.role === recyclerRoleHash && profile.name) {
+            console.log(`Debug: Found known recycler at ${address}:`, profile.name)
+            recyclersList.push({
+              address: address as `0x${string}`,
+              name: profile.name,
+              location: profile.location,
+              contactInfo: profile.contactInfo,
+              isVerified: profile.isVerified,
+              reputationScore: profile.recyclerReputationScore,
+              totalInventory: profile.totalInventory,
+              activeListings: profile.activeListings
+            })
+          }
+        } catch (error) {
+          console.log(`Debug: Error checking known address ${address}:`, error)
         }
       }
       
       console.log('Debug: Finished fetching recyclers:', {
         totalFound: recyclersList.length,
-        recyclers: recyclersList,
-        roleHash: await getRoleHash(africycle, 'RECYCLER_ROLE'),
-        checkedAddresses: KNOWN_RECYCLERS
+        recyclers: recyclersList.map(r => ({ address: r.address, name: r.name }))
       })
       
       setRecyclers(recyclersList)

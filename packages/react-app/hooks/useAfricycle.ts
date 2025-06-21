@@ -330,18 +330,9 @@ export class AfriCycle {
   async getContractCUSDBalance(): Promise<bigint> {
     try {
       const balance = await this.publicClient.readContract({
-        address: this.cUSDTokenAddress,
-        abi: [
-          {
-            name: 'balanceOf',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'account', type: 'address' }],
-            outputs: [{ name: '', type: 'uint256' }],
-          },
-        ],
-        functionName: 'balanceOf',
-        args: [this.contractAddress],
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'getContractCUSDBalance',
       });
       return balance as bigint;
     } catch (error) {
@@ -1880,6 +1871,83 @@ export class AfriCycle {
     }
   }
 
+  // ============ Role-Specific Stats Functions ============
+
+  async getCollectorStats(collectorAddress: Address): Promise<{
+    collectorTotalCollected: bigint;
+    totalEarnings: bigint;
+    reputationScore: bigint;
+    collectedByType: [bigint, bigint, bigint, bigint];
+  }> {
+    try {
+      const stats = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'getCollectorStats',
+        args: [collectorAddress],
+      });
+      const [collectorTotalCollected, totalEarnings, reputationScore, collectedByType] = stats as [bigint, bigint, bigint, [bigint, bigint, bigint, bigint]];
+      return {
+        collectorTotalCollected,
+        totalEarnings,
+        reputationScore,
+        collectedByType,
+      };
+    } catch (error) {
+      console.error('Error getting collector stats:', error);
+      throw new Error(
+        'Failed to get collector stats: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
+    }
+  }
+
+  async getRecyclerStats(recyclerAddress: Address): Promise<{
+    totalEarnings: bigint;
+    activeListings: bigint;
+    reputationScore: bigint;
+    totalInventory: bigint;
+    scheduledPickups: bigint;
+    activeCollectors: bigint;
+    processedByType: [bigint, bigint, bigint, bigint];
+    inventoryByType: [bigint, bigint, bigint, bigint];
+  }> {
+    try {
+      const stats = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'getRecyclerStats',
+        args: [recyclerAddress],
+      });
+      const [
+        totalEarnings,
+        activeListings,
+        reputationScore,
+        totalInventory,
+        scheduledPickups,
+        activeCollectors,
+        processedByType,
+        inventoryByType,
+      ] = stats as [bigint, bigint, bigint, bigint, bigint, bigint, [bigint, bigint, bigint, bigint], [bigint, bigint, bigint, bigint]];
+      return {
+        totalEarnings,
+        activeListings,
+        reputationScore,
+        totalInventory,
+        scheduledPickups,
+        activeCollectors,
+        processedByType,
+        inventoryByType,
+      };
+    } catch (error) {
+      console.error('Error getting recycler stats:', error);
+      throw new Error(
+        'Failed to get recycler stats: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
+    }
+  }
+
   // ============ Helper Functions for Real Active Collectors ============
 
   async getRealRecyclerStats(recyclerAddress: Address): Promise<{
@@ -1968,8 +2036,7 @@ export class AfriCycle {
         }
       }
 
-      // TODO: Get actual marketplace listings count
-      // For now, use a placeholder
+      
       activeListings = BigInt(0);
 
       console.log('Debug: Calculated recycler stats:', {
