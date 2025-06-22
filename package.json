@@ -17,6 +17,7 @@
     "url": "git+https://github.com/celo-org/celo-composer.git"
   },
   "scripts": {
+    "build": "cd packages/react-app && npm run build",
     "react-app:dev": "yarn workspace @africycle/react-app dev",
     "react-app:build": "yarn workspace @africycle/react-app build",
     "react-app:start": "yarn workspace @africycle/react-app start",
@@ -31,7 +32,7 @@
     "hardhat:prettier": "yarn workspace @africycle/hardhat prettier",
     "hardhat:sync:abis": "yarn workspace @africycle/hardhat sync:abis"
   },
-  "version": "1.0.0",
+    "version": "1.0.0",
   "workspaces": [
     "packages/*"
   ],
