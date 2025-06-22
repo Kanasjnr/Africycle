@@ -2,7 +2,7 @@
 
 > 🚀 **Now Live on Celo Mainnet - Currently in Beta Testing Phase** 🚀
 > 
-> 📜 **Verified Smart Contract**: [View on CeloScan](https://celoscan.io/address/0xca37C3123CD9eE8c49409A8c225b5c440F5eBc46#code)
+> 📜 **Verified Smart Contract**: [View on CeloScan](https://celoscan.io/address/0x272e893d6F50c93bA12554693435b8C391528553#code)
 
 ## 🌍 Overview
 AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis across three key waste streams: **plastic**, **electronic waste (e-waste)**, and **metal/general waste**. The platform incentivizes waste collection through **tokenized rewards**, enables **transparent recycling processes**, and promotes **corporate sustainability** through verified **recycling credits**.
@@ -11,7 +11,7 @@ AfriCycle is a blockchain-powered circular economy platform that addresses Afric
 - **Live on Celo Mainnet** 🟢
 - **Beta Testing Phase** 🔄
 - **Open for Early Adopters** 👥
-- **Verified Smart Contract**: [0xca37C3123CD9eE8c49409A8c225b5c440F5eBc46](https://celoscan.io/address/0xca37C3123CD9eE8c49409A8c225b5c440F5eBc46#code)
+- **Verified Smart Contract**: [0x272e893d6F50c93bA12554693435b8C391528553](https://celoscan.io/address/0x272e893d6F50c93bA12554693435b8C391528553#code)
 - **Community Growth**: Active Telegram community with daily engagement
 - **Platform Updates**: Regular feature releases and improvements
 - **Mobile Optimization**: Enhanced mobile experience for collectors
@@ -82,7 +82,7 @@ graph TD
 
 ## 🚀 Features
 ### ♻️ Multi-Stream Waste Collection
-- **Plastic Waste**: QR-code-based verification and weight-based tracking.
+- **Plastic Waste**: photo based verification and weight-based tracking.
 - **E-Waste**: Detailed documentation of valuable components such as CPUs, batteries, and PCBs.
 - **Metal & General Waste**: Categorization, weight-based verification, and quality assessment.
 - **Real-time Tracking**: Live monitoring of waste collection and processing

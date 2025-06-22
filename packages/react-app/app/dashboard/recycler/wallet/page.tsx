@@ -33,6 +33,7 @@ import { useRole } from "@/providers/RoleProvider"
 import { useAccount, usePublicClient, useChainId, useBalance } from "wagmi"
 import { formatEther, parseEther, createPublicClient, http } from "viem"
 import { celo } from 'viem/chains'
+import afriCycleAbi from "@/ABI/Africycle.json"
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
@@ -280,6 +281,36 @@ export default function RecyclerWalletPage() {
     return "0.0000"
   }, [recyclerStats, userStats])
 
+  // Get actual earnings per batch from contract data
+  const getActualBatchEarnings = useCallback((batch: any) => {
+    // Calculate based on contract parameters
+    const outputAmount = batch.outputAmount || BigInt(1); // Default to 1kg if not available
+    const wasteType = batch.wasteType || 0; // Default to PLASTIC
+    const quality = batch.outputQuality || 1; // Default to MEDIUM
+    
+    // Base rates from contract (in wei)
+    const baseRates = [
+      BigInt('50000000000000000'),  // PLASTIC: 0.05 cUSD
+      BigInt('250000000000000000'), // EWASTE: 0.25 cUSD  
+      BigInt('100000000000000000'), // METAL: 0.1 cUSD
+      BigInt('25000000000000000')   // GENERAL: 0.025 cUSD
+    ];
+    
+    // Quality multipliers (basis points out of 10000)
+    const qualityMultipliers = [8000, 10000, 12000, 15000]; // LOW, MEDIUM, HIGH, PREMIUM
+    
+    const baseRate = baseRates[wasteType] || baseRates[0];
+    const qualityMultiplier = qualityMultipliers[quality] || qualityMultipliers[1];
+    
+    // Calculate gross payment
+    const grossPayment = (outputAmount * baseRate * BigInt(qualityMultiplier)) / BigInt(10000);
+    
+    // Apply platform fee (5%)
+    const netPayment = (grossPayment * BigInt(95)) / BigInt(100);
+    
+    return parseFloat(formatEther(netPayment));
+  }, []) // No dependencies to avoid circular re-renders
+
   // Get withdrawable balance from user stats
   const withdrawableBalance = useMemo(() => {
     if (userStats && userStats.totalEarnings) {
@@ -344,7 +375,8 @@ export default function RecyclerWalletPage() {
         const actualEarnings: Earning[] = []
         const actualTransactions: TransactionProps[] = []
         
-        processingBatches.value.forEach((batch, index) => {
+        // Process each completed batch
+        for (const batch of processingBatches.value) {
           if (batch.status === 4) { // COMPLETED status
             const wasteTypeName = 
               batch.wasteType === 0 ? "PET Plastic" :
@@ -358,80 +390,57 @@ export default function RecyclerWalletPage() {
               batch.outputQuality === 1 ? "Medium" :
               "Standard"
             
-            // Use pragmatic approach: we know the actual payment was ~0.098 cUSD
-            // Since this is just for display purposes, use a reasonable estimate
-            const estimatedEarnings = 0.098 // Known actual payment amount
+            // Use the getActualBatchEarnings function to calculate earnings
+            const calculatedEarnings = getActualBatchEarnings(batch);
             
-            // Add to transaction history with actual amount paid to wallet
+            console.log(`Debug: Batch ${batch.id} - calculated earnings:`, {
+              outputAmount: batch.outputAmount.toString(),
+              outputQuality: batch.outputQuality,
+              wasteType: batch.wasteType,
+              calculatedEarnings: calculatedEarnings,
+              batchId: batch.id.toString()
+            });
+            
+            // Add to transaction history with actual calculated amount
             actualTransactions.push({
               type: "Processing",
               description: `${wasteTypeName} batch #${batch.id} completed → Paid to wallet`,
-              amount: `${estimatedEarnings.toFixed(4)} cUSD`,
+              amount: `${calculatedEarnings.toFixed(4)} cUSD`,
               date: new Date(Number(batch.timestamp) * 1000).toLocaleDateString(),
               status: "completed"
             })
             
-            // Add to earnings history with clarification
+            // Add to earnings history with actual calculated amount
             actualEarnings.push({
               id: `batch-${batch.id}`,
               type: "processing",
-              amount: estimatedEarnings,
+              amount: calculatedEarnings,
               date: new Date(Number(batch.timestamp) * 1000).toLocaleDateString(),
               status: "completed",
-              description: `${wasteTypeName} processing - ${qualityName} quality (Paid directly to wallet)`,
+              description: `${wasteTypeName} processing - ${qualityName} quality (${batch.outputAmount.toString()}kg output)`,
               batchId: batch.id.toString()
             })
           }
-        })
+        }
         
         // Try to fetch withdrawal logs separately with better error handling
         let withdrawalTransactions: TransactionProps[] = []
         try {
           console.log('Fetching withdrawal logs for address:', address)
           
-          // Try different approaches to fetch withdrawal events
-          const allLogs = await publicClient.getLogs({
-            address: CONTRACT_ADDRESS,
-            fromBlock: 'earliest',
-            toBlock: 'latest'
-          })
+          // TODO: Implement proper withdrawal event detection
+          // For now, we'll only show actual withdrawal transactions when they occur
+          // This requires properly parsing the contract events with the right ABI
           
-          console.log('All logs from contract:', allLogs.length)
-          
-          // Filter logs for withdrawal events manually
-          const withdrawalLogs = allLogs.filter(log => {
-            // Check if this looks like a withdrawal event (has the right structure)
-            return log.topics && log.topics.length >= 2 && log.data && log.data !== '0x'
-          })
-          
-          console.log('Potential withdrawal logs:', withdrawalLogs.length)
-          
-          // For now, let's manually add the known withdrawal
-          // Since we know the user made a 0.02 cUSD withdrawal
-          if (withdrawalLogs.length > 0 || true) { // Force add for testing
-            withdrawalTransactions.push({
-              type: "Withdrawal" as const,
-              description: "Earnings withdrawal from contract",
-              amount: "0.0200 cUSD", // The actual withdrawal amount
-              date: new Date().toLocaleDateString(),
-              status: "completed" as const
-            })
-          }
+          // Note: The contract should emit withdrawal events that we can detect
+          // Until then, we'll only show withdrawals when they actually happen
           
         } catch (error) {
           console.error('Error fetching withdrawal logs:', error)
-          
-          // Fallback: Add the known withdrawal transaction manually
-          withdrawalTransactions.push({
-            type: "Withdrawal" as const,
-            description: "Earnings withdrawal from contract",
-            amount: "0.0200 cUSD",
-            date: new Date().toLocaleDateString(),
-            status: "completed" as const
-          })
         }
         
-        // Add withdrawal transactions to the main transaction list
+        // Only add actual withdrawal transactions to the main transaction list
+        // Remove the hardcoded test withdrawal that was incorrectly added
         actualTransactions.push(...withdrawalTransactions)
         console.log('Total transactions after adding withdrawals:', actualTransactions.length)
         
@@ -449,7 +458,7 @@ export default function RecyclerWalletPage() {
     } finally {
       setLoading(false)
     }
-  }, [address, africycle, isRegistered, publicClient])
+  }, [address, africycle, isRegistered, publicClient, getActualBatchEarnings])
 
   // Fetch cUSD balance
   const fetchBalances = useCallback(async () => {
