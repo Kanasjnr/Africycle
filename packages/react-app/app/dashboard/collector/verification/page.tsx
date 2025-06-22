@@ -1162,7 +1162,7 @@ export default function PhotoVerificationPage() {
       console.log('Debug: Setting loading state to false')
       setLoadingRecyclers(false)
     }
-  }, [africycle, isHookReady])
+  }, [africycle, isHookReady, publicClient])
 
   // Add debug logs for hook readiness
   useEffect(() => {
@@ -1213,7 +1213,7 @@ export default function PhotoVerificationPage() {
       console.error('Debug: Error checking user status:', error);
       setUserStatus(prev => ({ ...prev, loading: false }));
     }
-  }, [address, africycle, isHookReady, publicClient]);
+  }, [address, africycle, isHookReady]);
 
   // Check user status when hook is ready
   useEffect(() => {

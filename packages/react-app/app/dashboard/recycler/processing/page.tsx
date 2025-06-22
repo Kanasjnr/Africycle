@@ -24,9 +24,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
-import { useState, memo, useEffect } from "react"
+import { useState, memo, useEffect, useCallback } from "react"
 import { Header } from "@/components/dashboard/header"
 import { useAfriCycle, type WasteCollection, type ProcessingBatch } from "@/hooks/useAfricycle"
+import Image from "next/image"
 import { AfricycleStatus, AfricycleWasteStream, AfricycleQualityGrade } from "@/hooks/useAfricycle"
 import { useAccount } from "wagmi"
 import { toast } from "sonner"
@@ -98,12 +99,14 @@ function VerificationItem({ collection, onVerify, isProcessing, collectorName }:
     <>
       <Card className="p-4 sm:p-6">
         <div className="space-y-4 lg:grid lg:gap-6 lg:grid-cols-[280px_1fr] lg:space-y-0">
-          <div className="aspect-video overflow-hidden rounded-lg border bg-muted">
+          <div className="aspect-video overflow-hidden rounded-lg border bg-muted relative">
             {collection.imageHash ? (
-              <img 
+              <Image 
                 src={`https://res.cloudinary.com/dn2ed9k6p/image/upload/${collection.imageHash}`}
                 alt="Collection verification"
                 className="h-full w-full object-cover"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                   e.currentTarget.nextElementSibling?.classList.remove('hidden')
@@ -230,11 +233,13 @@ function VerificationItem({ collection, onVerify, isProcessing, collectorName }:
               <div className="space-y-4">
                 {/* Image */}
                 {collection.imageHash && (
-                  <div className="aspect-video overflow-hidden rounded-lg border">
-                    <img 
+                  <div className="aspect-video overflow-hidden rounded-lg border relative">
+                    <Image 
                       src={`https://res.cloudinary.com/dn2ed9k6p/image/upload/${collection.imageHash}`}
                       alt="Collection verification"
                       className="h-full w-full object-cover"
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
                   </div>
                 )}
@@ -575,7 +580,7 @@ export default function MaterialVerificationPage() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   // Fetch collector names for the collections
-  const fetchCollectorNames = async (collections: WasteCollection[]) => {
+  const fetchCollectorNames = useCallback(async (collections: WasteCollection[]) => {
     if (!africycle) return new Map()
 
     const nameMap = new Map<string, string>()
@@ -604,7 +609,7 @@ export default function MaterialVerificationPage() {
     }
 
     return nameMap
-  }
+  }, [africycle])
 
   // Fetch data
   useEffect(() => {
@@ -661,7 +666,7 @@ export default function MaterialVerificationPage() {
     }
 
     fetchData()
-  }, [africycle, address])
+  }, [africycle, address, fetchCollectorNames])
 
   // Manual refresh function
   const handleRefresh = async () => {
