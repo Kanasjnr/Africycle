@@ -16,10 +16,36 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.fallback = {
       fs: false,
     };
+    
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'HeartbeatWorker.js': false,
+      };
+      
+      // Configure the module rules to handle workers properly
+      config.module.rules.push({
+        test: /HeartbeatWorker\.js$/,
+        use: 'null-loader'
+      });
+      
+      // Add worker-loader for proper worker files
+      config.module.rules.push({
+        test: /\.worker\.(js|ts)$/,
+        use: {
+          loader: 'worker-loader',
+          options: {
+            name: 'static/[hash].worker.js',
+            publicPath: '/_next/',
+          },
+        },
+      });
+    }
+    
     return config;
   },
   optimizeFonts: true,
