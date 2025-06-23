@@ -15,6 +15,10 @@ class IgnoreHeartbeatWorkerPlugin {
 
 const nextConfig = {
   reactStrictMode: true,
+  
+  // Back to standalone for dynamic routes support
+  output: 'standalone',
+  
   images: {
     unoptimized: true,
     domains: ['res.cloudinary.com', 'images.unsplash.com'],
@@ -31,6 +35,7 @@ const nextConfig = {
       },
     ],
   },
+  
   webpack: (config, { isServer, dev }) => {
     // Basic fallbacks
     config.resolve.fallback = {
