@@ -16,8 +16,10 @@ class IgnoreHeartbeatWorkerPlugin {
 const nextConfig = {
   reactStrictMode: true,
   
-  // Back to standalone for dynamic routes support
-  output: 'standalone',
+  // Static export to completely bypass Netlify's Next.js runtime
+  output: 'export',
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
   
   images: {
     unoptimized: true,
