@@ -8,6 +8,7 @@
   NPM_FLAGS = "--legacy-peer-deps"
   SKIP_PREFLIGHT_CHECK = "true"
   CI = "false"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [[headers]]
   for = "/*"
