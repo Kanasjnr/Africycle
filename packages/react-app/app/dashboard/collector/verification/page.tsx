@@ -878,22 +878,23 @@ export default function PhotoVerificationPage() {
       }
 
       try {
-        // Add debug logging for recycler role check
+        // Check if the selected recycler has the recycler role
         console.log('Debug: Checking recycler role before submission:', {
-          recycler: state.form.recycler,
-          roleHash: await getRoleHash(africycle, 'RECYCLER_ROLE')
+          recycler: state.form.recycler
         });
 
-        const recyclerRole = await getRoleHash(africycle, 'RECYCLER_ROLE');
-        console.log('Debug: Recycler role from contract:', {
+        const recyclerRoleHash = await getRoleHash(africycle, 'RECYCLER_ROLE');
+        console.log('Debug: Recycler role hash:', recyclerRoleHash);
+
+        const hasRecyclerRole = await africycle.hasRole(recyclerRoleHash, state.form.recycler);
+
+        console.log('Debug: Recycler role check result:', {
           recycler: state.form.recycler,
-          role: recyclerRole,
-          expectedRole: recyclerRole,
-          isMatch: recyclerRole === await getRoleHash(africycle, 'RECYCLER_ROLE')
+          hasRecyclerRole: hasRecyclerRole
         });
 
-        if (recyclerRole !== await getRoleHash(africycle, 'RECYCLER_ROLE')) {
-          throw new Error(`Selected recycler does not have the correct role. Role: ${recyclerRole}, Expected: ${await getRoleHash(africycle, 'RECYCLER_ROLE')}`);
+        if (!hasRecyclerRole) {
+          throw new Error(`Selected recycler does not have the recycler role`);
         }
 
         console.log('Debug: Starting collection submission with data:', {
@@ -1081,34 +1082,54 @@ export default function PhotoVerificationPage() {
         registeredAddresses = []
       }
       
-      // Check each registered address to see if they're recyclers
+      // Get recycler role hash for checking
       const recyclerRoleHash = await getRoleHash(africycle, 'RECYCLER_ROLE')
+      console.log(`Debug: Recycler role hash: ${recyclerRoleHash}`)
       
+             // Helper function to check if an address has the recycler role
+       const hasRecyclerRole = async (userAddress: `0x${string}`) => {
+         try {
+           console.log(`Debug: Checking hasRole for ${userAddress} with role ${recyclerRoleHash}`)
+           const hasRole = await africycle.hasRole(recyclerRoleHash, userAddress)
+           console.log(`Debug: hasRole result for ${userAddress}: ${hasRole}`)
+           return hasRole
+         } catch (error) {
+           console.log(`Debug: Error checking hasRole for ${userAddress}:`, error)
+           return false
+         }
+       }
+      
+      // Check each registered address to see if they're recyclers
       for (const address of registeredAddresses) {
         try {
           console.log(`Debug: Checking if ${address} is a recycler...`)
-          const profile = await africycle.getUserProfile(address)
           
-          // Check if user is a recycler using the role hash
-          if (profile.role === recyclerRoleHash && profile.name) {
-            console.log(`Debug: Found recycler at ${address}:`, profile.name)
-            recyclersList.push({
-              address: address as `0x${string}`,
-              name: profile.name,
-              location: profile.location,
-              contactInfo: profile.contactInfo,
-              isVerified: profile.isVerified,
-              reputationScore: profile.recyclerReputationScore,
-              totalInventory: profile.totalInventory,
-              activeListings: profile.activeListings
-            })
+          // First check if they have the recycler role
+          const isRecycler = await hasRecyclerRole(address)
+          console.log(`Debug: ${address} has recycler role: ${isRecycler}`)
+          
+          if (isRecycler) {
+            // Get their profile
+            const profile = await africycle.getUserProfile(address)
+            console.log(`Debug: Profile for recycler ${address}:`, profile)
+            
+            if (profile.name) {
+              console.log(`Debug: Found recycler at ${address}:`, profile.name)
+              recyclersList.push({
+                address: address as `0x${string}`,
+                name: profile.name,
+                location: profile.location,
+                contactInfo: profile.contactInfo,
+                isVerified: profile.isVerified,
+                reputationScore: profile.recyclerReputationScore,
+                totalInventory: profile.totalInventory,
+                activeListings: profile.activeListings
+              })
+            } else {
+              console.log(`Debug: ${address} has recycler role but no name in profile`)
+            }
           } else {
-            console.log(`Debug: Address ${address} is not a recycler:`, {
-              role: profile.role,
-              expectedRole: recyclerRoleHash,
-              hasName: !!profile.name,
-              roleMatch: profile.role === recyclerRoleHash
-            })
+            console.log(`Debug: Address ${address} does not have recycler role`)
           }
         } catch (error) {
           console.log(`Debug: Error checking address ${address}:`, error)
@@ -1128,21 +1149,30 @@ export default function PhotoVerificationPage() {
         
         try {
           console.log(`Debug: Checking known recycler address:`, address)
-          const profile = await africycle.getUserProfile(address as `0x${string}`)
           
-          // Check if user is a recycler using the role hash
-          if (profile.role === recyclerRoleHash && profile.name) {
-            console.log(`Debug: Found known recycler at ${address}:`, profile.name)
-            recyclersList.push({
-              address: address as `0x${string}`,
-              name: profile.name,
-              location: profile.location,
-              contactInfo: profile.contactInfo,
-              isVerified: profile.isVerified,
-              reputationScore: profile.recyclerReputationScore,
-              totalInventory: profile.totalInventory,
-              activeListings: profile.activeListings
-            })
+          // Check if they have the recycler role
+          const isRecycler = await hasRecyclerRole(address as `0x${string}`)
+          console.log(`Debug: Known address ${address} has recycler role: ${isRecycler}`)
+          
+          if (isRecycler) {
+            const profile = await africycle.getUserProfile(address as `0x${string}`)
+            console.log(`Debug: Profile for known recycler ${address}:`, profile)
+            
+            if (profile.name) {
+              console.log(`Debug: Found known recycler at ${address}:`, profile.name)
+              recyclersList.push({
+                address: address as `0x${string}`,
+                name: profile.name,
+                location: profile.location,
+                contactInfo: profile.contactInfo,
+                isVerified: profile.isVerified,
+                reputationScore: profile.recyclerReputationScore,
+                totalInventory: profile.totalInventory,
+                activeListings: profile.activeListings
+              })
+            } else {
+              console.log(`Debug: Known address ${address} has recycler role but no name in profile`)
+            }
           }
         } catch (error) {
           console.log(`Debug: Error checking known address ${address}:`, error)
