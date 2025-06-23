@@ -790,13 +790,15 @@ export default function MapPage() {
                 </div>
               </div>
             ) : (
-              <RecyclerMap
-                recyclers={recyclerLocations}
-                userLocation={userLocation}
-                height="280px md:400px"
-                onRecyclerSelect={handleRecyclerSelect}
-                onNavigate={handleMapNavigate}
-              />
+              <div className="h-[280px] md:h-[400px]">
+                <RecyclerMap
+                  recyclers={recyclerLocations}
+                  userLocation={userLocation}
+                  height="100%"
+                  onRecyclerSelect={handleRecyclerSelect}
+                  onNavigate={handleMapNavigate}
+                />
+              </div>
             )}
             
             {/* Map Legend */}
