@@ -32,7 +32,6 @@
     "@tanstack/react-query": "^5.69.0",
     "@types/leaflet": "^1.9.18",
     "@types/recharts": "^1.8.29",
-    "@usedapp/core": "^1.2.16",
     "@wagmi/connectors": "^2.0.0",
     "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
