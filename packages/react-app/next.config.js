@@ -40,6 +40,13 @@ const nextConfig = {
     };
     
     if (!isServer) {
+      // NUCLEAR OPTION: Completely disable minification to avoid HeartbeatWorker
+      config.optimization = {
+        ...config.optimization,
+        minimize: false,
+        minimizer: [],
+      };
+      
       // CUSTOM PLUGIN - First line of defense
       config.plugins.push(new IgnoreHeartbeatWorkerPlugin());
       
@@ -78,29 +85,7 @@ const nextConfig = {
         })
       );
       
-      // Strategy 4: Modify Terser to exclude HeartbeatWorker files
-      if (config.optimization && config.optimization.minimizer) {
-        config.optimization.minimizer = config.optimization.minimizer.map((plugin) => {
-          if (plugin.constructor.name === 'TerserPlugin') {
-            // Clone the plugin options and add exclude pattern
-            const newOptions = {
-              ...plugin.options,
-              exclude: [
-                /HeartbeatWorker/,
-                /.*HeartbeatWorker.*/,
-                ...(plugin.options.exclude ? [plugin.options.exclude].flat() : [])
-              ]
-            };
-            
-            // Create new instance with updated options
-            const TerserPlugin = require('terser-webpack-plugin');
-            return new TerserPlugin(newOptions);
-          }
-          return plugin;
-        });
-      }
-      
-      // Strategy 5: Additional externals for problematic packages
+      // Strategy 4: Additional externals for problematic packages
       config.externals = {
         ...config.externals,
         'HeartbeatWorker': 'HeartbeatWorker',
@@ -126,8 +111,8 @@ const nextConfig = {
   // Output configuration for static export compatibility
   trailingSlash: false,
   
-  // Disable problematic features that might interfere
-  swcMinify: true,
+  // NUCLEAR OPTION: Disable all minification to avoid HeartbeatWorker issues
+  swcMinify: false,
 };
 
 module.exports = nextConfig;
