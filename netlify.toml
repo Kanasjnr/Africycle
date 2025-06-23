@@ -4,10 +4,13 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
   SKIP_PREFLIGHT_CHECK = "true"
   CI = "false"
+  # Force npm usage instead of yarn
+  NPM_USE_PRODUCTION = "false"
+  YARN_ENABLED = "false"
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [[headers]]
