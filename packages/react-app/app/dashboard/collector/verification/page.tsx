@@ -1238,7 +1238,7 @@ export default function PhotoVerificationPage() {
         isRegistered: !!profile.name,
         profile,
         loading: false,
-      });
+      }); 
     } catch (error) {
       console.error('Debug: Error checking user status:', error);
       setUserStatus(prev => ({ ...prev, loading: false }));
