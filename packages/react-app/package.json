@@ -8,6 +8,7 @@
     "build": "next build",
     "export": "next export",
     "build:static": "next build && next export",
+    "build:netlify": "next build && mkdir -p netlify-build && cp -r .next/static netlify-build/_next && cp -r .next/server/app netlify-build/ && echo '<!DOCTYPE html><html><head><meta charset=\"utf-8\"><script>window.location.href=\"/dashboard\"</script></head><body>Redirecting...</body></html>' > netlify-build/index.html",
     "start": "next start",
     "lint": "next lint"
   },
