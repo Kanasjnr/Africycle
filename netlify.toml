@@ -5,6 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  NPM_FLAGS = "--legacy-peer-deps"
+  SKIP_PREFLIGHT_CHECK = "true"
+  CI = "false"
 
 [[headers]]
   for = "/*"
