@@ -14,6 +14,8 @@ import { toast } from "sonner"
 import { cloudinaryConfig } from "@/lib/cloudinary"
 import { Badge } from "@/components/ui/badge"
 
+
+
 // Define types for collections
 interface Collection {
   collectionId: number;

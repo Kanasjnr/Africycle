@@ -7,7 +7,7 @@ import { DashboardShell } from "@/components/dashboard/shell"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { IconMapPin, IconNavigation, IconFilter, IconCalendar, IconCheck } from "@tabler/icons-react"
+import { IconMapPin, IconNavigation, IconFilter, IconCalendar, IconCheck, IconPhone, IconCopy } from "@tabler/icons-react"
 import { useAfriCycle, AfricycleStatus, AfricycleWasteStream } from "@/hooks/useAfricycle"
 import { useAccount } from "wagmi"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -31,10 +31,10 @@ const RecyclerMap = dynamic(
   { 
     ssr: false,
     loading: () => (
-      <div className="h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
+      <div className="h-[280px] md:h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-gray-600">Loading map...</p>
+          <p className="text-gray-600 text-sm">Loading map...</p>
         </div>
       </div>
     )
@@ -88,34 +88,41 @@ function RecyclerPoint({
   return (
     <div className="border-b py-4 last:border-0">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">{name}</h3>
-            <Badge variant={status === "active" ? "default" : status === "busy" ? "secondary" : "outline"}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-medium text-sm sm:text-base truncate">{name}</h3>
+            <Badge variant={status === "active" ? "default" : status === "busy" ? "secondary" : "outline"} className="text-xs">
               {status}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{address}</p>
-          <p className="text-sm text-muted-foreground">{distance}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">{address}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">{distance}</p>
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {acceptedMaterials.map((material) => (
-          <Badge key={material} variant="outline">
+      <div className="mt-2 flex flex-wrap gap-1">
+        {acceptedMaterials.slice(0, 3).map((material) => (
+          <Badge key={material} variant="outline" className="text-xs">
             {material}
           </Badge>
         ))}
+        {acceptedMaterials.length > 3 && (
+          <Badge variant="outline" className="text-xs">
+            +{acceptedMaterials.length - 3} more
+          </Badge>
+        )}
       </div>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-3 flex gap-2">
         <Button 
           variant="outline" 
           size="sm"
+          className="flex-1 text-xs min-h-[40px]"
           onClick={onContact}
         >
+          <IconPhone className="mr-1 h-3 w-3" />
           Contact
         </Button>
-        <Button size="sm" onClick={onNavigate}>
-          <IconNavigation className="mr-2 h-4 w-4" />
+        <Button size="sm" className="flex-1 text-xs min-h-[40px]" onClick={onNavigate}>
+          <IconNavigation className="mr-1 h-3 w-3" />
           Navigate
         </Button>
       </div>
@@ -152,13 +159,13 @@ function RecyclerPointCard({
   const getStatusBadge = () => {
     switch (status) {
       case "active":
-        return <Badge variant="default">Active</Badge>
+        return <Badge variant="default" className="text-xs">Active</Badge>
       case "busy":
-        return <Badge variant="secondary">Busy</Badge>
+        return <Badge variant="secondary" className="text-xs">Busy</Badge>
       case "offline":
-        return <Badge variant="outline">Offline</Badge>
+        return <Badge variant="outline" className="text-xs">Offline</Badge>
       default:
-        return <Badge variant="outline">Unknown</Badge>
+        return <Badge variant="outline" className="text-xs">Unknown</Badge>
     }
   }
 
@@ -169,56 +176,77 @@ function RecyclerPointCard({
     return "text-red-600"
   }
 
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(recyclerAddress)
+    // You could add a toast notification here
+    alert("Address copied to clipboard!")
+  }
+
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">{name}</h3>
+    <Card className="p-4 md:p-6 touch-manipulation">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="font-semibold text-base md:text-lg truncate">{name}</h3>
             {getStatusBadge()}
           </div>
-          <p className="text-sm text-muted-foreground">{address}</p>
-          <div className="flex items-center gap-4 mt-1">
-            <p className="text-sm text-muted-foreground">📍 {distance}</p>
+          <p className="text-sm md:text-base text-muted-foreground truncate mb-2">{address}</p>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+            <p className="text-sm md:text-base text-muted-foreground flex items-center">
+              <IconMapPin className="mr-1 h-4 w-4" /> {distance}
+            </p>
             <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">Reputation:</span>
-              <span className={`text-sm font-medium ${getReputationColor()}`}>{reputationScore}</span>
+              <span className="text-sm md:text-base text-muted-foreground">Reputation:</span>
+              <span className={`text-sm md:text-base font-semibold ${getReputationColor()}`}>{reputationScore}</span>
             </div>
           </div>
         </div>
       </div>
       
-      <div className="mb-3">
-        <p className="text-xs text-muted-foreground mb-2">Accepted Materials:</p>
-        <div className="flex flex-wrap gap-1">
-          {acceptedMaterials.map((material) => (
-            <Badge key={material} variant="outline" className="text-xs">
+      <div className="mb-4">
+        <p className="text-sm font-medium text-muted-foreground mb-2">Accepted Materials:</p>
+        <div className="flex flex-wrap gap-2">
+          {acceptedMaterials.slice(0, 4).map((material) => (
+            <Badge key={material} variant="outline" className="text-sm px-3 py-1">
               {material}
             </Badge>
           ))}
+          {acceptedMaterials.length > 4 && (
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              +{acceptedMaterials.length - 4} more
+            </Badge>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">Inventory:</span>
-            <span className="text-xs font-medium">{totalInventory}</span>
+      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Inventory:</span>
+            <span className="text-sm font-semibold">{totalInventory}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">Collectors:</span>
-            <span className="text-xs font-medium">{activeCollectors}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Active Collectors:</span>
+            <span className="text-sm font-semibold">{activeCollectors}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(recyclerAddress)}>
+      <div className="flex flex-col gap-3 md:flex-row">
+        <Button 
+          variant="outline" 
+          className="flex-1 min-h-[44px] text-sm"
+          onClick={handleCopyAddress}
+        >
+          <IconCopy className="mr-2 h-4 w-4" />
           Copy Address
         </Button>
         {status === "active" && (
-          <Button size="sm" onClick={() => window.location.href = `/dashboard/collector/verification?recycler=${recyclerAddress}`}>
-            <IconMapPin className="mr-1 h-3 w-3" />
+          <Button 
+            className="flex-1 min-h-[44px] text-sm"
+            onClick={() => window.location.href = `/dashboard/collector/verification?recycler=${recyclerAddress}`}
+          >
+            <IconMapPin className="mr-2 h-4 w-4" />
             Create Collection
           </Button>
         )}
@@ -400,7 +428,7 @@ export default function MapPage() {
     }
   }, [userLocation])
 
-  // Fetch recyclers function (using the same dynamic logic as verification page)
+  // Professional approach to fetch all recyclers from the blockchain (same as verification page)
   const fetchRecyclers = useCallback(async () => {
     if (!africycle || !address) {
       setLoading(false)
@@ -408,7 +436,7 @@ export default function MapPage() {
     }
 
     try {
-      console.log('Debug: Starting to fetch recyclers dynamically')
+      console.log('Debug: Starting professional recycler discovery for map...')
       setLoading(true)
       setError(null)
       
@@ -420,146 +448,164 @@ export default function MapPage() {
         transport: http(RPC_URL),
       })
 
-      // Method 1: Get UserRegistered events in chunks to avoid timeout
-      console.log('Debug: Fetching UserRegistered events...')
-      let registeredAddresses: `0x${string}`[] = []
+      // Use the known recycler role hash for efficiency
+      const RECYCLER_ROLE_HASH = '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154'
+      console.log(`Debug: Using recycler role hash: ${RECYCLER_ROLE_HASH}`)
+      
+      // Professional approach: Search for RoleGranted events with the specific recycler role
+      let recyclerAddresses: `0x${string}`[] = []
       
       try {
-        // Get current block number
+        console.log('Debug: Fetching RoleGranted events for RECYCLER_ROLE...')
+        
+        // Get current block to determine search range
         const currentBlock = await publicClient.getBlockNumber()
         console.log(`Debug: Current block: ${currentBlock}`)
         
-        // Fetch events from recent blocks first (last 10,000 blocks or ~30 days worth)
-        const blocksToCheck = BigInt(10000)
-        const fromBlock = currentBlock > blocksToCheck ? currentBlock - blocksToCheck : BigInt(0)
+        // Search in chunks to avoid RPC limits - start from a reasonable deployment block
+        const DEPLOYMENT_BLOCK = BigInt(38000000) // Approximate Celo deployment block
+        const CHUNK_SIZE = BigInt(50000) // Reasonable chunk size for Celo
         
-        console.log(`Debug: Fetching events from block ${fromBlock} to ${currentBlock}`)
+        let fromBlock = DEPLOYMENT_BLOCK
+        const allRoleGrantedEvents: any[] = []
         
-        const userRegisteredEvents = await publicClient.getLogs({
-          address: CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'UserRegistered',
-            inputs: [
-              { name: 'user', type: 'address', indexed: true },
-              { name: 'name', type: 'string', indexed: false },
-              { name: 'location', type: 'string', indexed: false }
-            ]
-          },
-          fromBlock: fromBlock,
-          toBlock: 'latest'
-        })
+        while (fromBlock <= currentBlock) {
+          const toBlock = fromBlock + CHUNK_SIZE > currentBlock ? currentBlock : fromBlock + CHUNK_SIZE
+          
+          console.log(`Debug: Searching blocks ${fromBlock} to ${toBlock}...`)
+          
+          try {
+            const roleGrantedEvents = await publicClient.getLogs({
+              address: CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'RoleGranted',
+                inputs: [
+                  { name: 'role', type: 'bytes32', indexed: true },
+                  { name: 'account', type: 'address', indexed: true },
+                  { name: 'sender', type: 'address', indexed: true }
+                ]
+              },
+              args: {
+                role: RECYCLER_ROLE_HASH as `0x${string}`
+              },
+              fromBlock: fromBlock,
+              toBlock: toBlock
+            })
+            
+            allRoleGrantedEvents.push(...roleGrantedEvents)
+            console.log(`Debug: Found ${roleGrantedEvents.length} RECYCLER_ROLE grants in blocks ${fromBlock}-${toBlock}`)
+            
+          } catch (chunkError) {
+            console.log(`Debug: Error fetching events for blocks ${fromBlock}-${toBlock}:`, chunkError)
+            // Continue with next chunk
+          }
+          
+          fromBlock = toBlock + BigInt(1)
+        }
         
-        console.log(`Debug: Found ${userRegisteredEvents.length} UserRegistered events`)
+        console.log(`Debug: Total RoleGranted events found: ${allRoleGrantedEvents.length}`)
         
-        // Get unique addresses from events
-        registeredAddresses = Array.from(
-          new Set(userRegisteredEvents.map(event => event.args?.user).filter(Boolean))
+        // Extract unique recycler addresses from events
+        recyclerAddresses = Array.from(
+          new Set(
+            allRoleGrantedEvents
+              .map(event => event.args?.account)
+              .filter(Boolean)
+          )
         ) as `0x${string}`[]
         
-        console.log(`Debug: Found ${registeredAddresses.length} unique registered addresses from recent events`)
+        console.log(`Debug: Found ${recyclerAddresses.length} unique recycler addresses from RoleGranted events:`, recyclerAddresses)
         
       } catch (eventError) {
-        console.log('Debug: Error fetching UserRegistered events:', eventError)
-        console.log('Debug: Will rely on known recyclers only')
-        registeredAddresses = []
+        console.log('Debug: Error fetching RoleGranted events:', eventError)
+        console.log('Debug: Falling back to known recyclers and direct role checking')
+        recyclerAddresses = []
       }
       
-      // Check each registered address to see if they're recyclers
-      const recyclerRoleHash = await getRoleHash(africycle, 'RECYCLER_ROLE')
+      // Add known recyclers to the search list (in case events missed some)
+      const allAddressesToCheck = Array.from(
+        new Set([...recyclerAddresses, ...KNOWN_RECYCLERS])
+      ) as `0x${string}`[]
       
-      for (const recyclerAddress of registeredAddresses) {
+      console.log(`Debug: Total addresses to verify for map: ${allAddressesToCheck.length}`)
+      
+      // Verify each address and get their profiles
+      for (const recyclerAddress of allAddressesToCheck) {
         try {
-          console.log(`Debug: Checking if ${recyclerAddress} is a recycler...`)
-          const profile = await africycle.getUserProfile(recyclerAddress)
+          console.log(`Debug: Verifying recycler ${recyclerAddress}...`)
           
-          // Check if user is a recycler using the role hash
-          if (profile.role === recyclerRoleHash && profile.name) {
-            console.log(`Debug: Found recycler at ${recyclerAddress}:`, profile.name)
-            recyclersList.push({
-              address: recyclerAddress as `0x${string}`,
-              name: profile.name,
-              location: profile.location,
-              contactInfo: profile.contactInfo,
-              isVerified: profile.isVerified,
-              reputationScore: profile.recyclerReputationScore,
-              totalInventory: profile.totalInventory,
-              activeListings: profile.activeListings
-            })
+          // Double-check they have the recycler role (in case of role revocations)
+          const hasRole = await africycle.hasRole(RECYCLER_ROLE_HASH, recyclerAddress)
+          
+          if (hasRole) {
+            console.log(`Debug: Confirmed ${recyclerAddress} has recycler role, fetching profile...`)
+            
+            // Get their profile
+            const profile = await africycle.getUserProfile(recyclerAddress)
+            
+            if (profile.name && profile.name.trim()) {
+              console.log(`Debug: Found valid recycler ${recyclerAddress}: ${profile.name}`)
+              recyclersList.push({
+                address: recyclerAddress,
+                name: profile.name,
+                location: profile.location || 'Location not set',
+                contactInfo: profile.contactInfo || 'Contact info not set',
+                isVerified: profile.isVerified,
+                reputationScore: profile.recyclerReputationScore,
+                totalInventory: profile.totalInventory,
+                activeListings: profile.activeListings
+              })
+            } else {
+              console.log(`Debug: ${recyclerAddress} has recycler role but incomplete profile`)
+            }
           } else {
-            console.log(`Debug: Address ${recyclerAddress} is not a recycler:`, {
-              role: profile.role,
-              expectedRole: recyclerRoleHash,
-              hasName: !!profile.name,
-              roleMatch: profile.role === recyclerRoleHash
-            })
+            console.log(`Debug: ${recyclerAddress} no longer has recycler role`)
           }
         } catch (error) {
-          console.log(`Debug: Error checking address ${recyclerAddress}:`, error)
+          console.log(`Debug: Error verifying recycler ${recyclerAddress}:`, error)
           // Continue with next address
         }
       }
       
-      // Fallback: Also check known recyclers in case events are not available or incomplete
-      console.log('Debug: Also checking known recycler addresses as fallback:', KNOWN_RECYCLERS)
-      
-      for (const recyclerAddress of KNOWN_RECYCLERS) {
-        // Skip if already found through events
-        if (recyclersList.some(r => r.address.toLowerCase() === recyclerAddress.toLowerCase())) {
-          console.log(`Debug: ${recyclerAddress} already found through events, skipping`)
-          continue
-        }
-        
-        try {
-          console.log(`Debug: Checking known recycler address:`, recyclerAddress)
-          const profile = await africycle.getUserProfile(recyclerAddress as `0x${string}`)
-          
-          // Check if user is a recycler using the role hash
-          if (profile.role === recyclerRoleHash && profile.name) {
-            console.log(`Debug: Found known recycler at ${recyclerAddress}:`, profile.name)
-            recyclersList.push({
-              address: recyclerAddress as `0x${string}`,
-              name: profile.name,
-              location: profile.location,
-              contactInfo: profile.contactInfo,
-              isVerified: profile.isVerified,
-              reputationScore: profile.recyclerReputationScore,
-              totalInventory: profile.totalInventory,
-              activeListings: profile.activeListings
-            })
-          }
-        } catch (error) {
-          console.log(`Debug: Error checking known address ${recyclerAddress}:`, error)
-        }
-      }
-      
-      console.log('Debug: Finished fetching recyclers:', {
-        totalFound: recyclersList.length,
-        recyclers: recyclersList.map(r => ({ address: r.address, name: r.name })),
-        fromEvents: registeredAddresses.length,
-        fromKnownAddresses: KNOWN_RECYCLERS.length
+      // Sort recyclers by reputation score (descending) and then by name
+      recyclersList.sort((a, b) => {
+        const reputationDiff = Number(b.reputationScore) - Number(a.reputationScore)
+        if (reputationDiff !== 0) return reputationDiff
+        return a.name.localeCompare(b.name)
       })
       
-      // Convert to display format
+      console.log('Debug: Professional recycler discovery complete for map:', {
+        totalFound: recyclersList.length,
+        recyclers: recyclersList.map(r => ({ 
+          address: r.address, 
+          name: r.name, 
+          reputation: Number(r.reputationScore),
+          verified: r.isVerified
+        }))
+      })
+      
+      // Convert to display format for map
       const displayRecyclers = recyclersList.map((recycler, index) => ({
         id: `recycler-${index}`,
         name: recycler.name,
-        address: recycler.location || "Location not specified",
+        address: recycler.location,
         distance: "Calculating...", // Will be updated after geocoding
         reputationScore: recycler.reputationScore.toString(),
         acceptedMaterials: ["Plastic", "E-Waste", "Metal", "General"],
-        status: "active" as const,
+        status: recycler.isVerified ? "active" as const : "offline" as const,
         totalInventory: `${recycler.totalInventory.toString()}kg`,
-        activeCollectors: "0", // TODO: Get from profile
+        activeCollectors: recycler.activeListings.toString(),
         recyclerAddress: recycler.address,
       }))
       
       setRecyclerPoints(displayRecyclers)
       await convertRecyclersToMapData(displayRecyclers)
       setLoading(false)
+      
     } catch (error) {
-      console.error('Error fetching recyclers:', error)
-      setError(error instanceof Error ? error.message : "Failed to load recycler information. Please try again.")
+      console.error('Error in professional recycler discovery for map:', error)
+      setError(error instanceof Error ? error.message : "Failed to discover recyclers. Please try again.")
       setLoading(false)
     }
   }, [africycle, address, convertRecyclersToMapData])
@@ -675,15 +721,16 @@ export default function MapPage() {
   if (loading) {
     return (
       <DashboardShell>
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
-            <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+        <div className="w-full px-4 md:px-6 lg:px-8">
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Recycler Map</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Find nearby recyclers and manage your pickups</p>
           </div>
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-64 md:h-80">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p>Loading recycler locations...</p>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-base md:text-lg font-medium">Loading recycler locations...</p>
+              <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
             </div>
           </div>
         </div>
@@ -694,15 +741,15 @@ export default function MapPage() {
   if (error) {
     return (
       <DashboardShell>
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
-            <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+        <div className="w-full px-4 md:px-6 lg:px-8">
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Recycler Map</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Find nearby recyclers and manage your pickups</p>
           </div>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>
+          <div className="flex items-center justify-center h-64 md:h-80">
+            <div className="text-center px-4 max-w-md">
+              <p className="text-red-600 mb-4 text-sm md:text-base">{error}</p>
+              <Button onClick={() => window.location.reload()} className="min-h-[44px]">
                 Try Again
               </Button>
             </div>
@@ -714,45 +761,46 @@ export default function MapPage() {
   
   return (
     <DashboardShell>
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Recycler Map</h1>
-          <p className="text-muted-foreground">Find nearby recyclers and manage your pickups</p>
+      <div className="w-full px-4 md:px-6 lg:px-8">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Recycler Map</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Find nearby recyclers and manage your pickups</p>
         </div>
 
         <div className="space-y-6">
           {/* Map View */}
-          <Card className="p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <Card className="p-4 md:p-6">
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">Recycler Locations Map</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-lg md:text-xl font-semibold">Recycler Locations Map</h2>
+                <p className="text-sm md:text-base text-muted-foreground mt-1">
                   Interactive map showing registered recyclers in your area
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+              <div className="flex gap-3">
+                <Button variant="outline" className="min-h-[44px] text-sm">
                   <IconFilter className="mr-2 h-4 w-4" />
-                  Filter
+                  <span className="hidden sm:inline">Filter</span>
+                  <span className="sm:hidden">Filter</span>
                 </Button>
-                <Button size="sm" onClick={() => window.location.href = "/dashboard/collector/verification"}>
+                <Button className="min-h-[44px] text-sm" onClick={() => window.location.href = "/dashboard/collector/verification"}>
                   <IconMapPin className="mr-2 h-4 w-4" />
-                  Create Collection
+                  <span className="hidden sm:inline">Create Collection</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </div>
             </div>
             
             {/* Interactive Map */}
             {mapError ? (
-              <div className="h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                  <IconMapPin className="h-12 w-12 text-red-400 mx-auto mb-2" />
-                  <p className="text-red-600 font-medium">Map Error</p>
-                  <p className="text-sm text-gray-500">{mapError}</p>
+              <div className="h-[280px] md:h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
+                <div className="text-center px-4">
+                  <IconMapPin className="h-12 w-12 md:h-16 md:w-16 text-red-400 mx-auto mb-4" />
+                  <p className="text-red-600 font-semibold text-base md:text-lg mb-2">Map Error</p>
+                  <p className="text-sm md:text-base text-gray-500 mb-4">{mapError}</p>
                   <Button 
                     variant="outline" 
-                    size="sm" 
-                    className="mt-2"
+                    className="min-h-[44px]"
                     onClick={() => setMapError(null)}
                   >
                     Retry
@@ -760,36 +808,38 @@ export default function MapPage() {
                 </div>
               </div>
             ) : (
-              <RecyclerMap
-                recyclers={recyclerLocations}
-                userLocation={userLocation}
-                height="400px"
-                onRecyclerSelect={handleRecyclerSelect}
-                onNavigate={handleMapNavigate}
-              />
+              <div className="h-[280px] md:h-[400px]">
+                <RecyclerMap
+                  recyclers={recyclerLocations}
+                  userLocation={userLocation}
+                  height="100%"
+                  onRecyclerSelect={handleRecyclerSelect}
+                  onNavigate={handleMapNavigate}
+                />
+              </div>
             )}
             
             {/* Map Legend */}
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1">
+            <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-6 text-sm md:text-base">
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
                   <span>Active</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                   <span>Busy</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-gray-500"></div>
                   <span>Offline</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                   <span>Your Location</span>
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-sm md:text-base text-muted-foreground font-medium">
                 {recyclerLocations.length} recycler{recyclerLocations.length !== 1 ? 's' : ''} found
               </div>
             </div>
@@ -797,26 +847,25 @@ export default function MapPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="nearby">Available Recyclers</TabsTrigger>
-              <TabsTrigger value="scheduled">Scheduled Pickups</TabsTrigger>
-              <TabsTrigger value="completed">Accepted Pickups</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 h-12">
+              <TabsTrigger value="nearby" className="text-sm md:text-base">Available</TabsTrigger>
+              <TabsTrigger value="scheduled" className="text-sm md:text-base">Scheduled</TabsTrigger>
+              <TabsTrigger value="completed" className="text-sm md:text-base">Accepted</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="nearby" className="space-y-4">
+            <TabsContent value="nearby" className="space-y-4 mt-6">
               {recyclerPoints.length === 0 ? (
-                <div className="text-center py-8">
-                  <IconMapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">No registered recyclers found</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    We&apos;re currently loading recycler information from the network.
+                <div className="text-center py-12 px-4">
+                  <IconMapPin className="h-16 w-16 md:h-20 md:w-20 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 font-semibold text-base md:text-lg mb-2">No registered recyclers found</p>
+                  <p className="text-sm md:text-base text-gray-500 mb-6 max-w-md mx-auto">
+                    We&apos;re currently loading recycler information from the network. You can register as a recycler or create a collection anyway.
                   </p>
-                  <div className="space-y-2">
-                    <Button onClick={() => window.location.href = "/dashboard/recycler"}>
+                  <div className="flex flex-col gap-3 max-w-sm mx-auto">
+                    <Button onClick={() => window.location.href = "/dashboard/recycler"} className="w-full min-h-[44px]">
                       Register as Recycler
                     </Button>
-                    <br />
-                    <Button variant="outline" onClick={() => window.location.href = "/dashboard/collector/verification"}>
+                    <Button variant="outline" onClick={() => window.location.href = "/dashboard/collector/verification"} className="w-full min-h-[44px]">
                       Create Collection Anyway
                     </Button>
                   </div>
@@ -840,14 +889,14 @@ export default function MapPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="scheduled" className="space-y-4">
+            <TabsContent value="scheduled" className="space-y-4 mt-6">
               {scheduledPickups.length === 0 ? (
-                <div className="text-center py-8">
-                  <IconCalendar className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">No scheduled pickups</p>
-                  <p className="text-sm text-gray-500">Your pending pickups will appear here</p>
+                <div className="text-center py-12 px-4">
+                  <IconCalendar className="h-16 w-16 md:h-20 md:w-20 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 font-semibold text-base md:text-lg mb-2">No scheduled pickups</p>
+                  <p className="text-sm md:text-base text-gray-500 mb-6">Your pending pickups will appear here</p>
                   <Button 
-                    className="mt-4" 
+                    className="min-h-[44px]"
                     onClick={() => window.location.href = "/dashboard/collector/verification"}
                   >
                     Create New Collection
@@ -855,43 +904,43 @@ export default function MapPage() {
                 </div>
               ) : (
                 scheduledPickups.map((pickup) => (
-                  <Card key={pickup.id} className="p-4">
+                  <Card key={pickup.id} className="p-4 md:p-6">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{pickup.name}</h3>
-                        <p className="text-sm text-muted-foreground">{pickup.address}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline">{pickup.wasteType}</Badge>
-                          <span className="text-xs text-muted-foreground">{pickup.weight}</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base md:text-lg truncate mb-1">{pickup.name}</h3>
+                        <p className="text-sm md:text-base text-muted-foreground truncate mb-2">{pickup.address}</p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-sm px-3 py-1">{pickup.wasteType}</Badge>
+                          <span className="text-sm text-muted-foreground font-medium">{pickup.weight}</span>
                         </div>
                       </div>
-                      <Badge variant="secondary">Pending</Badge>
+                      <Badge variant="secondary" className="text-sm px-3 py-1 ml-4">Pending</Badge>
                     </div>
                   </Card>
                 ))
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="space-y-4">
+            <TabsContent value="completed" className="space-y-4 mt-6">
               {acceptedPickups.length === 0 ? (
-                <div className="text-center py-8">
-                  <IconCheck className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">No accepted pickups</p>
-                  <p className="text-sm text-gray-500">Pickups accepted by recyclers will appear here</p>
+                <div className="text-center py-12 px-4">
+                  <IconCheck className="h-16 w-16 md:h-20 md:w-20 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 font-semibold text-base md:text-lg mb-2">No accepted pickups</p>
+                  <p className="text-sm md:text-base text-gray-500">Pickups accepted by recyclers will appear here</p>
                 </div>
               ) : (
                 acceptedPickups.map((pickup) => (
-                  <Card key={pickup.id} className="p-4">
+                  <Card key={pickup.id} className="p-4 md:p-6">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{pickup.name}</h3>
-                        <p className="text-sm text-muted-foreground">{pickup.address}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline">{pickup.wasteType}</Badge>
-                          <span className="text-xs text-muted-foreground">{pickup.weight}</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base md:text-lg truncate mb-1">{pickup.name}</h3>
+                        <p className="text-sm md:text-base text-muted-foreground truncate mb-2">{pickup.address}</p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-sm px-3 py-1">{pickup.wasteType}</Badge>
+                          <span className="text-sm text-muted-foreground font-medium">{pickup.weight}</span>
                         </div>
                       </div>
-                      <Badge variant="default">Accepted</Badge>
+                      <Badge variant="default" className="text-sm px-3 py-1 ml-4">Accepted</Badge>
                     </div>
                   </Card>
                 ))

@@ -282,10 +282,22 @@ export class AfriCycle {
       return role as string;
     } catch (error) {
       console.error('Error getting user role:', error);
-      throw new Error(
-        'Failed to get user role: ' +
-          (error instanceof Error ? error.message : 'Unknown error')
-      );
+      throw error;
+    }
+  }
+
+  async hasRole(roleHash: string, userAddress: Address): Promise<boolean> {
+    try {
+      const hasRole = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: afriCycleAbi,
+        functionName: 'hasRole',
+        args: [roleHash, userAddress],
+      });
+      return hasRole as boolean;
+    } catch (error) {
+      console.error('Error checking user role:', error);
+      throw error;
     }
   }
 

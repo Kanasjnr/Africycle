@@ -20,11 +20,15 @@ import {
   IconHistory,
   IconReceipt,
   IconDownload,
+  IconGift,
 } from "@tabler/icons-react"
 import { useAfriCycle } from "@/hooks/useAfricycle"
-import { useAccount, usePublicClient, useChainId, useBalance } from "wagmi"
+import { useAccount, usePublicClient, useChainId, useBalance, useWalletClient } from "wagmi"
 import { formatEther, parseEther, createPublicClient, http } from "viem"
 import { celoAlfajores } from 'viem/chains'
+
+// G$ UBI SDK imports 
+import { useIdentitySDK, ClaimSDK } from '@goodsdks/citizen-sdk'
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
@@ -180,11 +184,27 @@ export default function WalletPage() {
   const [isRegistering, setIsRegistering] = useState(false)
   const [contractBalance, setContractBalance] = useState<bigint>(BigInt(0))
 
+  // G$ UBI state
+  const [gDollarEntitlement, setGDollarEntitlement] = useState<bigint>(BigInt(0))
+  const [nextClaimTime, setNextClaimTime] = useState<Date | null>(null)
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [claimSDK, setClaimSDK] = useState<ClaimSDK | null>(null)
+  const [isInitializingSDK, setIsInitializingSDK] = useState(false)
+  const [isWhitelisted, setIsWhitelisted] = useState<boolean>(false)
+  const [whitelistRoot, setWhitelistRoot] = useState<string | null>(null)
+  const [isCheckingWhitelist, setIsCheckingWhitelist] = useState(false)
+  const [verificationLink, setVerificationLink] = useState<string | null>(null)
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
+
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL,
   })
+
+  // Initialize G$ hooks
+  const { data: walletClient } = useWalletClient()
+  const identitySDK = useIdentitySDK('production')
 
   // Memoize the formatted balances
   const formattedBalances = useMemo(() => ({
@@ -197,6 +217,132 @@ export default function WalletPage() {
     navigator.clipboard.writeText(text)
     toast.success("Address copied to clipboard")
   }, [])
+
+  // Initialize G$ Claim SDK and fetch UBI data (fixed infinite loop)
+  useEffect(() => {
+    let isMounted = true
+    
+    async function initializeAndFetchUBI() {
+      console.log('🔵 G$ UBI: Starting initialization check...')
+      console.log('🔵 G$ UBI: Dependencies:', {
+        address: !!address,
+        publicClient: !!publicClient,
+        walletClient: !!walletClient,
+        identitySDK: !!identitySDK,
+        isConnected
+      })
+      
+      // Only initialize if we have all required dependencies
+      if (!address || !publicClient || !walletClient || !identitySDK) {
+        console.log('🟡 G$ UBI: Missing dependencies, skipping initialization')
+        return
+      }
+
+      // Prevent re-initialization if already checking or initialized
+      if (isInitializingSDK || isCheckingWhitelist) {
+        console.log('🟡 G$ UBI: Already initializing, skipping...')
+        return
+      }
+
+      setIsInitializingSDK(true)
+      console.log('🔵 G$ UBI: Starting SDK initialization...')
+      
+      try {
+        // First, check if user is whitelisted
+        console.log('🔵 G$ UBI: Checking whitelist status...')
+        setIsCheckingWhitelist(true)
+        
+        const { isWhitelisted, root } = await identitySDK.getWhitelistedRoot(address)
+        console.log('📊 G$ UBI: Whitelist result:', {
+          isWhitelisted,
+          root,
+          address
+        })
+        
+        if (!isMounted) return
+        
+        setIsWhitelisted(isWhitelisted)
+        setWhitelistRoot(root)
+        setIsCheckingWhitelist(false)
+        
+        if (isWhitelisted) {
+          // User is whitelisted, proceed with ClaimSDK initialization
+          console.log('✅ G$ UBI: User is whitelisted, initializing ClaimSDK...')
+          
+          const sdk = new ClaimSDK({
+            account: address,
+            publicClient,
+            walletClient,
+            identitySDK: identitySDK,
+            env: 'production',
+          })
+          console.log('✅ G$ UBI: ClaimSDK created successfully')
+          
+          if (!isMounted) return
+          
+          setClaimSDK(sdk)
+          console.log('✅ G$ UBI: ClaimSDK set in state')
+
+          // Fetch UBI data for whitelisted user
+          try {
+            console.log('🔵 G$ UBI: Checking entitlement for whitelisted user...')
+            const entitlement = await sdk.checkEntitlement()
+            console.log('📊 G$ UBI: Entitlement result:', {
+              entitlement: entitlement.toString(),
+              entitlementType: typeof entitlement,
+              entitlementBigInt: entitlement,
+              entitlementInEther: formatEther(entitlement)
+            })
+            
+            console.log('🔵 G$ UBI: Checking next claim time...')
+            const nextClaim = await sdk.nextClaimTime()
+            console.log('📊 G$ UBI: Next claim result:', {
+              nextClaim,
+              nextClaimType: typeof nextClaim,
+              nextClaimDate: nextClaim ? new Date(nextClaim) : null,
+              isValidDate: nextClaim ? !isNaN(new Date(nextClaim).getTime()) : false
+            })
+            
+            if (isMounted) {
+              setGDollarEntitlement(entitlement)
+              setNextClaimTime(nextClaim)
+              console.log('✅ G$ UBI: State updated successfully for whitelisted user')
+            }
+          } catch (fetchError) {
+            console.error('❌ G$ UBI: Failed to fetch UBI data:', fetchError)
+            console.error('❌ G$ UBI: Error details:', {
+              message: fetchError instanceof Error ? fetchError.message : String(fetchError),
+              stack: fetchError instanceof Error ? fetchError.stack : undefined,
+              name: fetchError instanceof Error ? fetchError.name : 'Unknown'
+            })
+          }
+        } else {
+          // User is not whitelisted - we'll show verification flow
+          console.log('🟡 G$ UBI: User is not whitelisted, will show verification flow')
+        }
+        
+      } catch (error) {
+        console.error('❌ G$ UBI: Failed to initialize:', error)
+        console.error('❌ G$ UBI: Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : 'Unknown'
+        })
+      } finally {
+        if (isMounted) {
+          setIsInitializingSDK(false)
+          setIsCheckingWhitelist(false)
+          console.log('🔵 G$ UBI: Initialization process completed')
+        }
+      }
+    }
+
+    initializeAndFetchUBI()
+    
+    return () => {
+      isMounted = false
+    }
+  }, [address, isConnected]) // Removed identitySDK from dependencies to prevent infinite loop
 
   // Check if user is registered as collector
   useEffect(() => {
@@ -282,6 +428,92 @@ export default function WalletPage() {
       setIsRegistering(false)
     }
   }, [address, africycle])
+
+  // Handle verification flow for non-whitelisted users
+  const handleVerification = useCallback(async () => {
+    console.log('🔵 G$ UBI Verification: Starting verification flow...')
+    console.log('🔵 G$ UBI Verification: IdentitySDK available:', !!identitySDK)
+    
+    if (!identitySDK) {
+      console.log('❌ G$ UBI Verification: No IdentitySDK available')
+      toast.error("G$ SDK not initialized")
+      return
+    }
+
+    setIsGeneratingLink(true)
+
+    try {
+      console.log('🔵 G$ UBI Verification: Generating Face Verification link...')
+      const fvLink = await identitySDK.generateFVLink(
+        false, // popup mode
+        `${window.location.origin}/dashboard/collector/wallet`, // callback URL
+        chainId // current chain ID
+      )
+      
+      console.log('✅ G$ UBI Verification: Face Verification link generated successfully')
+      
+      // Store verification link in state so user can click on it
+      setVerificationLink(fvLink)
+      
+      toast.success("Verification link generated! Click the link below to proceed.")
+    } catch (error) {
+      console.error('❌ G$ UBI Verification: Failed to generate verification link:', error)
+      console.error('❌ G$ UBI Verification: Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      })
+      toast.error("Failed to start verification process. Please try again.")
+    } finally {
+      setIsGeneratingLink(false)
+    }
+  }, [identitySDK, chainId])
+
+  // Claim G$ UBI function
+  const handleClaimUBI = useCallback(async () => {
+    console.log('🔵 G$ UBI Claim: Starting claim process...')
+    console.log('🔵 G$ UBI Claim: ClaimSDK available:', !!claimSDK)
+    
+    if (!claimSDK) {
+      console.log('❌ G$ UBI Claim: No ClaimSDK available')
+      toast.error("G$ SDK not initialized")
+      return
+    }
+
+    setIsClaiming(true)
+    console.log('🔵 G$ UBI Claim: Attempting to claim...')
+    
+    try {
+      const claimResult = await claimSDK.claim()
+      console.log('✅ G$ UBI Claim: Claim successful!', claimResult)
+      toast.success("G$ UBI claimed successfully!")
+      
+      // Refresh entitlement data
+      console.log('🔵 G$ UBI Claim: Refreshing entitlement after claim...')
+      const entitlement = await claimSDK.checkEntitlement()
+      console.log('📊 G$ UBI Claim: New entitlement:', {
+        entitlement: entitlement.toString(),
+        entitlementInEther: formatEther(entitlement)
+      })
+      setGDollarEntitlement(entitlement)
+      
+      console.log('🔵 G$ UBI Claim: Checking new next claim time...')
+      const nextClaim = await claimSDK.nextClaimTime()
+      console.log('📊 G$ UBI Claim: New next claim time:', nextClaim)
+      setNextClaimTime(nextClaim)
+    } catch (error) {
+      console.error('❌ G$ UBI Claim: Claim failed:', error)
+      console.error('❌ G$ UBI Claim: Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      })
+      toast.error("Failed to claim G$ UBI. Please try again.")
+    } finally {
+      setIsClaiming(false)
+      console.log('🔵 G$ UBI Claim: Claim process completed')
+    }
+  }, [claimSDK])
 
   // Memoize the withdraw handler
   const handleWithdraw = useCallback(async () => {
@@ -675,6 +907,19 @@ export default function WalletPage() {
         }) as bigint
         setCusdBalance(cusdBalance)
       }
+
+      // Refresh G$ UBI data
+      if (claimSDK) {
+        try {
+          const entitlement = await claimSDK.checkEntitlement()
+          setGDollarEntitlement(entitlement)
+          
+          const nextClaim = await claimSDK.nextClaimTime()
+          setNextClaimTime(nextClaim)
+        } catch (error) {
+          console.error('Failed to refresh G$ UBI data:', error)
+        }
+      }
       
       toast.success("Data refreshed successfully")
     } catch (error) {
@@ -683,7 +928,7 @@ export default function WalletPage() {
     } finally {
       setLoading(false)
     }
-  }, [address, africycle, publicClient])
+  }, [address, africycle, publicClient, claimSDK])
 
   return (
     <DashboardShell>
@@ -705,7 +950,7 @@ export default function WalletPage() {
         ) : (
           <div className="space-y-6">
             {/* Balance Overview */}
-            <div className="grid gap-4 md:grid-cols-1 max-w-md">
+            <div className="grid gap-4 md:grid-cols-2 max-w-4xl">
               <Card className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-green-100 p-3">
@@ -714,6 +959,139 @@ export default function WalletPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
                     <h3 className="text-2xl font-bold">{totalEarnings.toFixed(4)} cUSD</h3>
+                  </div>
+                </div>
+              </Card>
+
+              {/* G$ UBI Section */}
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="rounded-lg bg-blue-100 p-3">
+                    <IconGift className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">G$ UBI Available</p>
+                    <h3 className="text-2xl font-bold">
+                      {isCheckingWhitelist ? "Checking..." : formatEther(gDollarEntitlement)} G$
+                    </h3>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {isInitializingSDK || isCheckingWhitelist ? (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {isCheckingWhitelist ? "Checking eligibility..." : "Initializing G$ SDK..."}
+                      </p>
+                      <Button disabled className="w-full bg-blue-600 hover:bg-blue-700">
+                        <IconRefresh className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </Button>
+                    </div>
+                  ) : !isWhitelisted ? (
+                    <div className="text-center">
+                      {!verificationLink ? (
+                        <>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Complete identity verification to access G$ UBI
+                          </p>
+                          <Button 
+                            onClick={handleVerification}
+                            disabled={isGeneratingLink}
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                          >
+                            {isGeneratingLink ? (
+                              <>
+                                <IconRefresh className="h-4 w-4 mr-2 animate-spin" />
+                                Generating Link...
+                              </>
+                            ) : (
+                              "Generate Verification Link"
+                            )}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Click the link below to complete face verification:
+                          </p>
+                          <div className="space-y-3">
+                            <Button 
+                              asChild
+                              className="w-full bg-green-600 hover:bg-green-700"
+                            >
+                              <a 
+                                href={verificationLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center"
+                              >
+                                <IconGift className="h-4 w-4 mr-2" />
+                                Complete Face Verification
+                              </a>
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setVerificationLink(null)
+                                toast.info("You can generate a new verification link")
+                              }}
+                            >
+                              Generate New Link
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : gDollarEntitlement > 0 ? (
+                    <Button 
+                      onClick={handleClaimUBI}
+                      disabled={isClaiming}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isClaiming ? "Claiming..." : `Claim ${formatEther(gDollarEntitlement)} G$ UBI`}
+                    </Button>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {nextClaimTime && nextClaimTime > new Date() ? 
+                          `Next claim available: ${nextClaimTime.toLocaleDateString()}` :
+                          "No G$ UBI available to claim right now"
+                        }
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          console.log('🔵 G$ UBI Refresh: Starting manual refresh...')
+                          if (claimSDK) {
+                            claimSDK.checkEntitlement().then((entitlement: bigint) => {
+                              setGDollarEntitlement(entitlement)
+                              toast.info(`Current entitlement: ${formatEther(entitlement)} G$`)
+                            }).catch(() => {
+                              toast.error("Failed to refresh G$ UBI data")
+                            })
+                          }
+                        }}
+                      >
+                        <IconRefresh className="h-4 w-4 mr-2" />
+                        Refresh
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <div className="text-xs text-muted-foreground text-center">
+                    Universal Basic Income for environmental impact
+                    {!isCheckingWhitelist && !isInitializingSDK && (
+                      <div className="mt-1">
+                        {!isWhitelisted ? (
+                          <span className="text-amber-600">⚠️ Identity verification required</span>
+                        ) : (
+                          <span className="text-green-600">✓ Identity verified</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

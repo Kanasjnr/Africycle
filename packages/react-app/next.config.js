@@ -15,6 +15,12 @@ class IgnoreHeartbeatWorkerPlugin {
 
 const nextConfig = {
   reactStrictMode: true,
+  
+  // Static export to completely bypass Netlify's Next.js runtime
+  output: 'export',
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
+  
   images: {
     unoptimized: true,
     domains: ['res.cloudinary.com', 'images.unsplash.com'],
@@ -31,6 +37,7 @@ const nextConfig = {
       },
     ],
   },
+  
   webpack: (config, { isServer, dev }) => {
     // Basic fallbacks
     config.resolve.fallback = {
