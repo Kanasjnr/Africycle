@@ -311,7 +311,6 @@ yarn workspace @africycle/hardhat coverage
 
 - [Project Documentation](docs/)
 - [Environment Setup](docs/ENVIRONMENT.md)
-- [API Documentation](docs/API.md)
 - [Smart Contract Documentation](docs/SMART_CONTRACTS.md)
 - [Frontend Documentation](docs/FRONTEND.md)
 
