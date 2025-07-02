@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
+    "@types/minimatch": "^5.1.2",
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.57",
     "@types/react-dom": "^18.2.19",
@@ -74,7 +75,7 @@
     "null-loader": "^4.0.1",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "worker-loader": "^3.0.8"
   },
   "browser": {
