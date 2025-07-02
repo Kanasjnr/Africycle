@@ -25,7 +25,7 @@ import {
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useAccount, usePublicClient, useChainId, useBalance, useWalletClient } from "wagmi"
 import { formatEther, parseEther, createPublicClient, http } from "viem"
-import { celoAlfajores } from 'viem/chains'
+import { celo } from 'viem/chains'
 
 // G$ UBI SDK imports 
 import { useIdentitySDK, ClaimSDK } from '@goodsdks/citizen-sdk'
@@ -34,6 +34,10 @@ import { useIdentitySDK, ClaimSDK } from '@goodsdks/citizen-sdk'
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
 const CUSD_TOKEN_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`
+
+// G$ contract addresses (Celo mainnet)
+const G_DOLLAR_TOKEN_ADDRESS = "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A" as `0x${string}`
+const UBI_SCHEME_PROXY_ADDRESS = "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1" as `0x${string}`
 
 // ERC20 ABI for cUSD token
 const erc20ABI = [
@@ -66,7 +70,7 @@ interface TransactionProps {
 
 interface Earning {
   id: string
-  type: "collection" | "referral" | "bonus"
+  type: "collection" | "referral" | "bonus" | "g_dollar_ubi"
   amount: number
   date: string
   status: "completed" | "pending"
@@ -125,6 +129,8 @@ function EarningItem({ earning }: { earning: Earning }) {
         return "bg-green-100 text-green-800"
       case "bonus":
         return "bg-purple-100 text-purple-800"
+      case "g_dollar_ubi":
+        return "bg-yellow-100 text-yellow-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -134,24 +140,43 @@ function EarningItem({ earning }: { earning: Earning }) {
     return status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
   }
 
+  const getTypeIcon = (type: string) => {
+    if (type === "g_dollar_ubi") {
+      return <IconGift className="h-4 w-4 text-yellow-600" />
+    }
+    return <IconCoin className="h-4 w-4 text-green-600" />
+  }
+
+  const getDisplayType = (type: string) => {
+    if (type === "g_dollar_ubi") return "G$ UBI"
+    return type
+  }
+
+  const getCurrency = (type: string) => {
+    if (type === "g_dollar_ubi") return "G$"
+    return "cUSD"
+  }
+
   return (
     <div className="flex items-center justify-between border-b py-4 last:border-0">
       <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-green-100 p-2">
-          <IconCoin className="h-4 w-4 text-green-600" />
+        <div className={`rounded-lg p-2 ${earning.type === "g_dollar_ubi" ? "bg-yellow-100" : "bg-green-100"}`}>
+          {getTypeIcon(earning.type)}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-medium capitalize">{earning.type}</p>
+            <p className="font-medium capitalize">{getDisplayType(earning.type)}</p>
             <Badge variant="secondary" className={`text-xs ${getTypeColor(earning.type)}`}>
-              {earning.type}
+              {getDisplayType(earning.type)}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{earning.description}</p>
         </div>
       </div>
       <div className="text-right">
-        <p className="font-medium text-green-600">+{earning.amount.toFixed(2)} cUSD</p>
+        <p className={`font-medium ${earning.type === "g_dollar_ubi" ? "text-yellow-600" : "text-green-600"}`}>
+          +{earning.amount.toFixed(2)} {getCurrency(earning.type)}
+        </p>
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">{earning.date}</p>
           <Badge variant="secondary" className={`text-xs ${getStatusColor(earning.status)}`}>
@@ -161,6 +186,47 @@ function EarningItem({ earning }: { earning: Earning }) {
       </div>
     </div>
   )
+}
+
+// Custom hook for countdown
+const useCountdown = (targetDate: Date | null) => {
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  } | null>(null)
+
+  useEffect(() => {
+    if (!targetDate) {
+      setTimeLeft(null)
+      return
+    }
+
+    const updateCountdown = () => {
+      const now = new Date().getTime()
+      const target = targetDate.getTime()
+      const difference = target - now
+
+      if (difference > 0) {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000)
+
+        setTimeLeft({ days, hours, minutes, seconds })
+      } else {
+        setTimeLeft(null)
+      }
+    }
+
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
+
+    return () => clearInterval(interval)
+  }, [targetDate])
+
+  return timeLeft
 }
 
 export default function WalletPage() {
@@ -195,6 +261,11 @@ export default function WalletPage() {
   const [isCheckingWhitelist, setIsCheckingWhitelist] = useState(false)
   const [verificationLink, setVerificationLink] = useState<string | null>(null)
   const [isGeneratingLink, setIsGeneratingLink] = useState(false)
+  const [totalGDollarsClaimed, setTotalGDollarsClaimed] = useState<number>(0)
+  const [gDollarClaimCount, setGDollarClaimCount] = useState<number>(0)
+
+  // Use the countdown hook
+  const countdown = useCountdown(nextClaimTime)
 
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
@@ -344,6 +415,156 @@ export default function WalletPage() {
     }
   }, [address, isConnected]) // Removed identitySDK from dependencies to prevent infinite loop
 
+  // Load G$ claim statistics from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && address) {
+      const savedStats = localStorage.getItem(`gDollarStats_${address}`)
+      if (savedStats) {
+        try {
+          const { totalClaimed, claimCount } = JSON.parse(savedStats)
+          setTotalGDollarsClaimed(totalClaimed || 0)
+          setGDollarClaimCount(claimCount || 0)
+        } catch (error) {
+          console.error('Error loading G$ stats from localStorage:', error)
+        }
+      }
+    }
+  }, [address])
+
+  // Fetch actual G$ claim history from blockchain
+  useEffect(() => {
+    async function fetchGDollarClaimHistory() {
+      if (!address || !publicClient) return
+
+      try {
+        console.log('🔵 G$ History: Fetching real claim history from blockchain...')
+        
+        // Calculate starting block (approximately 6 months ago to avoid timeout)
+        // Celo has ~5 second block times, so 6 months ≈ 180 days * 24 hours * 60 minutes * 12 blocks/minute
+        const currentBlock = await publicClient.getBlockNumber()
+        const blocksPerDay = (24 * 60 * 60) / 5 // 5 second block time
+        const sixMonthsAgo = currentBlock - BigInt(Math.floor(blocksPerDay * 180))
+        
+        console.log('📊 G$ History: Querying from block', sixMonthsAgo.toString(), 'to current block')
+        
+        // Query Transfer events from UBI Scheme Proxy to user's address (last 6 months)
+        const logs = await publicClient.getLogs({
+          address: G_DOLLAR_TOKEN_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'Transfer',
+            inputs: [
+              { name: 'from', type: 'address', indexed: true },
+              { name: 'to', type: 'address', indexed: true },
+              { name: 'value', type: 'uint256', indexed: false }
+            ]
+          },
+          args: {
+            from: UBI_SCHEME_PROXY_ADDRESS,
+            to: address
+          },
+          fromBlock: sixMonthsAgo,
+          toBlock: currentBlock
+        })
+
+        console.log('📊 G$ History: Found', logs.length, 'G$ claim transactions')
+
+        let totalClaimed = 0
+        let claimCount = logs.length
+        const gDollarEarnings: Earning[] = []
+
+        // Process each claim transaction
+        for (const log of logs) {
+          const amount = Number(formatEther(log.args.value as bigint))
+          totalClaimed += amount
+
+          // Get transaction details for timestamp
+          const tx = await publicClient.getTransaction({ hash: log.transactionHash! })
+          const block = await publicClient.getBlock({ blockNumber: tx.blockNumber! })
+          const date = new Date(Number(block.timestamp) * 1000).toLocaleDateString()
+
+          // Add to earnings history
+          gDollarEarnings.push({
+            id: `g$-claim-${log.transactionHash}`,
+            type: "g_dollar_ubi",
+            amount: amount,
+            date: date,
+            status: "completed",
+            description: `G$ UBI Claim - Universal Basic Income`,
+            collectionId: log.transactionHash
+          })
+
+          console.log('💰 G$ Claim found:', {
+            amount: amount.toFixed(6),
+            date,
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber
+          })
+        }
+
+        console.log('✅ G$ History: Total claimed:', totalClaimed.toFixed(6), 'G$ across', claimCount, 'claims')
+
+        // Update state with real blockchain data
+        setTotalGDollarsClaimed(totalClaimed)
+        setGDollarClaimCount(claimCount)
+
+        // Add G$ earnings to earnings history (prepend to existing)
+        setEarnings(prev => [...gDollarEarnings.reverse(), ...prev.filter(e => e.type !== "g_dollar_ubi")])
+
+        // Update localStorage with real data
+        if (typeof window !== 'undefined') {
+          const stats = {
+            totalClaimed: totalClaimed,
+            claimCount: claimCount
+          }
+          localStorage.setItem(`gDollarStats_${address}`, JSON.stringify(stats))
+        }
+
+      } catch (error) {
+        console.error('❌ G$ History: Failed to fetch G$ claim history:', error)
+        
+        // If it's a timeout or network error, inform the user but don't crash
+        if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('took too long'))) {
+          console.log('⚠️ G$ History: Query timed out, this is normal for new accounts')
+          // Don't show error toast for timeouts, as this is expected for accounts with no G$ history
+        } else {
+          console.error('❌ G$ History: Unexpected error:', error)
+        }
+        
+        // Fall back to localStorage data if blockchain query fails
+        if (typeof window !== 'undefined' && address) {
+          const savedStats = localStorage.getItem(`gDollarStats_${address}`)
+          if (savedStats) {
+            try {
+              const { totalClaimed, claimCount } = JSON.parse(savedStats)
+              setTotalGDollarsClaimed(totalClaimed || 0)
+              setGDollarClaimCount(claimCount || 0)
+              console.log('📱 G$ History: Using localStorage data:', { totalClaimed, claimCount })
+            } catch (parseError) {
+              console.error('Error parsing localStorage G$ stats:', parseError)
+            }
+          }
+        }
+      }
+    }
+
+    // Only fetch after we have the necessary dependencies
+    if (address && publicClient) {
+      fetchGDollarClaimHistory()
+    }
+  }, [address, publicClient])  // Only run when address or publicClient changes
+
+  // Save G$ claim statistics to localStorage when they change  
+  useEffect(() => {
+    if (typeof window !== 'undefined' && address && (totalGDollarsClaimed > 0 || gDollarClaimCount > 0)) {
+      const stats = {
+        totalClaimed: totalGDollarsClaimed,
+        claimCount: gDollarClaimCount
+      }
+      localStorage.setItem(`gDollarStats_${address}`, JSON.stringify(stats))
+    }
+  }, [address, totalGDollarsClaimed, gDollarClaimCount])
+
   // Check if user is registered as collector
   useEffect(() => {
     async function checkRegistration() {
@@ -486,7 +707,37 @@ export default function WalletPage() {
     try {
       const claimResult = await claimSDK.claim()
       console.log('✅ G$ UBI Claim: Claim successful!', claimResult)
-      toast.success("G$ UBI claimed successfully!")
+      
+      // Get the claimed amount from the transaction logs or use the entitlement amount
+      const claimedAmount = gDollarEntitlement > 0 ? formatEther(gDollarEntitlement) : "0"
+      
+      // Add to transaction history
+      const newTransaction: TransactionProps = {
+        type: "Deposit",
+        description: "G$ UBI Claim",
+        amount: `${claimedAmount} G$`,
+        date: new Date().toLocaleDateString(),
+        hash: claimResult.transactionHash
+      }
+      setTransactions(prev => [newTransaction, ...prev])
+      
+      // Add to earnings history
+      const newEarning: Earning = {
+        id: `g$-claim-${Date.now()}`,
+        type: "g_dollar_ubi",
+        amount: parseFloat(claimedAmount),
+        date: new Date().toLocaleDateString(),
+        status: "completed",
+        description: `G$ UBI Claim - Universal Basic Income`,
+        collectionId: claimResult.transactionHash
+      }
+      setEarnings(prev => [newEarning, ...prev])
+      
+      // Update G$ claim tracking
+      setTotalGDollarsClaimed(prev => prev + parseFloat(claimedAmount))
+      setGDollarClaimCount(prev => prev + 1)
+      
+      toast.success(`G$ UBI claimed successfully! Received ${claimedAmount} G$`)
       
       // Refresh entitlement data
       console.log('🔵 G$ UBI Claim: Refreshing entitlement after claim...')
@@ -513,7 +764,7 @@ export default function WalletPage() {
       setIsClaiming(false)
       console.log('🔵 G$ UBI Claim: Claim process completed')
     }
-  }, [claimSDK])
+  }, [claimSDK, gDollarEntitlement])
 
   // Memoize the withdraw handler
   const handleWithdraw = useCallback(async () => {
@@ -950,7 +1201,7 @@ export default function WalletPage() {
         ) : (
           <div className="space-y-6">
             {/* Balance Overview */}
-            <div className="grid gap-4 md:grid-cols-2 max-w-4xl">
+            <div className="grid gap-4 md:grid-cols-3 max-w-6xl">
               <Card className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-green-100 p-3">
@@ -1056,142 +1307,27 @@ export default function WalletPage() {
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground mb-2">
                         {nextClaimTime && nextClaimTime > new Date() ? 
-                          `Next claim available: ${nextClaimTime.toLocaleDateString()}` :
-                          "No G$ UBI available to claim right now"
+                          countdown ? 
+                            `Next claim in ${countdown.days}d ${countdown.hours}h ${countdown.minutes}m ${countdown.seconds}s` : 
+                            "Claim available now!" : 
+                          "No G$ UBI available at this time"
                         }
                       </p>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          console.log('🔵 G$ UBI Refresh: Starting manual refresh...')
-                          if (claimSDK) {
-                            claimSDK.checkEntitlement().then((entitlement: bigint) => {
-                              setGDollarEntitlement(entitlement)
-                              toast.info(`Current entitlement: ${formatEther(entitlement)} G$`)
-                            }).catch(() => {
-                              toast.error("Failed to refresh G$ UBI data")
-                            })
-                          }
-                        }}
-                      >
-                        <IconRefresh className="h-4 w-4 mr-2" />
-                        Refresh
-                      </Button>
                     </div>
                   )}
-                  
-                  <div className="text-xs text-muted-foreground text-center">
-                    Universal Basic Income for environmental impact
-                    {!isCheckingWhitelist && !isInitializingSDK && (
-                      <div className="mt-1">
-                        {!isWhitelisted ? (
-                          <span className="text-amber-600">⚠️ Identity verification required</span>
-                        ) : (
-                          <span className="text-green-600">✓ Identity verified</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 </div>
               </Card>
-            </div>
-
-            {/* Withdraw Earnings */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="p-6">
-                <h3 className="font-semibold mb-4">Withdraw Earnings</h3>
-                {!isRegistered ? (
-                  <div className="text-center py-8">
-                    <IconWallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h4 className="text-lg font-medium mb-2">Register as Collector</h4>
-                    <p className="text-muted-foreground mb-4">
-                      You need to register as a collector to earn and withdraw funds
-                    </p>
-                    <Button 
-                      onClick={handleRegisterCollector}
-                      disabled={isRegistering}
-                      className="w-full"
-                    >
-                      {isRegistering ? "Registering..." : "Register as Collector"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Amount (cUSD)</label>
-                      <Input
-                        type="number"
-                        placeholder="Enter amount to withdraw"
-                        value={withdrawAmount}
-                        onChange={(e) => setWithdrawAmount(e.target.value)}
-                        max={totalEarnings}
-                        step="0.01"
-                      />
-                    </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={handleWithdraw}
-                      disabled={isWithdrawing || !withdrawAmount || totalEarnings <= 0}
-                    >
-                      {isWithdrawing ? "Processing..." : "Withdraw Earnings"}
-                    </Button>
-                    {totalEarnings <= 0 && (
-                      <p className="text-sm text-muted-foreground text-center">
-                        No earnings available to withdraw
-                      </p>
-                    )}
-                    {totalEarnings > 0 && contractBalance > 0 && parseFloat(withdrawAmount) > 0 && 
-                     BigInt(Math.floor(parseFloat(withdrawAmount) * 1e18)) > contractBalance && (
-                      <p className="text-sm text-amber-600 text-center bg-amber-50 p-2 rounded">
-                        ⚠️ Warning: Contract has insufficient funds ({formatEther(contractBalance)} cUSD available). 
-                        Withdrawal may fail.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </Card>
 
               <Card className="p-6">
-                <h3 className="font-semibold mb-4">Account Status</h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Network:</span>
-                    <span className="font-medium">{getChainName(chainId)}</span>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-purple-100 p-3">
+                    <IconGift className="h-6 w-6 text-purple-600" />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Address:</span>
-                    <button
-                      onClick={() => copyToClipboard(address || "")}
-                      className="font-mono text-xs hover:text-primary cursor-pointer"
-                    >
-                      {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
-                    </button>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total G$ Claimed</p>
+                    <h3 className="text-2xl font-bold">{totalGDollarsClaimed.toFixed(2)} G$</h3>
+                    <p className="text-xs text-muted-foreground">{gDollarClaimCount} claims made</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge variant={isConnected ? "default" : "secondary"}>
-                      {isConnected ? "Connected" : "Disconnected"}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Collector Status:</span>
-                    <Badge variant={isRegistered ? "default" : "destructive"}>
-                      {isRegistered ? "Registered" : "Not Registered"}
-                    </Badge>
-                  </div>
-                  {userStats && isRegistered && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Reputation:</span>
-                      <span className="font-medium">{userStats.reputationScore.toString()}</span>
-                    </div>
-                  )}
-                  {/* <div className="flex justify-between">
-                    <span className="text-muted-foreground">Contract Balance:</span>
-                    <span className={`font-medium ${contractBalance < BigInt(1e18) ? 'text-amber-600' : 'text-green-600'}`}>
-                      {formatEther(contractBalance)} cUSD
-                    </span>
-                  </div> */}
                 </div>
               </Card>
             </div>
@@ -1199,36 +1335,48 @@ export default function WalletPage() {
             {/* Recent Transactions */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Recent Transactions</h3>
-                <Button variant="outline" size="sm">
-                  <IconHistory className="mr-2 h-4 w-4" />
-                  View All
+                <h3 className="text-lg font-semibold">Recent Transactions</h3>
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
+                  <IconRefresh className="h-4 w-4 mr-2" />
+                  Refresh
                 </Button>
               </div>
-              
-              {transactionList}
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : transactions.length > 0 ? (
+                  transactionList
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <IconWallet className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No transactions yet</p>
+                  </div>
+                )}
+              </div>
             </Card>
 
             {/* Earnings History */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4">Earnings History</h3>
-              
-              {loading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading earnings...</p>
-                </div>
-              ) : earnings.length > 0 ? (
-                <div className="space-y-4">
-                  {earnings.slice(0, 3).map((earning) => (
+              <h3 className="text-lg font-semibold mb-4">Earnings History</h3>
+              <div className="space-y-3">
+                {earnings.length > 0 ? (
+                  earnings.map((earning) => (
                     <EarningItem key={earning.id} earning={earning} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <IconCoin className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No earnings history</p>
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <IconCoin className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No earnings history</p>
+                  </div>
+                )}
+              </div>
             </Card>
           </div>
         )}
