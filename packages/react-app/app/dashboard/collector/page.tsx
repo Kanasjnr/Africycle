@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Header } from "@/components/dashboard/header"
 import { Loader } from "@/components/ui/loader"
 import { useAfriCycle } from "@/hooks/useAfricycle"
-import { useAccount } from "wagmi"
+import { useAccount, usePublicClient } from "wagmi"
 import { useEffect, useState } from "react"
 import { AfricycleStatus, AfricycleWasteStream } from "@/hooks/useAfricycle"
 import { 
@@ -19,7 +19,8 @@ import {
   IconTruck, 
   IconUsers, 
   IconCalendar,
-  IconUpload
+  IconUpload,
+  IconGift
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -30,6 +31,10 @@ function formatCUSD(weiValue: bigint): string {
   const cUSDValue = Number(weiValue) / Number(divisor)
   return cUSDValue.toFixed(3) // Show 3 decimal places
 }
+
+// G$ contract addresses (Celo mainnet)
+const G_DOLLAR_TOKEN_ADDRESS = "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A" as `0x${string}`
+const UBI_SCHEME_PROXY_ADDRESS = "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1" as `0x${string}`
 
 interface StatCardProps {
   title: string
@@ -83,6 +88,7 @@ function ProgressCard({ title, value, total, description, color }: ProgressCardP
 export default function CollectorDashboard() {
   const { address } = useAccount()
   const router = useRouter()
+  const publicClient = usePublicClient()
   const africycle = useAfriCycle({
     contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
     rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
@@ -98,6 +104,125 @@ export default function CollectorDashboard() {
   })
 
   const [isLoading, setIsLoading] = useState(true)
+  const [gDollarStats, setGDollarStats] = useState({
+    totalClaimed: 0,
+    claimCount: 0
+  })
+
+  // Load G$ statistics from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && address) {
+      const savedStats = localStorage.getItem(`gDollarStats_${address}`)
+      if (savedStats) {
+        try {
+          const { totalClaimed, claimCount } = JSON.parse(savedStats)
+          setGDollarStats({
+            totalClaimed: totalClaimed || 0,
+            claimCount: claimCount || 0
+          })
+        } catch (error) {
+          console.error('Error loading G$ stats from localStorage:', error)
+        }
+      }
+    }
+  }, [address])
+
+  // Fetch actual G$ claim history from blockchain  
+  useEffect(() => {
+    async function fetchGDollarClaimHistory() {
+      if (!address || !publicClient) return
+
+      try {
+        console.log('🔵 Dashboard G$ History: Fetching real claim history...')
+        
+        // Calculate starting block (approximately 6 months ago to avoid timeout)
+        // Celo has ~5 second block times, so 6 months ≈ 180 days * 24 hours * 60 minutes * 12 blocks/minute
+        const currentBlock = await publicClient.getBlockNumber()
+        const blocksPerDay = (24 * 60 * 60) / 5 // 5 second block time
+        const sixMonthsAgo = currentBlock - BigInt(Math.floor(blocksPerDay * 180))
+        
+        console.log('📊 Dashboard G$ History: Querying from block', sixMonthsAgo.toString(), 'to current block')
+        
+        // Query Transfer events from UBI Scheme Proxy to user's address (last 6 months)
+        const logs = await publicClient.getLogs({
+          address: G_DOLLAR_TOKEN_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'Transfer',
+            inputs: [
+              { name: 'from', type: 'address', indexed: true },
+              { name: 'to', type: 'address', indexed: true },
+              { name: 'value', type: 'uint256', indexed: false }
+            ]
+          },
+          args: {
+            from: UBI_SCHEME_PROXY_ADDRESS,
+            to: address
+          },
+          fromBlock: sixMonthsAgo,
+          toBlock: currentBlock
+        })
+
+        console.log('📊 Dashboard G$ History: Found', logs.length, 'G$ claim transactions in last 6 months')
+
+        let totalClaimed = 0
+        let claimCount = logs.length
+
+        // Calculate total claimed amount
+        for (const log of logs) {
+          const amount = Number(log.args.value as bigint) / 1e18  // Convert wei to G$
+          totalClaimed += amount
+        }
+
+        console.log('✅ Dashboard G$ History: Total claimed (last 6 months):', totalClaimed.toFixed(6), 'G$ across', claimCount, 'claims')
+
+        // Update state with real blockchain data
+        setGDollarStats({
+          totalClaimed: totalClaimed,
+          claimCount: claimCount
+        })
+
+        // Update localStorage with real data
+        if (typeof window !== 'undefined') {
+          const stats = {
+            totalClaimed: totalClaimed,
+            claimCount: claimCount
+          }
+          localStorage.setItem(`gDollarStats_${address}`, JSON.stringify(stats))
+        }
+
+      } catch (error) {
+        console.error('❌ Dashboard G$ History: Failed to fetch G$ claim history:', error)
+        
+        // If it's a timeout, don't show error as this is normal for new accounts
+        if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('took too long'))) {
+          console.log('⚠️ Dashboard G$ History: Query timed out, this is normal for accounts with no recent G$ claims')
+        }
+        
+        // Keep existing localStorage data if blockchain query fails
+        if (typeof window !== 'undefined' && address) {
+          const savedStats = localStorage.getItem(`gDollarStats_${address}`)
+          if (savedStats) {
+            try {
+              const { totalClaimed, claimCount } = JSON.parse(savedStats)
+              setGDollarStats({
+                totalClaimed: totalClaimed || 0,
+                claimCount: claimCount || 0
+              })
+              console.log('📱 Dashboard G$ History: Using localStorage data:', { totalClaimed, claimCount })
+            } catch (parseError) {
+              console.error('Error parsing localStorage G$ stats:', parseError)
+            }
+          }
+        }
+      }
+    }
+
+    // Only fetch after we have the necessary dependencies
+    if (address && publicClient) {
+      fetchGDollarClaimHistory()
+    }
+  }, [address, publicClient])  // Run when address or publicClient changes
 
   useEffect(() => {
     async function fetchStats() {
@@ -153,7 +278,7 @@ export default function CollectorDashboard() {
         ) : (
           <div className="space-y-6">
             {/* Main Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
               <StatCard
                 title="Total Collected"
                 value={`${totalCollected.toString()} kg`}
@@ -167,6 +292,13 @@ export default function CollectorDashboard() {
                 description="Total earnings from collections"
                 icon={<IconCoin className="h-6 w-6 text-white" />}
                 color="bg-green-500"
+              />
+              <StatCard
+                title="G$ UBI Claimed"
+                value={`${gDollarStats.totalClaimed.toFixed(2)} G$`}
+                description={`${gDollarStats.claimCount} claims made`}
+                icon={<IconGift className="h-6 w-6 text-white" />}
+                color="bg-purple-500"
               />
               <StatCard
                 title="Reputation Score"
