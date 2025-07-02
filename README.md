@@ -2,8 +2,7 @@
 
 > 🚀 **Now Live on Celo Mainnet - Currently in Beta Testing Phase** 🚀
 > 
-> 📜 **Verified Smart Contract**: [View on CeloScan](https://celoscan.io/address/0x272e893d6F50c93bA12554693435b8C391528553#code)
-
+> 
 ## 🌍 Overview
 AfriCycle is a blockchain-powered circular economy platform that addresses Africa's waste management crisis across three key waste streams: **plastic**, **electronic waste (e-waste)**, and **metal/general waste**. The platform incentivizes waste collection through **tokenized rewards**, enables **transparent recycling processes**, and promotes **corporate sustainability** through verified **recycling credits**.
 
@@ -11,10 +10,9 @@ AfriCycle is a blockchain-powered circular economy platform that addresses Afric
 - **Live on Celo Mainnet** 🟢
 - **Beta Testing Phase** 🔄
 - **Open for Early Adopters** 👥
-- **Verified Smart Contract**: [0x272e893d6F50c93bA12554693435b8C391528553](https://celoscan.io/address/0x272e893d6F50c93bA12554693435b8C391528553#code)
-- **Community Growth**: Active Telegram community with daily engagement
+- **Community Growth**: Active Telegram community 
 - **Platform Updates**: Regular feature releases and improvements
-- **Mobile Optimization**: Enhanced mobile experience for collectors
+- **Mobile Optimization**: Enhanced mobile experience for collectors and recyclers
 
 ## 🔄 System Workflow
 ```mermaid
@@ -58,27 +56,31 @@ graph TD
    - Submit waste collections with details (type, weight, location, image)
    - Schedule pickups with recyclers
    - Receive cUSD payments based on waste type and quality
+   - Access G$ Universal Basic Income with real-time claim tracking
    - Build reputation through consistent quality submissions
-   - Track earnings and impact through dashboard
+   - Track earnings (cUSD) and G$ UBI benefits through integrated dashboard
 
 2. **Recycler**
    - Complete facility verification
    - Accept and verify waste collections
    - Create processing batches for waste recycling
    - Generate impact credits through verified processing
-   - Create marketplace listings for processed materials
    - Manage inventory and track processing efficiency
-   - Earn through processing fees and marketplace sales
+   - Earn through processing fees
+   - **Marketplace integration** (coming Q2 2026): Create listings and trade processed materials
 
 ### Key Features
 - **Automated Payments**: Direct cUSD transfers for collections
+- **G$ UBI Integration**: Real-time tracking of GoodDollar Universal Basic Income claims
 - **Quality-Based Rewards**: Higher rewards for better quality waste
 - **Reputation System**: Score-based trust mechanism
 - **Impact Credits**: Verified environmental impact tokens
-- **Marketplace**: Trading platform for processed materials
 - **Batch Processing**: Efficient handling of multiple collections
 - **Carbon Offset Tracking**: Environmental impact measurement
 - **Quality Assurance**: Automated verification and quality checks
+- **Live Countdown Timers**: Real-time tracking of next G$ UBI claim availability
+- **Cross-Platform G$ Tracking**: Captures G$ claims made anywhere on the Celo network
+- **Marketplace Integration** (Q2 2026): Trading platform for processed materials
 
 ## 🚀 Features
 ### ♻️ Multi-Stream Waste Collection
@@ -102,12 +104,22 @@ graph TD
 - **Dynamic Pricing**: Market-based compensation for different waste types
 - **Loyalty Rewards**: Additional incentives for consistent collectors
 
-### 🏪 Marketplace Ecosystem
-- **Trading platform for recycled materials**.
-- **Carbon/waste offset marketplace** for corporations.
-- **Impact investment opportunities**.
-- **Corporate Sustainability Credits**: Verified environmental impact tokens
-- **Material Exchange**: Direct trading of processed recyclables
+### 💰 G$ UBI Integration
+- **Real-time G$ UBI tracking** with blockchain data verification
+- **Live countdown timers** for next claim availability (days:hours:minutes:seconds)
+- **Comprehensive claim history** showing all G$ transactions with proper timestamps
+- **Cross-platform compatibility** - tracks G$ claims made anywhere on Celo network
+- **Dual currency support** - separates recycling earnings (cUSD) from UBI benefits (G$)
+- **Dashboard integration** - G$ statistics displayed alongside recycling metrics
+- **Persistent tracking** - maintains G$ claim data across app sessions
+
+
+### 🏪 Marketplace Ecosystem (Coming Q2 2026)
+- **Trading platform for recycled materials** - *In Development*
+- **Carbon/waste offset marketplace** for corporations - *Planned*
+- **Impact investment opportunities** - *Future Release*
+- **Corporate Sustainability Credits**: Verified environmental impact tokens - *Development Phase*  
+- **Material Exchange**: Direct trading of processed recyclables - *Q2 2026 Launch*
 
 ## 🏗 Technical Architecture
 ### 🛠 Blockchain Infrastructure
@@ -124,6 +136,8 @@ AfriCycle is built on the **Celo blockchain** for:
 - **Recharts** for data visualization
 - **Progressive Web App (PWA)** capabilities
 - **Responsive design** for mobile and desktop access
+- **G$ UBI Integration** with real-time countdown timers and blockchain tracking
+- **Dual currency support** for cUSD recycling earnings and G$ UBI benefits
 
 ### 🖥 Backend Infrastructure
 - **Hardhat** for smart contract development and testing
@@ -137,11 +151,14 @@ AfriCycle is built on the **Celo blockchain** for:
 - **wagami/viem** for smart contract interactions
 - **Metamask and Valora wallet integrations**
 - **Hardhat Network** for local development
+- **GoodDollar Citizen SDK** for G$ UBI claim verification and tracking
+- **Real-time blockchain queries** for cross-platform G$ transaction history
 
 ## 🛠 Tech Stack
 - **Blockchain**: Celo
 - **Smart Contracts**: Solidity, Hardhat, TypeScript
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Radix UI
+- **G$ UBI Integration**: GoodDollar Citizen SDK for Universal Basic Income tracking
 - **Development**: Yarn Workspaces, ESLint, Prettier
 - **Testing**: Mocha, Chai
 - **Storage**: IPFS, Ceramic Network
@@ -194,7 +211,7 @@ yarn hardhat:test
 yarn react-app:test
 ```
 
-### 🏗 Project Structure
+### 📄 Project Structure
 ```
 africycle/
 ├── packages/
@@ -276,11 +293,10 @@ This project is licensed under the **MIT License**.
 - Bug bounty program for security researchers
 
 ## 📈 Roadmap
-- Q2 2024: Current Phase - Beta testing and community building
-- Q3 2024: Expansion to additional African regions
-- Q4 2024: Launch of advanced features and partnerships
-- Q1 2025: Global expansion and ecosystem growth
-- Q2 2025: Integration with international waste management networks
+- Q2 2024 - Q2 2025: Current Phase - Beta testing and community building
+- Q3 2025: **MVP Development & Beta Testing** - Enhanced platform features and expanded testing
+- Q4 2025 - Q1 2026: **Pilot Launch & Partnerships** - Strategic partnerships and pilot program rollout
+- Q2 2026: **Marketplace Ecosystem Launch** - Full trading platform for recycled materials and carbon offset marketplace
 
 ## 📊 Beta Testing Metrics
 - **Active Users**: Growing community of waste collectors
@@ -288,6 +304,7 @@ This project is licensed under the **MIT License**.
 - **Waste Processed**: Real-time tracking available on dashboard
 - **Environmental Impact**: Transparent impact metrics
 - **Transaction Volume**: Live on-chain data
+- **G$ UBI Integration**: Real-time Universal Basic Income tracking and claim management
 - **Community Engagement**: Active participation in Telegram and social media
 - **User Satisfaction**: Positive feedback from early adopters
 
@@ -305,4 +322,4 @@ To participate in our beta testing program:
 4. Once approved, you'll receive instructions to access the platform
 5. Complete the onboarding process and start contributing to a sustainable future
 
-For any questions about the beta program, please contact us at aficycle0@gmail.com
+For any questions about the beta program, please contact us at info@africycle.xyz
