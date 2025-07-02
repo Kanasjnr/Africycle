@@ -81,40 +81,40 @@ interface Earning {
 function Transaction({ type, description, amount, date }: TransactionProps) {
   const isDeposit = type === "Deposit"
   return (
-    <div className="flex items-center justify-between border-b py-4 last:border-0">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between border-b py-3 sm:py-4 last:border-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <div
-          className={`rounded-full p-2 ${
+          className={`rounded-full p-1.5 sm:p-2 shrink-0 ${
             isDeposit ? "bg-green-100" : "bg-red-100"
           }`}
         >
           {isDeposit ? (
             <IconArrowDown
-              className="h-4 w-4 text-green-600"
+              className="h-3 w-3 sm:h-4 sm:w-4 text-green-600"
               style={{ transform: "rotate(45deg)" }}
             />
           ) : (
             <IconArrowUp
-              className="h-4 w-4 text-red-600"
+              className="h-3 w-3 sm:h-4 sm:w-4 text-red-600"
               style={{ transform: "rotate(45deg)" }}
             />
           )}
         </div>
-        <div>
-          <p className="font-medium">{type}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm sm:text-base font-medium truncate">{type}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">{description}</p>
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-right ml-2 shrink-0">
         <p
-          className={`font-medium ${
+          className={`text-sm sm:text-base font-medium ${
             isDeposit ? "text-green-600" : "text-red-600"
           }`}
         >
           {isDeposit ? "+" : "-"}
           {amount}
         </p>
-        <p className="text-sm text-muted-foreground">{date}</p>
+        <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">{date}</p>
       </div>
     </div>
   )
@@ -142,9 +142,9 @@ function EarningItem({ earning }: { earning: Earning }) {
 
   const getTypeIcon = (type: string) => {
     if (type === "g_dollar_ubi") {
-      return <IconGift className="h-4 w-4 text-yellow-600" />
+      return <IconGift className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600" />
     }
-    return <IconCoin className="h-4 w-4 text-green-600" />
+    return <IconCoin className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
   }
 
   const getDisplayType = (type: string) => {
@@ -158,27 +158,27 @@ function EarningItem({ earning }: { earning: Earning }) {
   }
 
   return (
-    <div className="flex items-center justify-between border-b py-4 last:border-0">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-2 ${earning.type === "g_dollar_ubi" ? "bg-yellow-100" : "bg-green-100"}`}>
+    <div className="flex items-center justify-between border-b py-3 sm:py-4 last:border-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className={`rounded-lg p-1.5 sm:p-2 shrink-0 ${earning.type === "g_dollar_ubi" ? "bg-yellow-100" : "bg-green-100"}`}>
           {getTypeIcon(earning.type)}
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-medium capitalize">{getDisplayType(earning.type)}</p>
-            <Badge variant="secondary" className={`text-xs ${getTypeColor(earning.type)}`}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 sm:gap-2 mb-1">
+            <p className="text-sm sm:text-base font-medium capitalize truncate">{getDisplayType(earning.type)}</p>
+            <Badge variant="secondary" className={`text-xs shrink-0 ${getTypeColor(earning.type)}`}>
               {getDisplayType(earning.type)}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{earning.description}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">{earning.description}</p>
         </div>
       </div>
-      <div className="text-right">
-        <p className={`font-medium ${earning.type === "g_dollar_ubi" ? "text-yellow-600" : "text-green-600"}`}>
+      <div className="text-right ml-2 shrink-0">
+        <p className={`text-sm sm:text-base font-medium ${earning.type === "g_dollar_ubi" ? "text-yellow-600" : "text-green-600"}`}>
           +{earning.amount.toFixed(2)} {getCurrency(earning.type)}
         </p>
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground">{earning.date}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">{earning.date}</p>
           <Badge variant="secondary" className={`text-xs ${getStatusColor(earning.status)}`}>
             {earning.status}
           </Badge>
@@ -1183,59 +1183,59 @@ export default function WalletPage() {
 
   return (
     <DashboardShell>
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">Wallet</h1>
-          <p className="text-muted-foreground">Manage your recycling earnings and transactions</p>
+      <div className="w-full px-3 sm:px-4 lg:px-6">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Wallet</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your recycling earnings and transactions</p>
         </div>
 
         {!isConnected ? (
-          <Card className="p-8 text-center">
-            <IconWallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
-            <p className="text-muted-foreground mb-4">
+          <Card className="p-4 sm:p-6 lg:p-8 text-center">
+            <IconWallet className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">Connect Your Wallet</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4">
               Connect your wallet to view your balance and transaction history
             </p>
-            <Button>Connect Wallet</Button>
+            <Button className="w-full sm:w-auto">Connect Wallet</Button>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Balance Overview */}
-            <div className="grid gap-4 md:grid-cols-3 max-w-6xl">
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-green-100 p-3">
-                    <IconCoin className="h-6 w-6 text-green-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              <Card className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="rounded-lg bg-green-100 p-2 sm:p-3 shrink-0">
+                    <IconCoin className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Earnings</p>
-                    <h3 className="text-2xl font-bold">{totalEarnings.toFixed(4)} cUSD</h3>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Earnings</p>
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{totalEarnings.toFixed(4)} cUSD</h3>
                   </div>
                 </div>
               </Card>
 
               {/* G$ UBI Section */}
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="rounded-lg bg-blue-100 p-3">
-                    <IconGift className="h-6 w-6 text-blue-600" />
+              <Card className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                  <div className="rounded-lg bg-blue-100 p-2 sm:p-3 shrink-0">
+                    <IconGift className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">G$ UBI Available</p>
-                    <h3 className="text-2xl font-bold">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">G$ UBI Available</p>
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">
                       {isCheckingWhitelist ? "Checking..." : formatEther(gDollarEntitlement)} G$
                     </h3>
                   </div>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {isInitializingSDK || isCheckingWhitelist ? (
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                         {isCheckingWhitelist ? "Checking eligibility..." : "Initializing G$ SDK..."}
                       </p>
-                      <Button disabled className="w-full bg-blue-600 hover:bg-blue-700">
-                        <IconRefresh className="h-4 w-4 mr-2 animate-spin" />
+                      <Button disabled className="w-full text-xs sm:text-sm bg-blue-600 hover:bg-blue-700">
+                        <IconRefresh className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                         Loading...
                       </Button>
                     </div>
@@ -1243,33 +1243,37 @@ export default function WalletPage() {
                     <div className="text-center">
                       {!verificationLink ? (
                         <>
-                          <p className="text-sm text-muted-foreground mb-2">
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                             Complete identity verification to access G$ UBI
                           </p>
                           <Button 
                             onClick={handleVerification}
                             disabled={isGeneratingLink}
-                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            className="w-full text-xs sm:text-sm bg-blue-600 hover:bg-blue-700"
                           >
                             {isGeneratingLink ? (
                               <>
-                                <IconRefresh className="h-4 w-4 mr-2 animate-spin" />
-                                Generating Link...
+                                <IconRefresh className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                                <span className="hidden sm:inline">Generating Link...</span>
+                                <span className="sm:hidden">Generating...</span>
                               </>
                             ) : (
-                              "Generate Verification Link"
+                              <>
+                                <span className="hidden sm:inline">Generate Verification Link</span>
+                                <span className="sm:hidden">Verify Identity</span>
+                              </>
                             )}
                           </Button>
                         </>
                       ) : (
                         <>
-                          <p className="text-sm text-muted-foreground mb-3">
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3">
                             Click the link below to complete face verification:
                           </p>
-                          <div className="space-y-3">
+                          <div className="space-y-2 sm:space-y-3">
                             <Button 
                               asChild
-                              className="w-full bg-green-600 hover:bg-green-700"
+                              className="w-full text-xs sm:text-sm bg-green-600 hover:bg-green-700"
                             >
                               <a 
                                 href={verificationLink} 
@@ -1277,13 +1281,15 @@ export default function WalletPage() {
                                 rel="noopener noreferrer"
                                 className="flex items-center justify-center"
                               >
-                                <IconGift className="h-4 w-4 mr-2" />
-                                Complete Face Verification
+                                <IconGift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Complete Face Verification</span>
+                                <span className="sm:hidden">Verify Face</span>
                               </a>
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
+                              className="w-full text-xs"
                               onClick={() => {
                                 setVerificationLink(null)
                                 toast.info("You can generate a new verification link")
@@ -1299,13 +1305,18 @@ export default function WalletPage() {
                     <Button 
                       onClick={handleClaimUBI}
                       disabled={isClaiming}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full text-xs sm:text-sm bg-blue-600 hover:bg-blue-700"
                     >
-                      {isClaiming ? "Claiming..." : `Claim ${formatEther(gDollarEntitlement)} G$ UBI`}
+                      {isClaiming ? "Claiming..." : (
+                        <>
+                          <span className="hidden sm:inline">Claim {formatEther(gDollarEntitlement)} G$ UBI</span>
+                          <span className="sm:hidden">Claim G$ UBI</span>
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                         {nextClaimTime && nextClaimTime > new Date() ? 
                           countdown ? 
                             `Next claim in ${countdown.days}d ${countdown.hours}h ${countdown.minutes}m ${countdown.seconds}s` : 
@@ -1318,14 +1329,14 @@ export default function WalletPage() {
                 </div>
               </Card>
 
-              <Card className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-purple-100 p-3">
-                    <IconGift className="h-6 w-6 text-purple-600" />
+              <Card className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="rounded-lg bg-purple-100 p-2 sm:p-3 shrink-0">
+                    <IconGift className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total G$ Claimed</p>
-                    <h3 className="text-2xl font-bold">{totalGDollarsClaimed.toFixed(2)} G$</h3>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total G$ Claimed</p>
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{totalGDollarsClaimed.toFixed(2)} G$</h3>
                     <p className="text-xs text-muted-foreground">{gDollarClaimCount} claims made</p>
                   </div>
                 </div>
@@ -1333,47 +1344,47 @@ export default function WalletPage() {
             </div>
 
             {/* Recent Transactions */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Recent Transactions</h3>
-                <Button variant="outline" size="sm" onClick={handleRefresh}>
-                  <IconRefresh className="h-4 w-4 mr-2" />
-                  Refresh
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+                <h3 className="text-base sm:text-lg font-semibold">Recent Transactions</h3>
+                <Button variant="outline" size="sm" onClick={handleRefresh} className="w-full sm:w-auto">
+                  <IconRefresh className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="text-xs sm:text-sm">Refresh</span>
                 </Button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {loading ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-1/2"></div>
+                        <div className="h-3 sm:h-4 bg-muted rounded w-3/4 mb-1 sm:mb-2"></div>
+                        <div className="h-2 sm:h-3 bg-muted rounded w-1/2"></div>
                       </div>
                     ))}
                   </div>
                 ) : transactions.length > 0 ? (
                   transactionList
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <IconWallet className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No transactions yet</p>
+                  <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                    <IconWallet className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm sm:text-base">No transactions yet</p>
                   </div>
                 )}
               </div>
             </Card>
 
             {/* Earnings History */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Earnings History</h3>
-              <div className="space-y-3">
+            <Card className="p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Earnings History</h3>
+              <div className="space-y-2 sm:space-y-3">
                 {earnings.length > 0 ? (
                   earnings.map((earning) => (
                     <EarningItem key={earning.id} earning={earning} />
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <IconCoin className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No earnings history</p>
+                  <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                    <IconCoin className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm sm:text-base">No earnings history</p>
                   </div>
                 )}
               </div>
