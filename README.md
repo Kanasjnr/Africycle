@@ -98,9 +98,8 @@ graph TD
 - **Audit Trail**: Complete history of all waste transactions
 
 ### 🎁 Tokenized Incentive System
-- **Direct cryptocurrency payments** to collectors.
+- **Direct cryptocurrency payments** to collectors and recyclers
 - **Tokenized environmental impact credits**.
-- **Governance tokens** for platform participation.
 - **Dynamic Pricing**: Market-based compensation for different waste types
 - **Loyalty Rewards**: Additional incentives for consistent collectors
 
