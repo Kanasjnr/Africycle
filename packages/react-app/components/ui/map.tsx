@@ -92,6 +92,17 @@ interface RecyclerLocation {
   reputationScore: string
   totalInventory: string
   recyclerAddress: string
+  // Add comprehensive data fields
+  activeCollectors?: string
+  availableListings?: string
+  inventoryDetails?: {
+    totalWeight: number
+    itemCount: number
+    availableListings: number
+  }
+  activeCollectorsCount?: number
+  totalProcessed?: number
+  completedCollections?: number
 }
 
 interface RecyclerMapProps {
@@ -190,30 +201,90 @@ export function RecyclerMap({
               click: () => onRecyclerSelect?.(recycler)
             }}
           >
-            <Popup maxWidth={300}>
-              <div className="p-2 min-w-[250px]">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-sm">{recycler.name}</h3>
+            <Popup maxWidth={320}>
+              <div className="p-3 min-w-[280px]">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-base">{recycler.name}</h3>
                   <Badge 
                     variant={
                       recycler.status === "active" ? "default" : 
                       recycler.status === "busy" ? "secondary" : "outline"
                     }
+                    className="text-xs"
                   >
                     {recycler.status}
                   </Badge>
                 </div>
                 
-                <p className="text-xs text-gray-600 mb-2">{recycler.address}</p>
+                <p className="text-sm text-gray-600 mb-3">{recycler.address}</p>
                 
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-gray-500">Reputation:</span>
-                  <span className="text-xs font-medium text-green-600">{recycler.reputationScore}</span>
-                  <span className="text-xs text-gray-500">•</span>
-                  <span className="text-xs text-gray-500">Inventory:</span>
-                  <span className="text-xs font-medium">{recycler.totalInventory}</span>
+                {/* Comprehensive Data Grid */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-xs text-gray-500">Reputation:</span>
+                      <span className="text-xs font-semibold text-green-600">{recycler.reputationScore}</span>
+                    </div>
+                    <div className="text-xs text-gray-400">Trust Score</div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-xs text-gray-500">Inventory:</span>
+                      <span className="text-xs font-semibold text-blue-600">{recycler.totalInventory}</span>
+                    </div>
+                    <div className="text-xs text-gray-400">Total Stock</div>
+                  </div>
+                  
+                  {recycler.activeCollectors && (
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs text-gray-500">Active:</span>
+                        <span className="text-xs font-semibold text-purple-600">{recycler.activeCollectors}</span>
+                      </div>
+                      <div className="text-xs text-gray-400">Collectors</div>
+                    </div>
+                  )}
+                  
+                  {recycler.availableListings && (
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs text-gray-500">Available:</span>
+                        <span className="text-xs font-semibold text-orange-600">{recycler.availableListings}</span>
+                      </div>
+                      <div className="text-xs text-gray-400">For Sale</div>
+                    </div>
+                  )}
                 </div>
                 
+                {/* Detailed Inventory Info */}
+                {recycler.inventoryDetails && (
+                  <div className="bg-blue-50 rounded-lg p-2 mb-3">
+                    <p className="text-xs font-medium text-blue-800 mb-1">📦 Inventory Details</p>
+                    <div className="text-xs text-blue-700">
+                      <span className="font-semibold">{recycler.inventoryDetails.totalWeight}kg</span> total weight • 
+                      <span className="font-semibold"> {recycler.inventoryDetails.itemCount}</span> items • 
+                      <span className="font-semibold"> {recycler.inventoryDetails.availableListings}</span> available
+                    </div>
+                  </div>
+                )}
+                
+                {/* Performance Stats */}
+                {(recycler.totalProcessed || recycler.completedCollections) && (
+                  <div className="bg-green-50 rounded-lg p-2 mb-3">
+                    <p className="text-xs font-medium text-green-800 mb-1">⚡ Performance</p>
+                    <div className="text-xs text-green-700">
+                      {recycler.totalProcessed ? (
+                        <span><span className="font-semibold">{recycler.totalProcessed}kg</span> processed • </span>
+                      ) : null}
+                      {recycler.completedCollections ? (
+                        <span><span className="font-semibold">{recycler.completedCollections}</span> completed</span>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Accepted Materials */}
                 <div className="mb-3">
                   <p className="text-xs text-gray-500 mb-1">Accepted Materials:</p>
                   <div className="flex flex-wrap gap-1">
@@ -230,11 +301,12 @@ export function RecyclerMap({
                   </div>
                 </div>
                 
+                {/* Action Buttons */}
                 <div className="flex gap-2">
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    className="text-xs px-2 py-1"
+                    className="text-xs px-3 py-1 flex-1"
                     onClick={() => navigator.clipboard.writeText(recycler.recyclerAddress)}
                   >
                     Copy Address
@@ -242,7 +314,7 @@ export function RecyclerMap({
                   {recycler.status === "active" && (
                     <Button 
                       size="sm" 
-                      className="text-xs px-2 py-1"
+                      className="text-xs px-3 py-1 flex-1"
                       onClick={() => onNavigate?.(recycler)}
                     >
                       <IconNavigation className="mr-1 h-3 w-3" />
