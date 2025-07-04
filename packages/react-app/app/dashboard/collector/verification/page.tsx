@@ -47,6 +47,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { EmailService } from '@/lib/email-service';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -64,7 +65,6 @@ import {
 } from '@tabler/icons-react';
 import afriCycleAbi from '@/ABI/Africycle.json';
 
-// Rename local config to avoid conflict with imported one
 const cloudinaryImageConfig = {
   cloudName: 'dn2ed9k6p',
   baseUrl: 'https://res.cloudinary.com/dn2ed9k6p/image/upload'
@@ -82,7 +82,6 @@ const FallbackImage = ({ alt }: { alt: string }) => (
   </div>
 );
 
-// Update the getCloudinaryImageUrl function to use the renamed config
 const getCloudinaryImageUrl = (publicId: string) => {
   return `${cloudinaryImageConfig.baseUrl}/${publicId}`;
 };
@@ -100,7 +99,6 @@ console.log('Verification Page Contract Config:', {
   envContractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS,
 });
 
-// Update the getRoleHash function to use the imported ABI
 const getRoleHash = async (africycle: any, roleName: 'RECYCLER_ROLE' | 'COLLECTOR_ROLE' | 'ADMIN_ROLE') => {
   if (!africycle?.publicClient || !africycle?.contractAddress) {
     console.error('Africycle client not properly initialized');
@@ -156,7 +154,6 @@ interface AppState {
   };
 }
 
-// Update the Recycler interface to match contract data
 interface Recycler {
   address: `0x${string}`;
   name: string;
@@ -959,6 +956,39 @@ export default function PhotoVerificationPage() {
         console.log('Debug: Transaction receipt:', receipt);
 
         toast.success('Collection created successfully!');
+
+        // Send collection request email to recycler (don't wait for it to complete)
+        const selectedRecycler = recyclers.find(r => r.address === state.form.recycler);
+        if (selectedRecycler) {
+          const recyclerEmail = EmailService.extractEmailFromContactInfo(selectedRecycler.contactInfo);
+          if (recyclerEmail) {
+            // Get the collection ID from the transaction logs (approximate since we just created it)
+            const collectionId = Date.now().toString(); // Use timestamp as approximation
+            
+            EmailService.sendCollectionRequest({
+              recyclerEmail,
+              collectionId,
+              wasteType: EmailService.getWasteTypeNumber(state.form.wasteType),
+              weight: parseFloat(state.form.weight),
+              location: state.form.location,
+              pickupTime: state.form.pickupTime,
+              collectorName: 'Collector', // Will be replaced with actual name from profile
+              collectorAddress: address,
+              collectorContact: 'Contact info not available',
+              imageHash: state.form.imageHash || undefined,
+            }).then((result) => {
+              if (result.success) {
+                console.log('Collection request email sent successfully');
+              } else {
+                console.log('Collection request email failed to send:', result.error);
+              }
+            }).catch((error) => {
+              console.log('Collection request email error:', error);
+            });
+          } else {
+            console.log('No valid email found for recycler:', selectedRecycler.contactInfo);
+          }
+        }
 
         // Reset form
         setState((prev) => ({

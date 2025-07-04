@@ -37,6 +37,8 @@ import { Loader2 } from 'lucide-react';
 import { celo } from 'viem/chains';
 // Import the standard AfriCycle hook
 import { useAfriCycle } from '@/hooks/useAfricycle';
+// Import email service
+import { EmailService } from '@/lib/email-service';
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS;
@@ -295,6 +297,22 @@ export function RegistrationDialog() {
       toast.success(
         'Registration transaction submitted! Waiting for confirmation...'
       );
+
+      // Send welcome email (don't wait for it to complete)
+      EmailService.sendWelcomeEmail({
+        userType: data.role,
+        userName: data.name,
+        userEmail: data.email,
+        walletAddress: address,
+      }).then((result) => {
+        if (result.success) {
+          console.log('Welcome email sent successfully');
+        } else {
+          console.log('Welcome email failed to send:', result.error);
+        }
+      }).catch((error) => {
+        console.log('Welcome email error:', error);
+      });
 
       // Close the dialog
       setOpen(false);
