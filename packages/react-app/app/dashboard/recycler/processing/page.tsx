@@ -32,6 +32,7 @@ import { AfricycleStatus, AfricycleWasteStream, AfricycleQualityGrade } from "@/
 import { useAccount } from "wagmi"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { EmailService } from "@/lib/email-service"
 
 // Collection verification component
 interface VerificationItemProps {
@@ -747,9 +748,97 @@ export default function MaterialVerificationPage() {
       if (approved) {
         await africycle.confirmPickup(address, collection.id)
         toast.success("Collection verified successfully")
+        
+        // Send collection confirmed email to collector
+        try {
+          const collectorProfile = await africycle.getUserProfile(collection.collector)
+          const recyclerProfile = await africycle.getUserProfile(address)
+          const collectorEmail = EmailService.extractEmailFromContactInfo(collectorProfile.contactInfo)
+          
+          if (collectorEmail) {
+            EmailService.sendCollectionConfirmed({
+              collectorEmail,
+              collectionId: collection.id.toString(),
+              wasteType: EmailService.getWasteTypeNumber(collection.wasteType),
+              weight: Number(collection.weight),
+              pickupTime: Number(collection.pickupTime),
+              recyclerName: recyclerProfile.name || 'Recycler',
+              recyclerContact: recyclerProfile.contactInfo,
+              recyclerAddress: address,
+              estimatedEarnings: Number(collection.rewardAmount) / 1e18, // Convert from wei to cUSD
+            }).then((result) => {
+              if (result.success) {
+                console.log('Collection confirmed email sent successfully');
+              } else {
+                console.log('Collection confirmed email failed to send:', result.error);
+              }
+            }).catch((error) => {
+              console.log('Collection confirmed email error:', error);
+            });
+            
+            // Send payment received email to collector (collectors get paid when collection is confirmed)
+            const paymentAmount = Number(collection.rewardAmount) / 1e18 // Convert from wei to cUSD
+            const ratePerKg = paymentAmount / Number(collection.weight)
+            
+            EmailService.sendPaymentReceived({
+              collectorEmail,
+              collectionId: collection.id.toString(),
+              wasteType: EmailService.getWasteTypeNumber(collection.wasteType).toString(),
+              weight: Number(collection.weight),
+              amount: paymentAmount,
+              ratePerKg: ratePerKg,
+              qualityGrade: collection.quality === 0 ? 'Low' : 
+                          collection.quality === 1 ? 'Medium' : 
+                          collection.quality === 2 ? 'High' : 'Premium',
+              // transactionHash: could be added if available from blockchain response
+            }).then((result) => {
+              if (result.success) {
+                console.log('Payment received email sent successfully');
+              } else {
+                console.log('Payment received email failed to send:', result.error);
+              }
+            }).catch((error) => {
+              console.log('Payment received email error:', error);
+            });
+          } else {
+            console.log('No valid email found for collector:', collectorProfile.contactInfo);
+          }
+        } catch (profileError) {
+          console.log('Error fetching profiles for email:', profileError);
+        }
+        
       } else {
         await africycle.rejectPickup(address, collection.id, reason || "Failed verification")
         toast.success("Collection rejected")
+        
+        // Send collection rejected email to collector
+        try {
+          const collectorProfile = await africycle.getUserProfile(collection.collector)
+          const collectorEmail = EmailService.extractEmailFromContactInfo(collectorProfile.contactInfo)
+          
+          if (collectorEmail) {
+            EmailService.sendCollectionRejected({
+              collectorEmail,
+              collectionId: collection.id.toString(),
+              wasteType: EmailService.getWasteTypeNumber(collection.wasteType),
+              weight: Number(collection.weight),
+              pickupTime: Number(collection.pickupTime),
+              rejectionReason: reason || "Quality standards not met. Please review and improve for future collections.",
+            }).then((result) => {
+              if (result.success) {
+                console.log('Collection rejected email sent successfully');
+              } else {
+                console.log('Collection rejected email failed to send:', result.error);
+              }
+            }).catch((error) => {
+              console.log('Collection rejected email error:', error);
+            });
+          } else {
+            console.log('No valid email found for collector:', collectorProfile.contactInfo);
+          }
+        } catch (profileError) {
+          console.log('Error fetching collector profile for email:', profileError);
+        }
       }
 
       // Refresh collections

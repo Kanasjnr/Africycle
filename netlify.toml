@@ -3,6 +3,11 @@
   command = "npm run build:static"
   publish = "out"
 
+[dev]
+  command = "npm run dev"
+  port = 3001
+  publish = "out"
+
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
