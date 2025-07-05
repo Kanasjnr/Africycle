@@ -33,8 +33,7 @@ const RecyclerMap = dynamic(
     loading: () => (
       <div className="h-[280px] md:h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-          <p className="text-gray-600 text-sm">Loading map...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>         <p className="text-gray-600 text-sm">Loading map...</p>
         </div>
       </div>
     )
@@ -43,7 +42,7 @@ const RecyclerMap = dynamic(
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
-const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org"
+const RPC_URL = process.env.NEXT_PUBLIC_CELO_RPC_URL || ""
 
 // Known recycler addresses (from verification page)
 const KNOWN_RECYCLERS = [
@@ -653,118 +652,95 @@ export default function MapPage() {
     rpcUrl: RPC_URL,
   })
   
-  // Enhanced user location detection with better feedback - NO FALLBACKS
+  // Enhanced user location detection with better feedback
   const getUserLocation = useCallback(async () => {
     console.log('🎯 Starting precise location detection...')
     setUserLocationStatus('Detecting your location...')
     
-    try {
-      // First, try to get user location from blockchain profile
-      if (africycle && address) {
-        try {
-          console.log(`📍 Checking blockchain profile for collector ${address}`)
-          setUserLocationStatus('Checking your profile location...')
-          const userProfile = await africycle.getUserProfile(address)
-          console.log('Profile location data:', userProfile.location)
-          
-          // If we have a valid location string, try to geocode it
-          if (userProfile.location && 
-              userProfile.location.trim() && 
-              userProfile.location !== 'Location not set' && 
-              userProfile.location !== 'Location not specified') {
-            
-            console.log(`🔍 Attempting to geocode profile location: "${userProfile.location}"`)
-            setUserLocationStatus(`Locating "${userProfile.location}"...`)
-            
-            // Try geocoding the profile location
-            const coordinates = await geocodeAddress(userProfile.location)
-            if (coordinates) {
-              console.log(`✅ Successfully geocoded profile location to:`, coordinates)
-              setUserLocation({
-                lat: coordinates[0],
-                lng: coordinates[1]
-              })
-              setUserLocationStatus('✅ Located from your profile!')
-              setTimeout(() => setUserLocationStatus(null), 3000)
-              return // Success - we're done
-            } else {
-              console.warn(`❌ Failed to geocode profile location: "${userProfile.location}"`)
-              setUserLocationStatus('Profile location not found, trying GPS...')
-            }
-          } else {
-            console.log(`⚠️ Profile location is empty or invalid: "${userProfile.location}"`)
-            setUserLocationStatus('No profile location set, trying GPS...')
-          }
-        } catch (error) {
-          console.error("❌ Error getting user profile:", error)
-          setUserLocationStatus('Profile check failed, trying GPS...')
-        }
-      }
-      
-      // Try browser geolocation for exact location
-      console.log("🌐 Requesting precise GPS location...")
-      setUserLocationStatus('Requesting precise GPS location...')
-      
-      if (!navigator.geolocation) {
-        console.log("❌ Browser geolocation not supported")
-        setUserLocationStatus('❌ GPS not supported on this device')
-        setTimeout(() => setUserLocationStatus(null), 5000)
-        return
-      }
-      
-      // Create a promise-based wrapper for geolocation with high accuracy
-      const getCurrentPositionAsync = (): Promise<GeolocationPosition> => {
-        return new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            reject,
-            {
-              timeout: 30000, // 30 second timeout for high accuracy
-              enableHighAccuracy: true, // Force high accuracy GPS
-              maximumAge: 0 // Don't use cached location, get fresh GPS reading
-            }
-          )
-        })
-      }
-      
+    // First, try to get user location from blockchain profile
+    if (africycle && address) {
       try {
-        setUserLocationStatus('📡 Getting GPS coordinates...')
-        const position = await getCurrentPositionAsync()
+        console.log(`📍 Checking blockchain profile for collector ${address}`)
+        setUserLocationStatus('Checking your profile location...')
+        const userProfile = await africycle.getUserProfile(address)
+        console.log('Profile location data:', userProfile.location)
         
-        console.log(`✅ High-accuracy GPS location:`, [position.coords.latitude, position.coords.longitude])
-        console.log(`📍 Location accuracy: ${position.coords.accuracy} meters`)
-        
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        })
-        setUserLocationStatus(`✅ GPS location found! (±${Math.round(position.coords.accuracy)}m accuracy)`)
-        setTimeout(() => setUserLocationStatus(null), 5000)
-      } catch (geoError) {
-        console.error("❌ GPS location failed:", geoError)
-        
-        // Handle different geolocation errors
-        let errorMessage = '❌ Could not get your location'
-        
-        // Type guard to check if it's a GeolocationPositionError
-        if (geoError && typeof geoError === 'object' && 'code' in geoError) {
-          const positionError = geoError as GeolocationPositionError
-          if (positionError.code === 1) { // PERMISSION_DENIED
-            errorMessage = '❌ Location permission denied. Please enable location access.'
-          } else if (positionError.code === 2) { // POSITION_UNAVAILABLE
-            errorMessage = '❌ Location unavailable. Please check your GPS settings.'
-          } else if (positionError.code === 3) { // TIMEOUT
-            errorMessage = '❌ Location request timed out. Please try again.'
+        // If we have a valid location string, try to geocode it
+        if (userProfile.location && 
+            userProfile.location.trim() && 
+            userProfile.location !== 'Location not set' && 
+            userProfile.location !== 'Location not specified') {
+          
+          console.log(`🔍 Attempting to geocode profile location: "${userProfile.location}"`)
+          setUserLocationStatus(`Locating "${userProfile.location}"...`)
+          
+          // Try geocoding the profile location
+          const coordinates = await geocodeAddress(userProfile.location)
+          if (coordinates) {
+            console.log(`✅ Successfully geocoded profile location to:`, coordinates)
+            setUserLocation({
+              lat: coordinates[0],
+              lng: coordinates[1]
+            })
+            setUserLocationStatus('✅ Located from your profile!')
+            setTimeout(() => setUserLocationStatus(null), 3000)
+            return // Success - we're done
+          } else {
+            console.warn(`❌ Failed to geocode profile location: "${userProfile.location}"`)
+            setUserLocationStatus('Profile location not found, trying GPS...')
           }
+        } else {
+          console.log(`⚠️ Profile location is empty or invalid: "${userProfile.location}"`)
+          setUserLocationStatus('No profile location set, trying GPS...')
         }
-        
-        setUserLocationStatus(errorMessage)
-        setTimeout(() => setUserLocationStatus(null), 8000)
+      } catch (error) {
+        console.error("❌ Error getting user profile:", error)
+        setUserLocationStatus('Profile check failed, trying GPS...')
       }
-    } catch (error) {
-      console.error("❌ Location detection failed completely:", error)
-      setUserLocationStatus('❌ Location detection failed. Please try again.')
+    }
+    
+    // Try browser geolocation for exact location
+    console.log("🌐 Requesting precise GPS location...")
+    setUserLocationStatus('Requesting precise GPS location...')
+    
+    if (!navigator.geolocation) {
+      console.log("❌ Browser geolocation not supported")
+      setUserLocationStatus('❌ GPS not supported on this device')
       setTimeout(() => setUserLocationStatus(null), 5000)
+      return
+    }
+    
+    const getCurrentPositionAsync = (): Promise<GeolocationPosition> => {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position: GeolocationPosition) => resolve(position),
+          (error: GeolocationPositionError) => reject(error),
+          {
+            timeout: 30000,
+            enableHighAccuracy: true,
+            maximumAge: 0
+          }
+        )
+      })
+    }
+    
+    try {
+      setUserLocationStatus('📡 Getting GPS coordinates...')
+      const position = await getCurrentPositionAsync()
+      
+      console.log(`✅ High-accuracy GPS location:`, [position.coords.latitude, position.coords.longitude])
+      console.log(`📍 Location accuracy: ${position.coords.accuracy} meters`)
+      
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      })
+      setUserLocationStatus(`✅ GPS location found! (±${Math.round(position.coords.accuracy)}m accuracy)`)
+      setTimeout(() => setUserLocationStatus(null), 5000)
+    } catch (geoError) {
+      console.error("❌ GPS location failed:", geoError)
+      setUserLocationStatus('❌ Could not get your location. Please check your GPS settings.')
+      setTimeout(() => setUserLocationStatus(null), 8000)
     }
   }, [africycle, address])
 

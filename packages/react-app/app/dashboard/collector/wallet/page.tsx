@@ -293,7 +293,7 @@ export default function WalletPage() {
   useEffect(() => {
     let isMounted = true
     
-    async function initializeAndFetchUBI() {
+    const initializeAndFetchUBI = async () => {
       console.log('🔵 G$ UBI: Starting initialization check...')
       console.log('🔵 G$ UBI: Dependencies:', {
         address: !!address,
@@ -433,7 +433,7 @@ export default function WalletPage() {
 
   // Fetch actual G$ claim history from blockchain
   useEffect(() => {
-    async function fetchGDollarClaimHistory() {
+    const fetchGDollarClaimHistory = async () => {
       if (!address || !publicClient) return
 
       try {
