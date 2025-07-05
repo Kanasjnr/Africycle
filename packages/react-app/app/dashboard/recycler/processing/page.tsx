@@ -452,7 +452,7 @@ function ProcessingBatchItem({ batch, onComplete, isProcessing }: ProcessingBatc
 
   const handleComplete = () => {
     const outputAmountNum = parseFloat(outputAmount)
-    if (!outputAmountNum || outputAmountNum <= 0) {
+    if (isNaN(outputAmountNum) || outputAmountNum <= 0) {
       toast.error("Please enter a valid output amount")
       return
     }
@@ -511,10 +511,12 @@ function ProcessingBatchItem({ batch, onComplete, isProcessing }: ProcessingBatc
                 <label className="text-sm font-medium">Output Amount (kg)</label>
                 <Input
                   type="number"
-                  placeholder="Enter output amount"
+                  placeholder="e.g., 0.5 for 500g"
                   value={outputAmount}
                   onChange={(e) => setOutputAmount(e.target.value)}
+                  min="0"
                   max={Number(batch.inputAmount)}
+                  step="0.01"
                   className="mt-1"
                 />
               </div>
@@ -535,7 +537,7 @@ function ProcessingBatchItem({ batch, onComplete, isProcessing }: ProcessingBatc
             </div>
             <Button 
               onClick={handleComplete}
-              disabled={isProcessing || !outputAmount}
+              disabled={isProcessing || !outputAmount.trim() || isNaN(parseFloat(outputAmount)) || parseFloat(outputAmount) <= 0}
               className="w-full"
             >
               <IconCheck className="mr-2 h-4 w-4" />
