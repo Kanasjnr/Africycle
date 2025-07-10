@@ -1118,7 +1118,7 @@ export default function MapPage() {
       const accepted: any[] = []
       
       // Search through collection IDs to find user's collections
-      const MAX_ATTEMPTS = 50
+      const MAX_ATTEMPTS = 20
       for (let i = 0; i < MAX_ATTEMPTS; i++) {
         try {
           const collectionDetails = await africycle.getCollectionDetails(BigInt(i))
@@ -1140,7 +1140,7 @@ export default function MapPage() {
               name: `Collection #${i}`,
               address: collectionData.location,
               distance: "Unknown",
-              weight: `${collectionData.weight.toString()}g`,
+              weight: `${collectionData.weight.toString()}kg`,
               wasteType: getWasteTypeString(collectionData.wasteType),
               status: collectionData.status,
               timestamp: collectionData.timestamp,

@@ -1057,15 +1057,10 @@ export class AfriCycle {
       // Handle decimal amounts by converting to the same units as input
       let outputAmountBigInt: bigint;
       if (typeof outputAmount === 'number') {
-        // The input amount shows us what units the contract uses
-        // If input is 2000 for 2kg, then we need to multiply by 1000
-        // If input is 2 for 2kg, then we use the number directly
-        const inputAmountNum = Number(batchDetails.inputAmount);
-        const inputKg = 2; // We know this batch has 2kg input
-        const unitsPerKg = inputAmountNum / inputKg;
-
-        console.log(`Debug: Contract uses ${unitsPerKg} units per kg`);
-        outputAmountBigInt = BigInt(Math.floor(outputAmount * unitsPerKg));
+        
+        outputAmountBigInt = BigInt(Math.floor(outputAmount));
+        
+        console.log(`Debug: Converting output amount ${outputAmount} to ${outputAmountBigInt.toString()}`);
       } else {
         outputAmountBigInt = outputAmount;
       }
