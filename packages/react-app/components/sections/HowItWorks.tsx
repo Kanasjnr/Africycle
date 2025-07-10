@@ -13,23 +13,23 @@ export default function HowItWorks() {
   const steps = [
     {
       icon: <Smartphone className="h-10 w-10 text-primary" />,
-      title: "Waste Collection",
-      description: "Collectors gather waste and document it through the mobile app with photo verification.",
+      title: "Register & Connect Wallet",
+      description: "Create account, connect wallet, and get verified as a collector or recycler on the platform.",
     },
     {
       icon: <Recycle className="h-10 w-10 text-primary" />,
-      title: "Verification & Processing",
-      description: "Waste is verified at collection centers and processed according to stream-specific protocols.",
+      title: "Photo Verification",
+      description: "Take photos of waste, upload , add weight and location details for verification.",
     },
     {
       icon: <BarChart4 className="h-10 w-10 text-primary" />,
-      title: "Tokenized Rewards",
-      description: "Collectors receive cryptocurrency payments based on quantity and quality of materials.",
+      title: "Processing & Approval",
+      description: "Recyclers verify collections, process waste batches, and approve payments through the dashboard.",
     },
     {
       icon: <Building2 className="h-10 w-10 text-primary" />,
-      title: "Corporate Integration",
-      description: "Businesses purchase recycled materials and verified sustainability credits.",
+      title: "Earn & Claim Rewards",
+      description: "Get paid in cUSD for collections, claim daily G$ UBI, and trade materials in the marketplace.",
     },
   ]
 

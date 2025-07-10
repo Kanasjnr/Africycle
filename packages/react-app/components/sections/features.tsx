@@ -10,8 +10,8 @@ export default function Features() {
     },
     {
       icon: <Wallet className="h-12 w-12 text-primary" />,
-      title: "Tokenized Incentives",
-      description: "Direct cryptocurrency payments to collectors with tokenized environmental impact credits.",
+      title: "Dual Income System",
+      description: "Collectors earn cUSD payments for waste collection work plus daily G$ (GoodDollar) UBI claims as supplemental income, creating stable financial support.",
     },
     {
       icon: <BarChart3 className="h-12 w-12 text-primary" />,
