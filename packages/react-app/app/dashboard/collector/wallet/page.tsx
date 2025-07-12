@@ -1209,7 +1209,7 @@ export default function WalletPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Earnings</p>
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{totalEarnings.toFixed(4)} cUSD</h3>
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{totalEarnings.toFixed(2)} cUSD</h3>
                   </div>
                 </div>
               </Card>
@@ -1223,7 +1223,7 @@ export default function WalletPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground">G$ UBI Available</p>
                     <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">
-                      {isCheckingWhitelist ? "Checking..." : formatEther(gDollarEntitlement)} G$
+                      {isCheckingWhitelist ? "Checking..." : parseFloat(formatEther(gDollarEntitlement)).toFixed(1)} G$
                     </h3>
                   </div>
                 </div>
@@ -1309,7 +1309,7 @@ export default function WalletPage() {
                     >
                       {isClaiming ? "Claiming..." : (
                         <>
-                          <span className="hidden sm:inline">Claim {formatEther(gDollarEntitlement)} G$ UBI</span>
+                          <span className="hidden sm:inline">Claim {parseFloat(formatEther(gDollarEntitlement)).toFixed(1)} G$ UBI</span>
                           <span className="sm:hidden">Claim G$ UBI</span>
                         </>
                       )}
