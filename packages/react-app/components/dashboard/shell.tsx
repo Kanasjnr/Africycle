@@ -29,10 +29,7 @@ interface DashboardShellProps {
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname()
   const { role, isLoading } = useRole()
-  const isCollector = role === "collector"
-  const isRecycler = role === "recycler"
-
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
   const africycle = useAfriCycle({
@@ -74,17 +71,49 @@ export function DashboardShell({ children }: DashboardShellProps) {
   useEffect(() => {
     console.log("DashboardShell - Role:", role)
     console.log("DashboardShell - Loading:", isLoading)
+    console.log("DashboardShell - Connected:", isConnected)
     console.log("DashboardShell - User Profile:", userProfile)
-  }, [role, isLoading, userProfile])
+  }, [role, isLoading, isConnected, userProfile])
+
+  // Determine user role from current path if role is not available
+  const inferRoleFromPath = (): 'collector' | 'recycler' | null => {
+    if (pathname.includes('/dashboard/collector')) return 'collector'
+    if (pathname.includes('/dashboard/recycler')) return 'recycler'
+    return null
+  }
+
+  // Get the effective role (from provider or inferred from path)
+  const effectiveRole = role || inferRoleFromPath()
+
+  // Determine if we should show navigation
+  // Show navigation if:
+  // 1. User is connected and has a role, OR
+  // 2. User is on a dashboard page (for page reload scenario)
+  const shouldShowNavigation = (isConnected && effectiveRole && !isLoading) || 
+                               (pathname.startsWith('/dashboard') && effectiveRole)
+
+  // Determine navigation items
+  const getNavigationItems = () => {
+    if (!effectiveRole) return []
+    
+    switch (effectiveRole) {
+      case 'collector':
+        return collectorNavItems
+      case 'recycler':
+        return recyclerNavItems
+      default:
+        return []
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      {!isLoading && role && (
+      {!isLoading && effectiveRole && (
         <Header 
           heading="Dashboard"
           text="Welcome to your dashboard"
-          role={role as "collector" | "recycler"}
+          role={effectiveRole as "collector" | "recycler"}
           name={userProfile?.name || "Not Registered"}
         />
       )}
@@ -94,14 +123,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
         {children}
       </main>
 
-      {/* Bottom Navigation */}
-      {!isLoading && role && (
+      {/* Bottom Navigation - Improved Logic */}
+      {shouldShowNavigation && (
         <BottomNav 
-          items={
-            isCollector ? collectorNavItems :
-            isRecycler ? recyclerNavItems :
-            []
-          } 
+          items={getNavigationItems()}
         />
       )}
     </div>
