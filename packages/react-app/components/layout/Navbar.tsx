@@ -6,10 +6,14 @@ import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useMiniPay } from '@/providers/AppProvider';
+import { useAccount } from 'wagmi';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isMiniPay, isAutoConnecting } = useMiniPay();
+  const { isConnected } = useAccount();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,10 +33,33 @@ export default function Navbar() {
         setIsMobileMenuOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Render connect button or loading state
+  const renderWalletConnection = () => {
+    if (isMiniPay) {
+      if (isAutoConnecting) {
+        return (
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <span>Connecting...</span>
+          </div>
+        );
+      }
+      if (isConnected) {
+        return (
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span>Connected</span>
+          </div>
+        );
+      }
+      return null; // Hide connect button for MiniPay users
+    }
+    return <ConnectButton />;
+  };
 
   return (
     <header
@@ -77,7 +104,7 @@ export default function Navbar() {
               How It Works
             </Link>
            
-            <ConnectButton />
+            {renderWalletConnection()}
           </nav>
 
           <div className="md:hidden">
@@ -135,7 +162,7 @@ export default function Navbar() {
                 Stakeholders
               </Link>
               <div className="py-2">
-                <ConnectButton />
+                {renderWalletConnection()}
               </div>
             </nav>
           </div>
