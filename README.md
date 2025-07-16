@@ -179,7 +179,7 @@ AfriCycle is built on the **Celo blockchain** for:
 
 ### Security & Compliance
 - **Security Framework**: Comprehensive security documentation ([📖 View Details](docs/SECURITY.md))
-- **Bug Bounty Program**: $100-$10,000 reward structure ([📖 View Program](docs/BUG_BOUNTY.md))
+- **Bug Bounty Program**:([📖 View Program](docs/BUG_BOUNTY.md))
 - **Audit Schedule**: Professional security audit (August 2025) ([📖 View Schedule](docs/SECURITY_AUDIT_SCHEDULE.md))
 - **Incident Response**: Complete incident response procedures ([📖 View Procedures](docs/SECURITY.md#-incident-response))
 
