@@ -1,4 +1,5 @@
-import { defineConfig } from 'vitest/config'
+/// <reference types="vitest" />
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -29,11 +30,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './'),
+      '@local-contracts': path.resolve(__dirname, '../hardhat'),
     },
-  },
-  define: {
-    // Enable real environment variables for integration tests
-    'process.env': process.env,
   },
 })

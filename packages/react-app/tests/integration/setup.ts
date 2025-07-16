@@ -130,11 +130,9 @@ Object.defineProperty(window, 'matchMedia', {
   writable: true,
 })
 
-// Mock requestAnimationFrame
 global.requestAnimationFrame = vi.fn((cb: any) => {
   return setTimeout(cb, 16) as any;
 });
 global.cancelAnimationFrame = vi.fn(id => clearTimeout(id))
 
-// Note: For integration tests, we DON'T mock wagmi hooks
-// This allows real blockchain interactions with test networks
+
