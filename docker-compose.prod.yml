@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # Frontend React App (Production)
+  frontend:
+    build:
+      context: ./packages/react-app
+      dockerfile: Dockerfile
+      target: production
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_CELO_RPC_URL=${NEXT_PUBLIC_CELO_RPC_URL}
+      - NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS=${NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS}
+      - NEXT_PUBLIC_WC_PROJECT_ID=${NEXT_PUBLIC_WC_PROJECT_ID}
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
+      - NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+      - CLOUDINARY_URL=${CLOUDINARY_URL}
+    depends_on:
+      - postgres
+    networks:
+      - africycle-network
+    restart: unless-stopped
+
+  # PostgreSQL Database (Production)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - africycle-network
+    restart: unless-stopped
+
+  # Redis for caching (Production)
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - africycle-network
+    restart: unless-stopped
+
+  # Nginx reverse proxy (Production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+      - ./docker/nginx/logs:/var/log/nginx
+    depends_on:
+      - frontend
+    networks:
+      - africycle-network
+    restart: unless-stopped
+
+  # Monitoring with Prometheus (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - africycle-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # Grafana for metrics visualization (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - africycle-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  africycle-network:
+    driver: bridge 

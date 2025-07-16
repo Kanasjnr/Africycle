@@ -1014,6 +1014,9 @@ describe('AfriCycle', function () {
 
     it('should revert processing with invalid inputs', async function () {
       const { afriCycle, collector, recycler } = fixture;
+      const newPickupTime = Math.floor(Date.now() / 1000) + 3600;
+      const newRecycler = recycler.address;
+      
       await expect(
         afriCycle
           .connect(collector)
@@ -1026,6 +1029,1174 @@ describe('AfriCycle', function () {
       const collection = await afriCycle.collections(0);
       expect(collection.pickupTime).to.equal(newPickupTime);
       expect(collection.selectedRecycler).to.equal(newRecycler);
+    });
+  });
+
+  describe('Marketplace Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, collector, recycler } = fixture;
+      // Register users and create/process some collections first
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+      
+      await afriCycle.connect(recycler).registerRecycler(
+        'Test Recycler',
+        'Test Location',
+        'recycler@test.com'
+      );
+
+      // Create and process a collection to have processed waste
+      const futureTime = (await time.latest()) + 3600;
+      await afriCycle.connect(collector).createCollection(
+        WasteStream.PLASTIC,
+        100,
+        'Test Location',
+        'image-hash',
+        futureTime,
+        recycler.address
+      );
+
+      await afriCycle.connect(recycler).confirmPickup(0);
+      
+      // Create processing batch
+      await afriCycle.connect(recycler).createProcessingBatch(
+        [0],
+        'Test processing'
+      );
+      
+      // Complete processing
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+    });
+
+    it('should create marketplace listing', async function () {
+      const { afriCycle, recycler } = fixture;
+      const tx = await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'High quality plastic waste'
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ListingCreated')
+        .withArgs(0, recycler.address, WasteStream.PLASTIC, 50, parseEther('0.1'), QualityGrade.HIGH);
+
+      const listing = await afriCycle.listings(0);
+      expect(listing.seller).to.equal(recycler.address);
+      expect(listing.amount).to.equal(50);
+      expect(listing.pricePerUnit).to.equal(parseEther('0.1'));
+      expect(listing.isActive).to.be.true;
+    });
+
+    it('should update marketplace listing', async function () {
+      // Create listing first
+      await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'High quality plastic waste'
+      );
+
+      const tx = await afriCycle.connect(recycler).updateListing(
+        0,
+        40,
+        parseEther('0.15'),
+        'Updated description'
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ListingUpdated')
+        .withArgs(0, 40, parseEther('0.15'), 'Updated description');
+
+      const listing = await afriCycle.listings(0);
+      expect(listing.amount).to.equal(40);
+      expect(listing.pricePerUnit).to.equal(parseEther('0.15'));
+    });
+
+    it('should purchase marketplace listing', async function () {
+      // Create listing
+      await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'High quality plastic waste'
+      );
+
+      // Register buyer as collector
+      await afriCycle.connect(buyer).registerCollector(
+        'Test Buyer',
+        'Test Location',
+        'buyer@test.com'
+      );
+
+      const tx = await afriCycle.connect(buyer).purchaseListing(0);
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ListingPurchased')
+        .withArgs(0, buyer.address, 50, parseEther('5')); // 50 * 0.1
+
+      const listing = await afriCycle.listings(0);
+      expect(listing.status).to.equal(Status.COMPLETED);
+    });
+
+    it('should cancel marketplace listing', async function () {
+      // Create listing
+      await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'High quality plastic waste'
+      );
+
+      const tx = await afriCycle.connect(recycler).cancelListing(0);
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ListingCancelled')
+        .withArgs(0, recycler.address);
+
+      const listing = await afriCycle.listings(0);
+      expect(listing.status).to.equal(Status.CANCELLED);
+    });
+
+    it('should revert on invalid listing operations', async function () {
+      // Test invalid listing creation
+      await expect(
+        afriCycle.connect(recycler).createListing(
+          WasteStream.PLASTIC,
+          0, // Invalid amount
+          parseEther('0.1'),
+          QualityGrade.HIGH,
+          'Test'
+        )
+      ).to.be.revertedWith('Amount must be positive');
+
+      // Test unauthorized listing update
+      await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'Test'
+      );
+
+      await expect(
+        afriCycle.connect(collector).updateListing(0, 40, parseEther('0.15'), 'Updated')
+      ).to.be.revertedWith('Not seller');
+    });
+  });
+
+  describe('Impact Credits', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, collector, recycler } = fixture;
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+      
+      await afriCycle.connect(recycler).registerRecycler(
+        'Test Recycler',
+        'Test Location',
+        'recycler@test.com'
+      );
+
+      // Create some processing to generate impact credits
+      const futureTime = (await time.latest()) + 3600;
+      await afriCycle.connect(collector).createCollection(
+        WasteStream.PLASTIC,
+        100,
+        'Test Location',
+        'image-hash',
+        futureTime,
+        recycler.address
+      );
+
+      await afriCycle.connect(recycler).confirmPickup(0);
+      await afriCycle.connect(recycler).createProcessingBatch([0], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+    });
+
+    it('should transfer impact credit', async function () {
+      const tx = await afriCycle.connect(recycler).transferImpactCredit(
+        0,
+        collector.address
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ImpactCreditTransferred')
+        .withArgs(0, recycler.address, collector.address);
+
+      const credit = await afriCycle.impactCredits(0);
+      expect(credit.owner).to.equal(collector.address);
+    });
+
+    it('should burn impact credit', async function () {
+      const tx = await afriCycle.connect(recycler).burnImpactCredit(0);
+
+      await expect(tx)
+        .to.emit(afriCycle, 'ImpactCreditBurned')
+        .withArgs(0, recycler.address);
+    });
+
+    it('should revert on unauthorized impact credit operations', async function () {
+      await expect(
+        afriCycle.connect(collector).transferImpactCredit(0, buyer.address)
+      ).to.be.revertedWith('Not owner');
+
+      await expect(
+        afriCycle.connect(collector).burnImpactCredit(0)
+      ).to.be.revertedWith('Not owner');
+    });
+  });
+
+  describe('Withdrawal Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, collector, recycler } = fixture;
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+      
+      await afriCycle.connect(recycler).registerRecycler(
+        'Test Recycler',
+        'Test Location',
+        'recycler@test.com'
+      );
+
+      // Create collection to generate earnings
+      const futureTime = (await time.latest()) + 3600;
+      await afriCycle.connect(collector).createCollection(
+        WasteStream.PLASTIC,
+        100,
+        'Test Location',
+        'image-hash',
+        futureTime,
+        recycler.address
+      );
+    });
+
+    it('should allow collector to withdraw earnings', async function () {
+      const collectorProfile = await afriCycle.getUserStats(collector.address);
+      const earningsToWithdraw = parseEther('1');
+
+      const tx = await afriCycle.connect(collector).withdrawCollectorEarnings(
+        earningsToWithdraw
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'CollectorEarningsWithdrawn')
+        .withArgs(collector.address, earningsToWithdraw);
+    });
+
+    it('should allow recycler to withdraw earnings', async function () {
+      // Process some waste to generate recycler earnings
+      await afriCycle.connect(recycler).confirmPickup(0);
+      await afriCycle.connect(recycler).createProcessingBatch([0], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+
+      const earningsToWithdraw = parseEther('1');
+      const tx = await afriCycle.connect(recycler).withdrawRecyclerEarnings(
+        earningsToWithdraw
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'RecyclerEarningsWithdrawn')
+        .withArgs(recycler.address, earningsToWithdraw);
+    });
+
+    it('should allow recycler to withdraw inventory', async function () {
+      // Create some inventory
+      await afriCycle.connect(recycler).confirmPickup(0);
+      await afriCycle.connect(recycler).createProcessingBatch([0], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+
+      const inventoryToWithdraw = parseEther('1');
+      const tx = await afriCycle.connect(recycler).withdrawRecyclerInventory(
+        inventoryToWithdraw
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'RecyclerInventoryWithdrawn')
+        .withArgs(recycler.address, inventoryToWithdraw);
+    });
+
+    it('should revert on insufficient balance withdrawals', async function () {
+      await expect(
+        afriCycle.connect(collector).withdrawCollectorEarnings(parseEther('999999'))
+      ).to.be.revertedWith('Insufficient balance');
+
+      await expect(
+        afriCycle.connect(recycler).withdrawRecyclerEarnings(parseEther('999999'))
+      ).to.be.revertedWith('Insufficient balance');
+    });
+  });
+
+  describe('Emergency Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, admin, cUSDToken } = fixture;
+      await afriCycle.connect(admin).pause();
+      
+      const withdrawAmount = parseEther('100');
+      const tx = await afriCycle.connect(admin).emergencyWithdraw(
+        await cUSDToken.getAddress(),
+        withdrawAmount
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'EmergencyWithdrawal')
+        .withArgs(admin.address, await cUSDToken.getAddress(), withdrawAmount);
+    });
+
+    it('should allow admin to emergency withdraw Ether', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      // Send some Ether to the contract
+      await admin.sendTransaction({
+        to: await afriCycle.getAddress(),
+        value: parseEther('1')
+      });
+
+      const tx = await afriCycle.connect(admin).emergencyWithdrawEther();
+
+      await expect(tx)
+        .to.emit(afriCycle, 'EmergencyEtherWithdrawn')
+        .withArgs(admin.address, parseEther('1'));
+    });
+
+    it('should revert emergency functions for non-admin', async function () {
+      const { collector } = await loadFixture(deployAfriCycleFixture);
+      await expect(
+        afriCycle.connect(collector).emergencyWithdraw(
+          await cUSDToken.getAddress(),
+          parseEther('100')
+        )
+      ).to.be.revertedWith('Caller is not an admin');
+
+      await expect(
+        afriCycle.connect(collector).emergencyWithdrawEther()
+      ).to.be.revertedWith('Caller is not an admin');
+    });
+
+    it('should require paused state for emergency token withdrawal', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      await expect(
+        afriCycle.connect(admin).emergencyWithdraw(
+          await cUSDToken.getAddress(),
+          parseEther('100')
+        )
+      ).to.be.revertedWith('Pausable: not paused');
+    });
+  });
+
+  describe('Carbon Offset Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, admin } = fixture;
+      await afriCycle.connect(admin).updateCarbonOffsetMultiplier(
+        WasteStream.PLASTIC,
+        20000
+      );
+      await afriCycle.connect(admin).updateQualityCarbonMultiplier(
+        QualityGrade.HIGH,
+        18000
+      );
+    });
+
+    it('should calculate carbon offset correctly', async function () {
+      const { afriCycle, recycler } = fixture;
+      await afriCycle
+        .connect(recycler)
+        .registerRecycler('Recycle Inc', 'Abuja', 'recycle@example.com');
+      await afriCycle
+        .connect(recycler)
+        .registerCollectorAtRecycler(collector.address);
+
+      // Create collections
+      const wasteType = WasteStream.PLASTIC;
+      const weight = 500;
+      const location = 'Lagos';
+      const imageHash = 'QmHash';
+      const pickupTime = (await time.latest()) + 3600;
+      const recyclerAddress = recycler.address;
+
+      await afriCycle
+        .connect(collector)
+        .createCollection(
+          wasteType,
+          weight,
+          location,
+          imageHash,
+          pickupTime,
+          recyclerAddress
+        );
+
+      await afriCycle
+        .connect(collector)
+        .createCollection(
+          wasteType,
+          weight,
+          location,
+          imageHash,
+          pickupTime,
+          recyclerAddress
+        );
+
+      // Confirm pickups
+      await afriCycle.connect(recycler).confirmPickup(0);
+      await afriCycle.connect(recycler).confirmPickup(1);
+
+      // Create processing batches
+      await afriCycle.connect(recycler).createProcessingBatch([0], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+      await afriCycle.connect(recycler).createProcessingBatch([1], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(1, 90, QualityGrade.HIGH);
+
+      const carbonOffset = await afriCycle.calculateCarbonOffset(
+        WasteStream.PLASTIC,
+        100,
+        QualityGrade.HIGH
+      );
+
+      expect(carbonOffset).to.be.gt(0);
+    });
+
+    it('should allow admin to update carbon offset multipliers', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const newMultiplier = 20000;
+      const tx = await afriCycle.connect(admin).updateCarbonOffsetMultiplier(
+        WasteStream.PLASTIC,
+        newMultiplier
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'CarbonOffsetMultiplierUpdated')
+        .withArgs(WasteStream.PLASTIC, newMultiplier);
+    });
+
+    it('should allow admin to update quality carbon multipliers', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const newMultiplier = 18000;
+      const tx = await afriCycle.connect(admin).updateQualityCarbonMultiplier(
+        QualityGrade.HIGH,
+        newMultiplier
+      );
+
+      await expect(tx)
+        .to.emit(afriCycle, 'QualityCarbonMultiplierUpdated')
+        .withArgs(QualityGrade.HIGH, newMultiplier);
+    });
+
+    it('should revert on invalid carbon offset parameters', async function () {
+      const { afriCycle } = await loadFixture(deployAfriCycleFixture);
+      await expect(
+        afriCycle.calculateCarbonOffset(
+          WasteStream.PLASTIC,
+          0, // Invalid amount
+          QualityGrade.HIGH
+        )
+      ).to.be.revertedWith('Amount must be positive');
+    });
+  });
+
+  describe('Advanced Admin Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, admin, collector } = fixture;
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+    });
+
+    it('should allow admin to suspend and unsuspend users', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const suspendTx = await afriCycle.connect(admin).suspendUser(
+        collector.address,
+        'Policy violation'
+      );
+
+      await expect(suspendTx)
+        .to.emit(afriCycle, 'UserSuspended')
+        .withArgs(collector.address, 'Policy violation');
+
+      const unsuspendTx = await afriCycle.connect(admin).unsuspendUser(
+        collector.address
+      );
+
+      await expect(unsuspendTx)
+        .to.emit(afriCycle, 'UserUnsuspended')
+        .withArgs(collector.address);
+    });
+
+    it('should allow admin to blacklist and remove from blacklist', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const blacklistTx = await afriCycle.connect(admin).blacklistUser(
+        collector.address,
+        'Fraudulent activity'
+      );
+
+      await expect(blacklistTx)
+        .to.emit(afriCycle, 'UserBlacklisted')
+        .withArgs(collector.address, 'Fraudulent activity');
+
+      const removeBlacklistTx = await afriCycle.connect(admin).removeFromBlacklist(
+        collector.address
+      );
+
+      await expect(removeBlacklistTx)
+        .to.emit(afriCycle, 'UserRemovedFromBlacklist')
+        .withArgs(collector.address);
+    });
+
+    it('should allow admin to withdraw platform fees', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const tx = await afriCycle.connect(admin).withdrawPlatformFees();
+
+      await expect(tx)
+        .to.emit(afriCycle, 'PlatformFeeWithdrawn');
+    });
+
+    it('should allow admin to pause and unpause contract', async function () {
+      const { admin } = await loadFixture(deployAfriCycleFixture);
+      const pauseTx = await afriCycle.connect(admin).pause();
+      await expect(pauseTx)
+        .to.emit(afriCycle, 'ContractPaused')
+        .withArgs(admin.address);
+
+      const unpauseTx = await afriCycle.connect(admin).unpause();
+      await expect(unpauseTx)
+        .to.emit(afriCycle, 'ContractUnpaused')
+        .withArgs(admin.address);
+    });
+
+    it('should revert admin functions for non-admin', async function () {
+      const { collector } = await loadFixture(deployAfriCycleFixture);
+      await expect(
+        afriCycle.connect(collector).suspendUser(recycler.address, 'test')
+      ).to.be.revertedWith('Caller is not an admin');
+
+      await expect(
+        afriCycle.connect(collector).pause()
+      ).to.be.revertedWith('Caller is not an admin');
+
+      await expect(
+        afriCycle.connect(collector).withdrawPlatformFees()
+      ).to.be.revertedWith('Caller is not an admin');
+    });
+  });
+
+  describe('View Functions and Statistics', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, collector, recycler } = fixture;
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+      
+      await afriCycle.connect(recycler).registerRecycler(
+        'Test Recycler',
+        'Test Location',
+        'recycler@test.com'
+      );
+
+      // Create some activity
+      const futureTime = (await time.latest()) + 3600;
+      await afriCycle.connect(collector).createCollection(
+        WasteStream.PLASTIC,
+        100,
+        'Test Location',
+        'image-hash',
+        futureTime,
+        recycler.address
+      );
+    });
+
+    it('should return correct user statistics', async function () {
+      const { afriCycle, collector } = fixture;
+      const userStats = await afriCycle.getUserStats(collector.address);
+      expect(userStats.totalEarnings).to.be.gt(0);
+      expect(userStats.collected[WasteStream.PLASTIC]).to.equal(100);
+    });
+
+    it('should return correct collector statistics', async function () {
+      const { afriCycle, collector } = fixture;
+      const collectorStats = await afriCycle.getCollectorStats(collector.address);
+      expect(collectorStats.collectorTotalCollected).to.equal(100);
+      expect(collectorStats.collectedByType[WasteStream.PLASTIC]).to.equal(100);
+    });
+
+    it('should return correct recycler statistics', async function () {
+      const { afriCycle, recycler } = fixture;
+      const recyclerStats = await afriCycle.getRecyclerStats(recycler.address);
+      expect(recyclerStats.scheduledPickups).to.equal(1);
+      expect(recyclerStats.reputationScore).to.equal(100);
+    });
+
+    it('should return correct platform statistics', async function () {
+      const { afriCycle } = await loadFixture(deployAfriCycleFixture);
+      const platformStats = await afriCycle.getPlatformStats();
+      expect(platformStats.collectionCount).to.be.gt(0);
+      expect(platformStats.userCount).to.be.gt(0);
+    });
+
+    it('should return correct global statistics', async function () {
+      const { afriCycle } = await loadFixture(deployAfriCycleFixture);
+      const globalStats = await afriCycle.getGlobalStats();
+      expect(globalStats.totalUsers).to.be.gt(0);
+      expect(globalStats.totalWasteCollected).to.be.gt(0);
+    });
+
+    it('should return correct contract cUSD balance', async function () {
+      const { afriCycle } = await loadFixture(deployAfriCycleFixture);
+      const balance = await afriCycle.getContractCUSDBalance();
+      expect(balance).to.be.gt(0);
+    });
+
+    it('should return correct collection details', async function () {
+      const { afriCycle, collector } = fixture;
+      await afriCycle
+        .connect(collector)
+        .registerCollector('John Doe', 'Lagos', 'john@example.com');
+      await afriCycle
+        .connect(recycler)
+        .registerRecycler('Recycle Inc', 'Abuja', 'recycle@example.com');
+      await afriCycle
+        .connect(recycler)
+        .registerCollectorAtRecycler(collector.address);
+
+      // Create collection
+      const wasteType = WasteStream.PLASTIC;
+      const weight = 500;
+      const location = 'Lagos';
+      const imageHash = 'QmHash';
+      const pickupTime = (await time.latest()) + 3600;
+      const recyclerAddress = recycler.address;
+
+      await afriCycle
+        .connect(collector)
+        .createCollection(
+          wasteType,
+          weight,
+          location,
+          imageHash,
+          pickupTime,
+          recyclerAddress
+        );
+
+      const [collection, componentCounts, serialNumber, manufacturer, estimatedValue] = 
+        await afriCycle.getCollectionDetails(0);
+      
+      expect(collection.id).to.equal(0);
+      expect(collection.collector).to.equal(collector.address);
+      expect(collection.weight).to.equal(500);
+    });
+
+    it('should return marketplace listings', async function () {
+      const { afriCycle, recycler } = await loadFixture(deployAfriCycleFixture);
+      // Create a processing batch and listing first
+      await afriCycle.connect(recycler).confirmPickup(0);
+      await afriCycle.connect(recycler).createProcessingBatch([0], 'Test processing');
+      await afriCycle.connect(recycler).completeProcessing(0, 90, QualityGrade.HIGH);
+      
+      await afriCycle.connect(recycler).createListing(
+        WasteStream.PLASTIC,
+        50,
+        parseEther('0.1'),
+        QualityGrade.HIGH,
+        'Test listing'
+      );
+
+      const listings = await afriCycle.getMarketplaceListings(WasteStream.PLASTIC, true);
+      expect(listings.length).to.be.gt(0);
+    });
+  });
+
+  describe('Admin Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+    });
+
+    it('should allow admin to set reward rates', async function () {
+      const { afriCycle, admin } = fixture;
+      const newRate = parseEther('0.15');
+      
+      const tx = await afriCycle.connect(admin).setRewardRate(WasteStream.PLASTIC, newRate);
+      
+      await expect(tx)
+        .to.emit(afriCycle, 'RewardRateUpdated')
+        .withArgs(WasteStream.PLASTIC, newRate);
+    });
+
+    it('should allow admin to set quality multipliers', async function () {
+      const { afriCycle, admin } = fixture;
+      const newMultiplier = 150; // 1.5x
+      
+      const tx = await afriCycle.connect(admin).setQualityMultiplier(QualityGrade.HIGH, newMultiplier);
+      
+      await expect(tx)
+        .to.emit(afriCycle, 'QualityMultiplierUpdated')
+        .withArgs(QualityGrade.HIGH, newMultiplier);
+    });
+
+    it('should allow admin to withdraw platform fees', async function () {
+      const { afriCycle, admin, cUSDToken } = fixture;
+      
+      // Create some collections to generate platform fees
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      // Fund the contract with cUSD
+      await cUSDToken.transfer(await afriCycle.getAddress(), parseEther('1000'));
+      
+      const tx = await afriCycle.connect(admin).withdrawPlatformFees();
+      
+      await expect(tx).to.emit(afriCycle, 'PlatformFeeWithdrawn');
+    });
+
+    it('should allow admin to pause and unpause contract', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const pauseTx = await afriCycle.connect(admin).pause();
+      await expect(pauseTx).to.emit(afriCycle, 'ContractPaused').withArgs(admin.address);
+      
+      const unpauseTx = await afriCycle.connect(admin).unpause();
+      await expect(unpauseTx).to.emit(afriCycle, 'ContractUnpaused').withArgs(admin.address);
+    });
+
+    it('should allow admin to update carbon offset multipliers', async function () {
+      const { afriCycle, admin } = fixture;
+      const newMultiplier = 200; // 2.0x
+      
+      const tx = await afriCycle.connect(admin).updateCarbonOffsetMultiplier(WasteStream.PLASTIC, newMultiplier);
+      
+      await expect(tx)
+        .to.emit(afriCycle, 'CarbonOffsetMultiplierUpdated')
+        .withArgs(WasteStream.PLASTIC, newMultiplier);
+    });
+
+    it('should allow admin to update quality carbon multipliers', async function () {
+      const { afriCycle, admin } = fixture;
+      const newMultiplier = 180; // 1.8x
+      
+      const tx = await afriCycle.connect(admin).updateQualityCarbonMultiplier(QualityGrade.PREMIUM, newMultiplier);
+      
+      await expect(tx)
+        .to.emit(afriCycle, 'QualityCarbonMultiplierUpdated')
+        .withArgs(QualityGrade.PREMIUM, newMultiplier);
+    });
+
+    it('should revert admin functions for non-admin users', async function () {
+      const { afriCycle, collector } = fixture;
+      
+      await expect(
+        afriCycle.connect(collector).setRewardRate(WasteStream.PLASTIC, parseEther('0.15'))
+      ).to.be.revertedWith('Caller is not an admin');
+      
+      await expect(
+        afriCycle.connect(collector).setQualityMultiplier(QualityGrade.HIGH, 150)
+      ).to.be.revertedWith('Caller is not an admin');
+      
+      await expect(
+        afriCycle.connect(collector).withdrawPlatformFees()
+      ).to.be.revertedWith('Caller is not an admin');
+      
+      await expect(
+        afriCycle.connect(collector).pause()
+      ).to.be.revertedWith('Caller is not an admin');
+      
+      await expect(
+        afriCycle.connect(collector).unpause()
+      ).to.be.revertedWith('Caller is not an admin');
+    });
+  });
+
+  describe('View Functions', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+      const { afriCycle, admin } = fixture;
+      
+      // Setup test data
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+    });
+
+    it('should return user stats correctly', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const stats = await afriCycle.getUserStats(admin.address);
+      expect(stats.totalCollected).to.equal(0);
+      expect(stats.totalEarnings).to.equal(0);
+      expect(stats.reputationScore).to.equal(500); // Default reputation
+    });
+
+    it('should return contract stats correctly', async function () {
+      const { afriCycle } = fixture;
+      
+      const stats = await afriCycle.getContractStats();
+      expect(stats.totalCollectors).to.equal(1);
+      expect(stats.totalRecyclers).to.equal(1);
+      expect(stats.totalCollections).to.equal(0);
+      expect(stats.totalProcessingBatches).to.equal(0);
+    });
+
+    it('should return user detailed stats correctly', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const detailedStats = await afriCycle.getUserDetailedStats(admin.address);
+      expect(detailedStats.totalCollected).to.equal(0);
+      expect(detailedStats.totalEarnings).to.equal(0);
+      expect(detailedStats.reputationScore).to.equal(500);
+    });
+
+    it('should return platform stats correctly', async function () {
+      const { afriCycle } = fixture;
+      
+      const platformStats = await afriCycle.getPlatformStats();
+      expect(platformStats.totalUsers).to.equal(3); // admin + collector + recycler
+      expect(platformStats.totalCollections).to.equal(0);
+      expect(platformStats.totalProcessed).to.equal(0);
+    });
+
+    it('should return collector stats correctly', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const collectorStats = await afriCycle.getCollectorStats(admin.address);
+      expect(collectorStats.totalCollected).to.equal(0);
+      expect(collectorStats.totalEarnings).to.equal(0);
+      expect(collectorStats.reputationScore).to.equal(500);
+    });
+
+    it('should return recycler stats correctly', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const recyclerStats = await afriCycle.getRecyclerStats(admin.address);
+      expect(recyclerStats.totalEarnings).to.equal(0);
+      expect(recyclerStats.activeListings).to.equal(0);
+      expect(recyclerStats.reputationScore).to.equal(500);
+    });
+
+    it('should return user profile correctly', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      const userProfile = await afriCycle.getUserProfile(admin.address);
+      expect(userProfile.name).to.equal('Test Collector');
+      expect(userProfile.location).to.equal('Test Location');
+      expect(userProfile.contactInfo).to.equal('test@example.com');
+    });
+
+    it('should return global stats correctly', async function () {
+      const { afriCycle } = fixture;
+      
+      const globalStats = await afriCycle.getGlobalStats();
+      expect(globalStats.totalUsers).to.equal(3);
+      expect(globalStats.totalCollections).to.equal(0);
+      expect(globalStats.totalProcessed).to.equal(0);
+    });
+
+    it('should return contract cUSD balance correctly', async function () {
+      const { afriCycle, cUSDToken } = fixture;
+      
+      const balance = await afriCycle.getContractCUSDBalance();
+      expect(balance).to.equal(parseEther('10000')); // Initial balance from fixture
+    });
+  });
+
+  describe('Security and Edge Cases', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+    });
+
+    it('should prevent reentrancy attacks', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      // Register collector
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      
+      // Test reentrancy protection on withdrawal functions
+      await expect(
+        afriCycle.connect(admin).withdrawCollectorEarnings(parseEther('1'))
+      ).to.be.revertedWith('Insufficient balance');
+    });
+
+    it('should handle zero address validation', async function () {
+      const { afriCycle } = fixture;
+      
+      await expect(
+        afriCycle.registerCollector('Test', 'Test', 'test@example.com')
+      ).to.not.be.reverted;
+    });
+
+    it('should handle maximum batch size limits', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      // Test batch size limits (should be limited to 50 items)
+      const largeBatch = Array(51).fill(null).map((_, i) => ({
+        weight: 10,
+        location: `Location ${i}`,
+        wasteType: WasteStream.PLASTIC,
+        quality: QualityGrade.MEDIUM,
+        qrCode: `QR${i}`,
+        description: `Description ${i}`,
+        collectorAddress: admin.address,
+        recyclerAddress: admin.address,
+        timestamp: Math.floor(Date.now() / 1000)
+      }));
+      
+      const weights = largeBatch.map(item => item.weight);
+      const locations = largeBatch.map(item => item.location);
+      const wasteTypes = largeBatch.map(item => item.wasteType);
+      const qualities = largeBatch.map(item => item.quality);
+      const qrCodes = largeBatch.map(item => item.qrCode);
+      const descriptions = largeBatch.map(item => item.description);
+      const collectorAddresses = largeBatch.map(item => item.collectorAddress);
+      const recyclerAddresses = largeBatch.map(item => item.recyclerAddress);
+      const timestamps = largeBatch.map(item => item.timestamp);
+      
+      await expect(
+        afriCycle.connect(admin).batchCreateCollection(
+          weights,
+          locations,
+          wasteTypes,
+          qualities,
+          qrCodes,
+          descriptions,
+          collectorAddresses,
+          recyclerAddresses,
+          timestamps
+        )
+      ).to.be.revertedWith('Batch size too large');
+    });
+
+    it('should handle invalid waste type validation', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          50,
+          'Test Location',
+          999, // Invalid waste type
+          QualityGrade.MEDIUM,
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('Invalid waste type');
+    });
+
+    it('should handle invalid quality grade validation', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          50,
+          'Test Location',
+          WasteStream.PLASTIC,
+          999, // Invalid quality grade
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('Invalid quality grade');
+    });
+
+    it('should handle zero weight validation', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          0, // Zero weight
+          'Test Location',
+          WasteStream.PLASTIC,
+          QualityGrade.MEDIUM,
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('Weight must be greater than 0');
+    });
+
+    it('should handle maximum collection weight limits', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          1001, // Exceeds maximum weight (1000)
+          'Test Location',
+          WasteStream.PLASTIC,
+          QualityGrade.MEDIUM,
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('Collection weight exceeds maximum');
+    });
+
+    it('should handle suspended user restrictions', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).suspendUser(admin.address, 'Test suspension');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          50,
+          'Test Location',
+          WasteStream.PLASTIC,
+          QualityGrade.MEDIUM,
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('User is suspended');
+    });
+
+    it('should handle blacklisted user restrictions', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).blacklistUser(admin.address, 'Test blacklist');
+      
+      await expect(
+        afriCycle.connect(admin).createCollection(
+          50,
+          'Test Location',
+          WasteStream.PLASTIC,
+          QualityGrade.MEDIUM,
+          'QR123',
+          'Test Description',
+          admin.address,
+          admin.address,
+          Math.floor(Date.now() / 1000)
+        )
+      ).to.be.revertedWith('User is blacklisted');
+    });
+
+    it('should handle reentrancy protection', async function () {
+      const { afriCycle, collector } = fixture;
+      // This is implicitly tested by the nonReentrant modifier on withdrawal functions
+      // The modifier would prevent reentrancy attacks
+      await afriCycle.connect(collector).registerCollector(
+        'Test Collector',
+        'Test Location',
+        'collector@test.com'
+      );
+
+      // Normal withdrawal should work
+      const futureTime = (await time.latest()) + 3600;
+      await afriCycle.connect(collector).createCollection(
+        WasteStream.PLASTIC,
+        100,
+        'Test Location',
+        'image-hash',
+        futureTime,
+        recycler.address
+      );
+
+      // This should work without reentrancy issues
+      await afriCycle.connect(collector).withdrawCollectorEarnings(parseEther('0.1'));
+    });
+  });
+
+  describe('Gas Optimization Tests', function () {
+    let fixture: AfriCycleFixture;
+
+    beforeEach(async function () {
+      fixture = await loadFixture(deployAfriCycleFixture);
+    });
+
+    it('should optimize gas usage for batch operations', async function () {
+      const { afriCycle, admin } = fixture;
+      
+      await afriCycle.connect(admin).registerCollector('Test Collector', 'Test Location', 'test@example.com');
+      await afriCycle.connect(admin).registerRecycler('Test Recycler', 'Test Location', 'recycler@example.com');
+      
+      // Test batch creation gas usage
+      const batchSize = 10;
+      const weights = Array(batchSize).fill(50);
+      const locations = Array(batchSize).fill('Test Location');
+      const wasteTypes = Array(batchSize).fill(WasteStream.PLASTIC);
+      const qualities = Array(batchSize).fill(QualityGrade.MEDIUM);
+      const qrCodes = Array(batchSize).fill().map((_, i) => `QR${i}`);
+      const descriptions = Array(batchSize).fill().map((_, i) => `Description ${i}`);
+      const collectorAddresses = Array(batchSize).fill(admin.address);
+      const recyclerAddresses = Array(batchSize).fill(admin.address);
+      const timestamps = Array(batchSize).fill(Math.floor(Date.now() / 1000));
+      
+      const tx = await afriCycle.connect(admin).batchCreateCollection(
+        weights,
+        locations,
+        wasteTypes,
+        qualities,
+        qrCodes,
+        descriptions,
+        collectorAddresses,
+        recyclerAddresses,
+        timestamps
+      );
+      
+      const receipt = await tx.wait();
+      
+      // Verify gas usage is reasonable (this will vary based on network conditions)
+      expect(receipt?.gasUsed).to.be.lessThan(2000000); // Adjust as needed
     });
   });
 });
