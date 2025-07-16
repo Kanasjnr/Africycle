@@ -22,17 +22,23 @@ beforeAll(() => {
 })
 
 // Mock DOM APIs that may not be available in jsdom
-global.ResizeObserver = vi.fn(() => ({
+// Mock ResizeObserver
+const ResizeObserverMock = vi.fn(() => ({
   observe: vi.fn(),
   disconnect: vi.fn(),
   unobserve: vi.fn(),
-}))
+})) as any;
 
-global.IntersectionObserver = vi.fn(() => ({
+global.ResizeObserver = ResizeObserverMock;
+
+// Mock IntersectionObserver
+const IntersectionObserverMock = vi.fn(() => ({
   observe: vi.fn(),
   disconnect: vi.fn(),
   unobserve: vi.fn(),
-}))
+})) as any;
+
+global.IntersectionObserver = IntersectionObserverMock;
 
 // Mock canvas context for hero animations
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
@@ -42,7 +48,67 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   beginPath: vi.fn(),
   arc: vi.fn(),
   fill: vi.fn(),
-}))
+  strokeStyle: '',
+  stroke: vi.fn(),
+  lineWidth: 1,
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  closePath: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  translate: vi.fn(),
+  rotate: vi.fn(),
+  scale: vi.fn(),
+  createLinearGradient: vi.fn(),
+  createRadialGradient: vi.fn(),
+  createPattern: vi.fn(),
+  drawImage: vi.fn(),
+  getImageData: vi.fn(),
+  putImageData: vi.fn(),
+  createImageData: vi.fn(),
+  setTransform: vi.fn(),
+  resetTransform: vi.fn(),
+  globalAlpha: 1,
+  globalCompositeOperation: 'source-over',
+  shadowBlur: 0,
+  shadowColor: '',
+  shadowOffsetX: 0,
+  shadowOffsetY: 0,
+  filter: 'none',
+  imageSmoothingEnabled: true,
+  lineCap: 'butt',
+  lineJoin: 'miter',
+  miterLimit: 10,
+  textAlign: 'start',
+  textBaseline: 'alphabetic',
+  font: '10px sans-serif',
+  fillText: vi.fn(),
+  strokeText: vi.fn(),
+  measureText: vi.fn(),
+  canvas: {} as HTMLCanvasElement,
+  getLineDash: vi.fn(),
+  setLineDash: vi.fn(),
+  lineDashOffset: 0,
+  direction: 'ltr',
+  clip: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  arcTo: vi.fn(),
+  ellipse: vi.fn(),
+  rect: vi.fn(),
+  roundRect: vi.fn(),
+  isPointInPath: vi.fn(),
+  isPointInStroke: vi.fn(),
+  scrollPathIntoView: vi.fn(),
+  createConicGradient: vi.fn(),
+  fontKerning: 'auto',
+  fontStretch: 'normal',
+  fontVariantCaps: 'normal',
+  letterSpacing: '0px',
+  textRendering: 'auto',
+  wordSpacing: '0px',
+  imageSmoothingQuality: 'low',
+})) as any;
 
 // Mock window methods
 Object.defineProperty(window, 'scrollTo', {
@@ -65,7 +131,9 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 // Mock requestAnimationFrame
-global.requestAnimationFrame = vi.fn(cb => setTimeout(cb, 0))
+global.requestAnimationFrame = vi.fn((cb: any) => {
+  return setTimeout(cb, 16) as any;
+});
 global.cancelAnimationFrame = vi.fn(id => clearTimeout(id))
 
 // Note: For integration tests, we DON'T mock wagmi hooks
