@@ -9,7 +9,15 @@
     "build:static": "next build && next export",
     "build:netlify": "next build && mkdir -p netlify-build && cp -r .next/static netlify-build/_next && cp -r .next/server/app netlify-build/ && echo '<!DOCTYPE html><html><head><meta charset=\"utf-8\"><script>window.location.href=\"/dashboard\"</script></head><body>Redirecting...</body></html>' > netlify-build/index.html",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:unit": "jest --testPathPattern=tests/unit",
+    "test:integration": "vitest run",
+    "test:integration:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:coverage": "jest --coverage && vitest run --coverage",
+    "test:watch": "jest --watch --testPathPattern=tests/unit"
   },
   "dependencies": {
     "@divvi/referral-sdk": "^1.0.0",
@@ -65,18 +73,30 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "@shadcn/ui": "^0.0.4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
     "@types/minimatch": "^5.1.2",
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.57",
     "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.6.0",
+    "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-config-next": "13.5.7",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "null-loader": "^4.0.1",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
     "worker-loader": "^3.0.8"
   },
   "browser": {
