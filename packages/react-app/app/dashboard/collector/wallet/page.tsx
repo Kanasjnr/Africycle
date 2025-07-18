@@ -248,7 +248,6 @@ export default function WalletPage() {
   const [userStats, setUserStats] = useState<any>(null)
   const [isRegistered, setIsRegistered] = useState<boolean>(false)
   const [isRegistering, setIsRegistering] = useState(false)
-  const [contractBalance, setContractBalance] = useState<bigint>(BigInt(0))
 
   // G$ UBI state
   const [gDollarEntitlement, setGDollarEntitlement] = useState<bigint>(BigInt(0))
@@ -974,14 +973,7 @@ export default function WalletPage() {
         }) as bigint
         setCusdBalance(cusdBalance)
         
-        // Fetch contract's cUSD balance to check if withdrawals are possible
-        const contractCusdBalance = await publicClient.readContract({
-          address: CUSD_TOKEN_ADDRESS,
-          abi: erc20ABI,
-          functionName: 'balanceOf',
-          args: [CONTRACT_ADDRESS]
-        }) as bigint
-        setContractBalance(contractCusdBalance)
+        // Note: Contract balance is checked during withdrawal, not displayed to users
       } catch (error) {
         console.error("Error fetching balances:", error)
       }
@@ -1342,6 +1334,109 @@ export default function WalletPage() {
                 </div>
               </Card>
             </div>
+
+            {/* Withdraw Earnings Section */}
+            <Card className="p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                <IconSend className="h-5 w-5" />
+                Withdraw Earnings
+              </h3>
+              {!isRegistered ? (
+                <div className="text-center py-6 sm:py-8">
+                  <IconWallet className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                  <h4 className="text-base sm:text-lg font-medium mb-2">Register as Collector</h4>
+                  <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4">
+                    You need to register as a collector to earn and withdraw funds
+                  </p>
+                  <Button 
+                    onClick={handleRegisterCollector}
+                    disabled={isRegistering}
+                    className="w-full sm:w-auto"
+                  >
+                    {isRegistering ? (
+                      <div className="flex items-center gap-2">
+                        <IconClock className="h-4 w-4 animate-spin" />
+                        Registering...
+                      </div>
+                    ) : (
+                      "Register as Collector"
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div>
+                      <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Amount (cUSD)</label>
+                      <Input
+                        type="number"
+                        placeholder="Enter amount to withdraw"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        max={parseFloat(formatEther(collectorEarnings))}
+                        step="0.01"
+                        disabled={isWithdrawing}
+                        className="text-sm sm:text-base"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Available: {formatEther(collectorEarnings)} cUSD
+                      </p>
+                    </div>
+                    <Button 
+                      className="w-full text-xs sm:text-sm" 
+                      onClick={handleWithdraw}
+                      disabled={isWithdrawing || !withdrawAmount || collectorEarnings === BigInt(0)}
+                    >
+                      {isWithdrawing ? (
+                        <div className="flex items-center gap-2">
+                          <IconClock className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                          Processing...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <IconSend className="h-3 w-3 sm:h-4 sm:w-4" />
+                          Withdraw Earnings
+                        </div>
+                      )}
+                    </Button>
+                    {collectorEarnings === BigInt(0) && (
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center">
+                        No earnings to withdraw. Complete waste collections to earn rewards.
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-3 text-xs sm:text-sm">
+                    <h4 className="font-medium">Account Status</h4>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Network:</span>
+                      <span className="font-medium">{getChainName(chainId)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Address:</span>
+                      <button
+                        onClick={() => copyToClipboard(address || "")}
+                        className="font-mono text-xs hover:text-primary cursor-pointer flex items-center gap-1"
+                      >
+                        {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
+                        <IconCopy className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
+                        {isConnected ? "Connected" : "Disconnected"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Collector Status:</span>
+                      <Badge variant={isRegistered ? "default" : "destructive"} className="text-xs">
+                        {isRegistered ? "Registered" : "Not Registered"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
 
             {/* Recent Transactions */}
             <Card className="p-4 sm:p-6">
