@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card, CardContent } from "@/components/ui/card"
@@ -94,7 +94,7 @@ const arrayToCollection = (data: WasteCollection, id: number): Collection | null
 };
 
 function CollectionDetailsPage() {
-  const params = useParams()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { address } = useAccount()
   const [collection, setCollection] = useState<Collection | null>(null)
@@ -111,6 +111,9 @@ function CollectionDetailsPage() {
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL
   })
+
+  // Get the ID from query parameters
+  const id = searchParams.get('id')
 
   // Fetch recycler profile when collection is loaded
   useEffect(() => {
@@ -146,7 +149,7 @@ function CollectionDetailsPage() {
 
   useEffect(() => {
     const fetchCollection = async () => {
-      if (!address || !africycle || !params.id) {
+      if (!address || !africycle || !id) {
         setError("Missing required data")
         setLoading(false)
         return
@@ -155,7 +158,7 @@ function CollectionDetailsPage() {
       try {
         setLoading(true)
         setError(null)
-        const collectionId = parseInt(params.id as string)
+        const collectionId = parseInt(id)
         
         if (isNaN(collectionId)) {
           throw new Error("Invalid collection ID")
@@ -199,7 +202,7 @@ function CollectionDetailsPage() {
     }
 
     fetchCollection()
-  }, [address, africycle, params.id])
+  }, [address, africycle, id])
 
   if (loading) {
     return (

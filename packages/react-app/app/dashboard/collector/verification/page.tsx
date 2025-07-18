@@ -250,7 +250,7 @@ const CollectionItem = memo(
             size="sm"
             onClick={() =>
               router.push(
-                `/dashboard/collector/verification/${collection.collectionId}`
+                `/dashboard/collector/verification/id?id=${collection.collectionId}`
               )
             }
             className="w-full sm:w-auto"
@@ -682,9 +682,9 @@ export default function PhotoVerificationPage() {
       console.log('Debug: Starting collection search...');
       
       let currentId = 0;
-      const MAX_ATTEMPTS = 10; // Increased search range
+      const MAX_ATTEMPTS = 100; 
       let consecutiveEmptyCount = 0;
-      const MAX_CONSECUTIVE_EMPTY = 20; // Allow more empty slots
+      const MAX_CONSECUTIVE_EMPTY = 20; 
       
       while (currentId < MAX_ATTEMPTS && consecutiveEmptyCount < MAX_CONSECUTIVE_EMPTY) {
         try {

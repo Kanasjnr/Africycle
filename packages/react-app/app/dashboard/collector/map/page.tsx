@@ -1118,7 +1118,7 @@ export default function MapPage() {
       const accepted: any[] = []
       
       // Search through collection IDs to find user's collections
-      const MAX_ATTEMPTS = 20
+      const MAX_ATTEMPTS = 100
       for (let i = 0; i < MAX_ATTEMPTS; i++) {
         try {
           const collectionDetails = await africycle.getCollectionDetails(BigInt(i))
