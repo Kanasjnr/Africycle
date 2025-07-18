@@ -16,8 +16,8 @@ export default function NotFound() {
       
       // If it looks like a valid ID, redirect to the dynamic page
       if (id && !isNaN(Number(id))) {
-        // Use client-side navigation to the dynamic route
-        window.location.href = `/dashboard/collector/verification/[id]/?id=${id}`
+        // Use client-side navigation to the id page with query parameters
+        window.location.href = `/dashboard/collector/verification/id?id=${id}`
         return
       }
     }
