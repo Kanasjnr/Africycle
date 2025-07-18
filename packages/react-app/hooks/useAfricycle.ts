@@ -791,8 +791,8 @@ export class AfriCycle {
       // Use a much more efficient approach
       let collectionId = 0;
       let consecutiveFailures = 0;
-      const maxConsecutiveFailures = 5; // Reduced from 10
-      const maxTotalChecks = 10; // Maximum total collections to check
+      const maxConsecutiveFailures = 10; // Stop after 10 consecutive failures
+      const maxTotalChecks = 100; // Maximum total collections to check (increased to cover more collections)
 
       while (
         consecutiveFailures < maxConsecutiveFailures &&
@@ -939,8 +939,8 @@ export class AfriCycle {
       // For now, we'll try to get batches by incrementing ID (not ideal)
       let batchId = 0;
       let consecutiveFailures = 0;
-      const maxConsecutiveFailures = 5; // Reduced from 10
-      const maxTotalChecks = 10; // Maximum total batches to check
+      const maxConsecutiveFailures = 10; // Stop after 10 consecutive failures
+      const maxTotalChecks = 100; // Maximum total batches to check (increased to cover more batches)
 
       console.log(
         'Debug: Will check up to',
@@ -2089,7 +2089,7 @@ export class AfriCycle {
       // Query collections incrementally until we hit the end
       let collectionId = 0;
       const batchSize = 10;
-      const maxCollections = 20; // Safety limit to prevent infinite loops
+      const maxCollections = 100; // Safety limit to prevent infinite loops (increased to cover more collections)
 
       while (collectionId < maxCollections) {
         const promises = [];
