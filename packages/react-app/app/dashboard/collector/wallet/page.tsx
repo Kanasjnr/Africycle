@@ -304,6 +304,9 @@ export default function WalletPage() {
       
       // Only initialize if we have all required dependencies
       if (!address || !publicClient || !walletClient || !identitySDK) {
+        if (!identitySDK) {
+          console.warn('🟡 G$ UBI: identitySDK is undefined. Check SDK initialization and provider setup.')
+        }
         console.log('🟡 G$ UBI: Missing dependencies, skipping initialization')
         return
       }
@@ -322,6 +325,13 @@ export default function WalletPage() {
         console.log('🔵 G$ UBI: Checking whitelist status...')
         setIsCheckingWhitelist(true)
         
+        // GUARD: Ensure identitySDK is defined before calling its methods
+        if (!identitySDK) {
+          console.warn('❌ G$ UBI: identitySDK is undefined at whitelist check. Aborting initialization.')
+          setIsCheckingWhitelist(false)
+          setIsInitializingSDK(false)
+          return
+        }
         const { isWhitelisted, root } = await identitySDK.getWhitelistedRoot(address)
         console.log('📊 G$ UBI: Whitelist result:', {
           isWhitelisted,
