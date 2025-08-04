@@ -21,7 +21,7 @@ export default function Footer() {
           </div>
 
           <div className="flex items-center space-x-10">
-            <Link href="https://docs.google.com/document/d/1Np5ef2_3wkdKblfs8z3pMGYNrAMkb_MYmV_yx_Q-nVI/edit?usp=sharing" target="_blank" rel="noopener noreferrer" className="text-lg text-muted-foreground hover:text-primary transition-colors font-medium">
+            <Link href="https://africycle.gitbook.io/africycle-docs/" target="_blank" rel="noopener noreferrer" className="text-lg text-muted-foreground hover:text-primary transition-colors font-medium">
               Documentation
             </Link>
             <Link href="https://africycle.hashnode.space/default-guide/africycle" target="_blank" rel="noopener noreferrer" className="text-lg text-muted-foreground hover:text-primary transition-colors font-medium">
@@ -41,7 +41,7 @@ export default function Footer() {
               <Github className="h-8 w-8" />
               <span className="sr-only">GitHub</span>
             </Link>
-            <Link href="https://t.me/+aCZcunVKdkw2NDc0" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+            <Link href="https://t.me/africycle" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
               <Send className="h-8 w-8" />
               <span className="sr-only">Telegram</span>
             </Link>
