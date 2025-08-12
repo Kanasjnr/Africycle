@@ -14,6 +14,13 @@ AfriCycle is a blockchain-powered circular economy platform that addresses Afric
 - **Platform Updates**: Regular feature releases and improvements
 - **Mobile Optimization**: Enhanced mobile experience for collectors and recyclers
 
+### 🏆 Recent Improvements (Based on Security Analysis)
+- **Enhanced Test Coverage**: Comprehensive 3-tier testing strategy (Unit, Integration, E2E)
+- **Improved Security**: Robust secrets management and security best practices
+- **Community Building**: Comprehensive strategy for growing developer community
+- **Better Documentation**: Enhanced contributing guidelines and templates
+- **CI/CD Pipeline**: Automated testing, security scanning, and deployment
+
 ## 🔄 System Workflow
 ```mermaid
 graph TD
@@ -284,7 +291,53 @@ yarn test:e2e
 yarn hardhat:test
 ```
 
-### 📊 Development Tools
+#### Test Coverage Requirements
+- **Frontend**: Minimum 80% coverage (Unit, Integration, E2E)
+- **Smart Contracts**: Minimum 90% coverage (Unit, Integration)
+- **CI/CD**: Automated testing on every pull request
+- **Security**: Automated security scanning and vulnerability checks
+
+### 🔒 Security & Best Practices
+- **Secrets Management**: Comprehensive guide for secure credential handling
+- **Code Quality**: Automated linting, formatting, and type checking
+- **Security Scanning**: Automated vulnerability detection
+- **Access Control**: Role-based permissions and authentication
+- **Audit Trail**: Complete logging and monitoring
+
+### 🌟 Community & Contribution
+We welcome contributions from developers, environmentalists, and blockchain enthusiasts! - [📖 Contributing Guide](docs/CONTRIBUTING.md)
+
+#### Quick Start for Contributors
+```bash
+# Fork and clone the repository
+git clone https://github.com/YOUR_USERNAME/Africycle.git
+cd Africycle
+
+# Set up development environment
+./scripts/docker-setup.sh
+
+# Create a feature branch
+git checkout -b feature/your-feature-name
+
+# Make your changes and run tests
+yarn test
+
+# Submit a pull request
+```
+
+#### Community Resources
+- **Telegram**: Join our community chat
+- **X/Twitter**: Follow us for updates and discussions
+- **GitHub Discussions**: Ask questions and share ideas
+- **Documentation**: Comprehensive guides and tutorials
+- **Bug Reports**: Use our detailed issue templates
+- **Feature Requests**: Submit enhancement proposals
+
+#### Community Programs
+- **Mentorship Program**: Pair with experienced developers
+- **Contributor Recognition**: Hall of fame and rewards
+
+### �� Development Tools
 
 #### Monitoring & Analytics
 - **Grafana Dashboard**: http://localhost:3001 (admin/admin)
