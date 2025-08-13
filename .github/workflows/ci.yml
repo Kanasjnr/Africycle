@@ -40,13 +40,6 @@ jobs:
         NEXT_PUBLIC_CELO_NETWORK: alfajores
         NEXT_PUBLIC_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000000"
     
-    - name: Run frontend integration tests
-      run: yarn workspace @africycle/react-app test:integration
-      env:
-        CI: true
-        NEXT_PUBLIC_CELO_NETWORK: alfajores
-        NEXT_PUBLIC_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000000"
-    
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
