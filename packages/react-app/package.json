@@ -11,11 +11,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --watchAll=false --coverageReporters=text --coverageReporters=lcov --coverageReporters=html",
     "test:unit": "jest --testPathPattern=tests/unit --coverage --watchAll=false",
-    "test:integration": "vitest run tests/integration",
-    "test:integration:watch": "vitest tests/integration",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:ci": "jest --coverage --watchAll=false --ci --coverageReporters=text --coverageReporters=lcov && vitest run tests/integration && playwright test",
+    "test:ci": "jest --coverage --watchAll=false --ci --coverageReporters=text --coverageReporters=lcov && playwright test",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -85,8 +83,6 @@
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.57",
     "@types/react-dom": "^18.2.19",
-    "@vitejs/plugin-react": "^4.6.0",
-    "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-config-next": "13.5.7",
@@ -98,7 +94,6 @@
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
     "worker-loader": "^3.0.8"
   },
   "browser": {
