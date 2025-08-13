@@ -1,22 +1,21 @@
 [build]
   base = "packages/react-app"
-  command = "npm run build:static"
-  publish = "out"
+  command = "npm run build"
+  publish = ".next"
 
 [dev]
   command = "npm run dev"
   port = 3001
-  publish = "out"
+  publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "18"
   NPM_FLAGS = "--legacy-peer-deps"
   SKIP_PREFLIGHT_CHECK = "true"
   CI = "false"
   # Force npm usage instead of yarn
   NPM_USE_PRODUCTION = "false"
   YARN_ENABLED = "false"
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [[headers]]
   for = "/*"
@@ -31,13 +30,7 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Client-side routing support for static export
-[[redirects]]
-  from = "/dashboard/*"
-  to = "/dashboard/index.html"
-  status = 200
-
-# Fallback for all other routes
+# Client-side routing support
 [[redirects]]
   from = "/*"
   to = "/index.html"

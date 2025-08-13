@@ -3,10 +3,6 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // Static export to completely bypass Netlify's Next.js runtime
-  output: 'export',
-  skipTrailingSlashRedirect: true,
-  
   images: {
     unoptimized: true,
     domains: ['res.cloudinary.com', 'images.unsplash.com'],
