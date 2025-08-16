@@ -28,7 +28,8 @@ import { formatEther, parseEther, createPublicClient, http } from "viem"
 import { celo } from 'viem/chains'
 
 // G$ UBI SDK imports 
-import { useIdentitySDK, ClaimSDK } from '@goodsdks/citizen-sdk'
+import { ClaimSDK } from '@goodsdks/citizen-sdk'
+import { useIdentitySDK } from '@goodsdks/identity-sdk'
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
@@ -353,7 +354,7 @@ export default function WalletPage() {
             account: address,
             publicClient,
             walletClient,
-            identitySDK: identitySDK,
+            identitySDK: identitySDK as any,
             env: 'production',
           })
           console.log('✅ G$ UBI: ClaimSDK created successfully')
