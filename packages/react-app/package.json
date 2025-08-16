@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@divvi/referral-sdk": "^1.0.0",
-    "@goodsdks/citizen-sdk": "^1.0.1",
+    "@goodsdks/citizen-sdk": "^1.2.0",
     "@goodsdks/identity-sdk": "^1.0.5",
     "@headlessui/react": "^2.1.10",
     "@heroicons/react": "^2.1.5",
@@ -68,8 +68,8 @@
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
-    "viem": "^2.0.0",
-    "wagmi": "^2.0.0",
+    "viem": "^2.33.3",
+    "wagmi": "^2.16.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
