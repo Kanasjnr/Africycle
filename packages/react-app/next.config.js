@@ -3,6 +3,10 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // Static export for Netlify
+  output: 'export',
+  trailingSlash: true,
+  
   images: {
     unoptimized: true,
     domains: ['res.cloudinary.com', 'images.unsplash.com'],
@@ -33,8 +37,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, 
   },
-  
-  trailingSlash: false,
   
   swcMinify: false,
 };
