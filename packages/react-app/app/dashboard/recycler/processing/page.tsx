@@ -34,6 +34,27 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { EmailService } from "@/lib/email-service"
 
+// Helper functions for email integration
+const extractEmailFromContactInfo = (contactInfo: string): string | null => {
+  if (!contactInfo) return null;
+  
+  // Simple email regex pattern
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  const match = contactInfo.match(emailRegex);
+  
+  return match ? match[0] : null;
+};
+
+const getWasteTypeDisplay = (wasteType: AfricycleWasteStream): string => {
+  const types = {
+    [AfricycleWasteStream.PLASTIC]: 'Plastic',
+    [AfricycleWasteStream.EWASTE]: 'E-Waste',
+    [AfricycleWasteStream.METAL]: 'Metal',
+    [AfricycleWasteStream.GENERAL]: 'General Waste'
+  };
+  return types[wasteType] || 'Unknown';
+};
+
 // Collection verification component
 interface VerificationItemProps {
   collection: WasteCollection
@@ -755,24 +776,20 @@ export default function MaterialVerificationPage() {
         try {
           const collectorProfile = await africycle.getUserProfile(collection.collector)
           const recyclerProfile = await africycle.getUserProfile(address)
-          const collectorEmail = EmailService.extractEmailFromContactInfo(collectorProfile.contactInfo)
+          const collectorEmail = extractEmailFromContactInfo(collectorProfile.contactInfo)
           
           if (collectorEmail) {
-            EmailService.sendCollectionConfirmed({
-              collectorEmail,
+            EmailService.sendCollectionEmail({
               collectionId: collection.id.toString(),
-              wasteType: EmailService.getWasteTypeNumber(collection.wasteType),
-              weight: Number(collection.weight),
-              pickupTime: Number(collection.pickupTime),
-              recyclerName: recyclerProfile.name || 'Recycler',
-              recyclerContact: recyclerProfile.contactInfo,
-              recyclerAddress: address,
-              estimatedEarnings: Number(collection.rewardAmount) / 1e18, // Convert from wei to cUSD
-            }).then((result) => {
-              if (result.success) {
-                console.log('Collection confirmed email sent successfully');
+              wasteType: getWasteTypeDisplay(collection.wasteType),
+              weight: collection.weight.toString(),
+              userEmail: collectorEmail,
+              status: 'confirmed',
+            }).then((success) => {
+              if (success) {
+                console.log('Collection confirmed email sent successfully via EmailJS');
               } else {
-                console.log('Collection confirmed email failed to send:', result.error);
+                console.log('Collection confirmed email failed to send via EmailJS');
               }
             }).catch((error) => {
               console.log('Collection confirmed email error:', error);
@@ -780,24 +797,29 @@ export default function MaterialVerificationPage() {
             
             // Send payment received email to collector (collectors get paid when collection is confirmed)
             const paymentAmount = Number(collection.rewardAmount) / 1e18 // Convert from wei to cUSD
-            const ratePerKg = paymentAmount / Number(collection.weight)
             
-            EmailService.sendPaymentReceived({
-              collectorEmail,
+            // Try to get transaction hash from the confirmation transaction
+            let transactionHash = undefined;
+            try {
+              // The confirmPickup transaction should be available in the current context
+              // For now, we'll leave it undefined but this could be enhanced
+              // transactionHash = confirmationReceipt.transactionHash;
+            } catch (hashError) {
+              console.log('Could not extract transaction hash:', hashError);
+            }
+            
+            EmailService.sendPaymentEmail({
+              amount: paymentAmount.toString(),
+              wasteType: getWasteTypeDisplay(collection.wasteType),
               collectionId: collection.id.toString(),
-              wasteType: EmailService.getWasteTypeNumber(collection.wasteType).toString(),
-              weight: Number(collection.weight),
-              amount: paymentAmount,
-              ratePerKg: ratePerKg,
-              qualityGrade: collection.quality === 0 ? 'Low' : 
-                          collection.quality === 1 ? 'Medium' : 
-                          collection.quality === 2 ? 'High' : 'Premium',
-              // transactionHash: could be added if available from blockchain response
-            }).then((result) => {
-              if (result.success) {
-                console.log('Payment received email sent successfully');
+              weight: collection.weight.toString(),
+              userEmail: collectorEmail,
+              transactionHash: transactionHash,
+            }).then((success) => {
+              if (success) {
+                console.log('Payment received email sent successfully via EmailJS');
               } else {
-                console.log('Payment received email failed to send:', result.error);
+                console.log('Payment received email failed to send via EmailJS');
               }
             }).catch((error) => {
               console.log('Payment received email error:', error);
@@ -816,21 +838,21 @@ export default function MaterialVerificationPage() {
         // Send collection rejected email to collector
         try {
           const collectorProfile = await africycle.getUserProfile(collection.collector)
-          const collectorEmail = EmailService.extractEmailFromContactInfo(collectorProfile.contactInfo)
+          const collectorEmail = extractEmailFromContactInfo(collectorProfile.contactInfo)
           
           if (collectorEmail) {
-            EmailService.sendCollectionRejected({
-              collectorEmail,
+            EmailService.sendCollectionEmail({
               collectionId: collection.id.toString(),
-              wasteType: EmailService.getWasteTypeNumber(collection.wasteType),
-              weight: Number(collection.weight),
-              pickupTime: Number(collection.pickupTime),
-              rejectionReason: reason || "Quality standards not met. Please review and improve for future collections.",
-            }).then((result) => {
-              if (result.success) {
-                console.log('Collection rejected email sent successfully');
+              wasteType: getWasteTypeDisplay(collection.wasteType),
+              weight: collection.weight.toString(),
+              userEmail: collectorEmail,
+              status: 'rejected',
+              reason: reason || "Quality standards not met. Please review and improve for future collections.",
+            }).then((success) => {
+              if (success) {
+                console.log('Collection rejected email sent successfully via EmailJS');
               } else {
-                console.log('Collection rejected email failed to send:', result.error);
+                console.log('Collection rejected email failed to send via EmailJS');
               }
             }).catch((error) => {
               console.log('Collection rejected email error:', error);
