@@ -48,6 +48,27 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/lib/email-service';
+
+// Helper functions for email integration
+const extractEmailFromContactInfo = (contactInfo: string): string | null => {
+  if (!contactInfo) return null;
+  
+  // Simple email regex pattern
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  const match = contactInfo.match(emailRegex);
+  
+  return match ? match[0] : null;
+};
+
+const getWasteTypeDisplay = (wasteType: AfricycleWasteStream): string => {
+  const types = {
+    [AfricycleWasteStream.PLASTIC]: 'Plastic',
+    [AfricycleWasteStream.EWASTE]: 'E-Waste',
+    [AfricycleWasteStream.METAL]: 'Metal',
+    [AfricycleWasteStream.GENERAL]: 'General Waste'
+  };
+  return types[wasteType] || 'Unknown';
+};
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -957,30 +978,41 @@ export default function PhotoVerificationPage() {
 
         toast.success('Collection created successfully!');
 
-        // Send collection request email to recycler (don't wait for it to complete)
+        // Send collection request email to recycler using EmailJS (don't wait for it to complete)
         const selectedRecycler = recyclers.find(r => r.address === state.form.recycler);
         if (selectedRecycler) {
-          const recyclerEmail = EmailService.extractEmailFromContactInfo(selectedRecycler.contactInfo);
+          const recyclerEmail = extractEmailFromContactInfo(selectedRecycler.contactInfo);
           if (recyclerEmail) {
-            // Get the collection ID from the transaction logs (approximate since we just created it)
-            const collectionId = Date.now().toString(); // Use timestamp as approximation
+            // Get the collection ID from the transaction logs
+            let collectionId = Date.now().toString(); // Fallback to timestamp
             
-            EmailService.sendCollectionRequest({
-              recyclerEmail,
+            // Try to get the actual collection ID from transaction logs
+            try {
+              const logs = receipt.logs;
+              // Look for CollectionCreated event
+              for (const log of logs) {
+                if (log.topics[0] === '0x' + 'CollectionCreated'.padEnd(64, '0')) {
+                  // Extract collection ID from event data
+                  const collectionIdHex = log.data.slice(0, 66); // First 32 bytes
+                  collectionId = BigInt(collectionIdHex).toString();
+                  break;
+                }
+              }
+            } catch (logError) {
+              console.log('Could not extract collection ID from logs, using timestamp:', logError);
+            }
+            
+            EmailService.sendCollectionEmail({
               collectionId,
-              wasteType: EmailService.getWasteTypeNumber(state.form.wasteType),
-              weight: parseFloat(state.form.weight),
-              location: state.form.location,
-              pickupTime: state.form.pickupTime,
-              collectorName: 'Collector', // Will be replaced with actual name from profile
-              collectorAddress: address,
-              collectorContact: 'Contact info not available',
-              imageHash: state.form.imageHash || undefined,
-            }).then((result) => {
-              if (result.success) {
-                console.log('Collection request email sent successfully');
+              wasteType: getWasteTypeDisplay(state.form.wasteType),
+              weight: state.form.weight,
+              userEmail: recyclerEmail,
+              status: 'request',
+            }).then((success) => {
+              if (success) {
+                console.log('Collection request email sent successfully via EmailJS');
               } else {
-                console.log('Collection request email failed to send:', result.error);
+                console.log('Collection request email failed to send via EmailJS');
               }
             }).catch((error) => {
               console.log('Collection request email error:', error);

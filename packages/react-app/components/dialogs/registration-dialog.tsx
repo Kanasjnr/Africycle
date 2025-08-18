@@ -298,17 +298,17 @@ export function RegistrationDialog() {
         'Registration transaction submitted! Waiting for confirmation...'
       );
 
-      // Send welcome email (don't wait for it to complete)
+      // Send welcome email using EmailJS (don't wait for it to complete)
       EmailService.sendWelcomeEmail({
         userType: data.role,
         userName: data.name,
         userEmail: data.email,
         walletAddress: address,
-      }).then((result) => {
-        if (result.success) {
-          console.log('Welcome email sent successfully');
+      }).then((success) => {
+        if (success) {
+          console.log('Welcome email sent successfully via EmailJS');
         } else {
-          console.log('Welcome email failed to send:', result.error);
+          console.log('Welcome email failed to send via EmailJS');
         }
       }).catch((error) => {
         console.log('Welcome email error:', error);
