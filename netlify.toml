@@ -1,12 +1,12 @@
 [build]
   base = "packages/react-app"
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
 [dev]
   command = "npm run dev"
   port = 3001
-  publish = ".next"
+  publish = "out"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -16,6 +16,9 @@
   # Force npm usage instead of yarn
   NPM_USE_PRODUCTION = "false"
   YARN_ENABLED = "false"
+  # Next.js specific environment variables
+  NEXT_TELEMETRY_DISABLED = "1"
+  NODE_ENV = "production"
 
 [[headers]]
   for = "/*"
@@ -30,8 +33,15 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Client-side routing support
+# Next.js static export redirects
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
+  status = 200
+
+# Client-side routing support for Next.js static export
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
