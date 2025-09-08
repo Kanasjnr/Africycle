@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { ArrowRight, Recycle, Shield, Globe } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -126,9 +127,11 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.2, duration: 0.5 }}
             >
-              <Button size="lg" className="bg-primary hover:bg-primary/90 font-bold text-base">
-                Join the Ecosystem <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <Link href="https://t.me/africycle" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 font-bold text-base">
+                  Join the Ecosystem <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
               <Button size="lg" variant="outline" className="font-bold text-base">
                 Learn More
               </Button>

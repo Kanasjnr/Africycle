@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { Users, Factory, Building, Home, Check } from "lucide-react"
 
 export default function Stakeholders() {
@@ -91,9 +92,11 @@ export default function Stakeholders() {
                 consistent supply, corporations achieve sustainability goals, and communities benefit from cleaner
                 environments.
               </p>
-              <Button size="lg" className="bg-primary hover:bg-primary/90">
-                Join the Ecosystem
-              </Button>
+              <Link href="https://t.me/africycle" target="_blank" rel="noopener noreferrer">
+                <Button size="lg" className="bg-primary hover:bg-primary/90">
+                  Join the Ecosystem
+                </Button>
+              </Link>
             </div>
             <div className="order-1 lg:order-2">
               <Image
