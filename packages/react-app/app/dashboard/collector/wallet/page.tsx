@@ -249,6 +249,8 @@ export default function WalletPage() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [isWithdrawing, setIsWithdrawing] = useState(false)
   const [payoutToken, setPayoutToken] = useState<'cUSD' | 'cNGN' | 'cKES'>('cUSD')
+  const [slippageBps, setSlippageBps] = useState<number>(50) // 0.5%
+  const [quotePreview, setQuotePreview] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<TransactionProps[]>([])
   const [lastFetchedBlock, setLastFetchedBlock] = useState<bigint | null>(null)
   const [earnings, setEarnings] = useState<Earning[]>([])
@@ -1413,6 +1415,30 @@ export default function WalletPage() {
                         </Select>
                         <p className="text-[11px] text-muted-foreground mt-1">If not cUSD, we will swap to the selected token after withdrawing.</p>
                       </div>
+                      {payoutToken !== 'cUSD' && (
+                        <div className="mt-3 p-3 rounded-md border bg-muted/30">
+                          <div className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="text-muted-foreground">Estimated receive</span>
+                            <span className="font-medium">{quotePreview ? `${quotePreview} ${payoutToken}` : '—'}</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-xs sm:text-sm">
+                            <span className="text-muted-foreground">Slippage</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={500}
+                                step={5}
+                                value={slippageBps}
+                                onChange={(e) => setSlippageBps(Math.max(0, Math.min(500, Number(e.target.value) || 0)))}
+                                className="w-20 border rounded px-2 py-1 text-right bg-background"
+                              />
+                              <span className="text-muted-foreground">bps</span>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-[11px] text-muted-foreground">Preview only. We will quote and swap via Mento after withdrawal.</p>
+                        </div>
+                      )}
                     </div>
                     <Button 
                       className="w-full text-xs sm:text-sm" 
