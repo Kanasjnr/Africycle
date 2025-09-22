@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import {
@@ -35,6 +36,11 @@ import { useIdentitySDK } from '@goodsdks/identity-sdk'
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://forno.celo.org"
 const CUSD_TOKEN_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`
+const MENTO_TOKENS = {
+  cUSD: CUSD_TOKEN_ADDRESS,
+  cNGN: "0xE2702Bd97ee33c88c8f6f92DA3B733608aa76F71" as `0x${string}`,
+  cKES: "0x456a3D042C0DbD3db53D5489e98dFb038553B0d0" as `0x${string}`,
+} as const
 
 // G$ contract addresses (Celo mainnet)
 const G_DOLLAR_TOKEN_ADDRESS = "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A" as `0x${string}`
@@ -242,6 +248,7 @@ export default function WalletPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [isWithdrawing, setIsWithdrawing] = useState(false)
+  const [payoutToken, setPayoutToken] = useState<'cUSD' | 'cNGN' | 'cKES'>('cUSD')
   const [transactions, setTransactions] = useState<TransactionProps[]>([])
   const [lastFetchedBlock, setLastFetchedBlock] = useState<bigint | null>(null)
   const [earnings, setEarnings] = useState<Earning[]>([])
@@ -1392,6 +1399,20 @@ export default function WalletPage() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Available: {formatEther(collectorEarnings)} cUSD
                       </p>
+                      <div className="mt-3">
+                        <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Payout Token</label>
+                        <Select value={payoutToken} onValueChange={(v) => setPayoutToken(v as any)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select token" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cUSD">cUSD (no swap)</SelectItem>
+                            <SelectItem value="cNGN">cNGN (Mento)</SelectItem>
+                            <SelectItem value="cKES">cKES (Mento)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[11px] text-muted-foreground mt-1">If not cUSD, we will swap to the selected token after withdrawing.</p>
+                      </div>
                     </div>
                     <Button 
                       className="w-full text-xs sm:text-sm" 
