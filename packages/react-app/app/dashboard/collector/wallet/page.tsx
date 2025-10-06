@@ -802,6 +802,12 @@ export default function WalletPage() {
       return
     }
     
+    // Gate local stablecoin payouts until integration is ready
+    if (payoutToken !== 'cUSD') {
+      toast.info("Local stablecoin payouts (cNGN/cKES) are coming soon")
+      return
+    }
+    
     try {
       setIsWithdrawing(true)
       
@@ -932,7 +938,7 @@ export default function WalletPage() {
     } finally {
       setIsWithdrawing(false)
     }
-  }, [address, africycle, withdrawAmount, collectorEarnings, isRegistered, publicClient])
+  }, [address, africycle, withdrawAmount, collectorEarnings, isRegistered, publicClient, payoutToken])
 
   // Fetch user stats and earnings data
   useEffect(() => {
@@ -1403,17 +1409,24 @@ export default function WalletPage() {
                       </p>
                       <div className="mt-3">
                         <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">Payout Token</label>
-                        <Select value={payoutToken} onValueChange={(v) => setPayoutToken(v as any)}>
+                        <Select value={payoutToken} onValueChange={(v) => {
+                          if (v === 'cNGN' || v === 'cKES') {
+                            toast.info('Local stablecoin support is coming soon')
+                            setPayoutToken('cUSD')
+                            return
+                          }
+                          setPayoutToken(v as any)
+                        }}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select token" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="cUSD">cUSD (no swap)</SelectItem>
-                            <SelectItem value="cNGN">cNGN (Mento)</SelectItem>
-                            <SelectItem value="cKES">cKES (Mento)</SelectItem>
+                            <SelectItem value="cUSD">cUSD (available)</SelectItem>
+                            <SelectItem value="cNGN">cNGN (Coming soon)</SelectItem>
+                            <SelectItem value="cKES">cKES (Coming soon)</SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-[11px] text-muted-foreground mt-1">If not cUSD, we will swap to the selected token after withdrawing.</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">Non-cUSD payouts are coming soon.</p>
                       </div>
                       {payoutToken !== 'cUSD' && (
                         <div className="mt-3 p-3 rounded-md border bg-muted/30">
@@ -1436,7 +1449,7 @@ export default function WalletPage() {
                               <span className="text-muted-foreground">bps</span>
                             </div>
                           </div>
-                          <p className="mt-2 text-[11px] text-muted-foreground">Preview only. We will quote and swap via Mento after withdrawal.</p>
+                          <p className="mt-2 text-[11px] text-muted-foreground">Coming soon: automatic swaps via Mento after withdrawal.</p>
                         </div>
                       )}
                     </div>
