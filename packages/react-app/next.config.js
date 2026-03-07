@@ -5,13 +5,13 @@ const path = require('path');
 const nextConfig = {
   reactStrictMode: true,
   
-  // Static export for Netlify
-  output: 'export',
+  // Static export removed for Vercel deployment
+  // output: 'export',
   trailingSlash: true,
   
-  // Disable image optimization for static export
+  // Image optimization enabled for Vercel
   images: {
-    unoptimized: true,
+    // unoptimized: true,
     domains: ['res.cloudinary.com', 'images.unsplash.com'],
     remotePatterns: [
       {
