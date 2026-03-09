@@ -32,6 +32,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const { address, isConnected } = useAccount()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
+  const [profileLoading, setProfileLoading] = useState(true)
+
   const africycle = useAfriCycle({
     contractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`,
     rpcUrl: process.env.NEXT_PUBLIC_CELO_RPC_URL as string,
@@ -40,6 +42,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   useEffect(() => {
     async function loadUserProfile() {
       if (!address || !africycle) {
+        setProfileLoading(false)
         return
       }
 
@@ -61,6 +64,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
         setUserProfile(mappedProfile)
       } catch (error) {
         console.error("Error loading user profile:", error)
+      } finally {
+        setProfileLoading(false)
       }
     }
 
@@ -68,24 +73,17 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, [address, africycle])
 
 
-  // Determine user role from current path if role is not available
   const inferRoleFromPath = (): 'collector' | 'recycler' | null => {
     if (pathname.includes('/dashboard/collector')) return 'collector'
     if (pathname.includes('/dashboard/recycler')) return 'recycler'
     return null
   }
 
-  // Get the effective role (from provider or inferred from path)
   const effectiveRole = role || inferRoleFromPath()
 
-  // Determine if we should show navigation
-  // Show navigation if:
-  // 1. User is connected and has a role, OR
-  // 2. User is on a dashboard page (for page reload scenario)
   const shouldShowNavigation = (isConnected && effectiveRole && !isLoading) ||
     (pathname.startsWith('/dashboard') && effectiveRole)
 
-  // Determine navigation items
   const getNavigationItems = () => {
     if (!effectiveRole) return []
 
@@ -107,7 +105,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           heading="Dashboard"
           text="Welcome to your dashboard"
           role={effectiveRole as "collector" | "recycler"}
-          name={userProfile?.name || "Not Registered"}
+          name={profileLoading ? "..." : (userProfile?.name || "Welcome")}
         />
       )}
 

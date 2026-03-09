@@ -73,6 +73,7 @@ export function RegistrationDialog() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isCheckingRegistration, setIsCheckingRegistration] = useState(true);
   const [isSwitchingChain, setIsSwitchingChain] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState<{ role: string; name: string } | null>(null);
   const router = useRouter();
   const { setRole, role } = useRole();
   const { address, isConnected } = useAccount();
@@ -116,12 +117,10 @@ export function RegistrationDialog() {
       }
 
       try {
-        // Check if user has a role
         console.log('Checking user role for address:', address);
         const blockchainRole = await africycle.getUserRole(address);
         console.log('Blockchain role:', blockchainRole);
 
-        // Check if the role is a zero bytes32 value (unregistered)
         const isZeroRole =
           blockchainRole ===
           '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -140,16 +139,12 @@ export function RegistrationDialog() {
           console.log('Human readable role:', humanReadableRole);
 
           if (humanReadableRole) {
-            // Check if profile exists by trying to get user profile
             try {
               console.log('Checking user profile...');
               const userProfile = await africycle.getUserProfile(address);
               console.log('User profile exists:', userProfile);
-              // If we get here, profile exists
               setRole(humanReadableRole);
-              router.push('/dashboard');
             } catch (profileError) {
-              // Profile doesn't exist or is not initialized
               console.log('Profile check failed:', profileError);
               console.log('User has role but profile is not initialized. Showing registration dialog.');
               setRole(humanReadableRole); // Keep the role
@@ -217,10 +212,10 @@ export function RegistrationDialog() {
       if (chainId !== celo.id) {
         setIsSwitchingChain(true);
         toast.info('Please switch to Celo network in your wallet...');
-        
+
         try {
           // Attempt to switch to Celo network
-          await switchChain?.({ 
+          await switchChain?.({
             chainId: celo.id,
             addEthereumChainParameter: {
               chainName: 'Celo',
@@ -233,14 +228,14 @@ export function RegistrationDialog() {
               blockExplorerUrls: ['https://explorer.celo.org'],
             }
           });
-          
+
           // Wait longer for the chain switch to complete and network to stabilize
           await new Promise((resolve) => setTimeout(resolve, 5000));
-          
+
           // Get the current chain ID after waiting
           const currentChainId = await window.ethereum?.request({ method: 'eth_chainId' });
           const parsedChainId = currentChainId ? parseInt(currentChainId, 16) : null;
-          
+
           if (parsedChainId !== celo.id) {
             toast.error(
               'Please switch to Celo network manually in your wallet. ' +
@@ -317,20 +312,8 @@ export function RegistrationDialog() {
       // Close the dialog
       setOpen(false);
 
-      // Wait a bit for the blockchain to update
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Redirect to role-specific dashboard
-      switch (data.role) {
-        case 'collector':
-          router.push('/dashboard/collector');
-          break;
-        case 'recycler':
-          router.push('/dashboard/recycler');
-          break;
-        default:
-          router.push('/dashboard');
-      }
+      // Show success state with manual navigation button
+      setRegistrationSuccess({ role: data.role, name: data.name });
     } catch (error) {
       console.error('Registration error:', error);
       toast.error(
@@ -344,113 +327,137 @@ export function RegistrationDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {role ? 'Complete Your Profile' : 'Complete Your Registration'}
-          </DialogTitle>
-          <DialogDescription>
-            {role
-              ? 'Your account has a role but needs a profile. Please provide your details to complete your profile.'
-              : 'Please provide your details to register on the AfriCycle platform.'}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="collector">Waste Collector</SelectItem>
-                      <SelectItem value="recycler">Recycler (Collection Point & Processing)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter your name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your email"
-                      type="email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter your location" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isRegistering || isSwitchingChain}
-            >
-              {isSwitchingChain ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Switching to Celo Network...
-                </>
-              ) : isRegistering ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Registering on Blockchain...
-                </>
-              ) : (
-                'Complete Registration'
-              )}
-            </Button>
-            <p className="text-xs text-gray-500 text-center">
-              This will create a transaction on the Celo blockchain to register
-              your account.
+    <>
+      {/* Success State Overlay */}
+      {registrationSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <div className="text-5xl mb-4">🎉</div>
+            <h2 className="text-xl font-bold mb-2">Welcome, {registrationSuccess.name}!</h2>
+            <p className="text-muted-foreground text-sm mb-6">
+              You&apos;re now registered as a <strong className="capitalize">{registrationSuccess.role}</strong> on AfriCycle.
+              Your wallet and rewards are ready.
             </p>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            <Button
+              className="w-full"
+              onClick={() => {
+                setRegistrationSuccess(null);
+                router.push(`/dashboard/${registrationSuccess.role}`);
+              }}
+            >
+              Go to Dashboard →
+            </Button>
+          </div>
+        </div>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {role ? 'Complete Your Profile' : 'Complete Your Registration'}
+            </DialogTitle>
+            <DialogDescription>
+              {role
+                ? 'Your account has a role but needs a profile. Please provide your details to complete your profile.'
+                : 'Please provide your details to register on the AfriCycle platform.'}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="collector">Waste Collector</SelectItem>
+                        <SelectItem value="recycler">Recycler (Collection Point & Processing)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter your email"
+                        type="email"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your location" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isRegistering || isSwitchingChain}
+              >
+                {isSwitchingChain ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Switching to Celo Network...
+                  </>
+                ) : isRegistering ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering on Blockchain...
+                  </>
+                ) : (
+                  'Complete Registration'
+                )}
+              </Button>
+              <p className="text-xs text-gray-500 text-center">
+                This will create a transaction on the Celo blockchain to register
+                your account.
+              </p>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

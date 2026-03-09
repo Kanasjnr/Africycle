@@ -93,7 +93,6 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
         if (africycle) {
           const blockchainRole = await africycle.getUserRole(address);
-
           const isZeroRole = blockchainRole === "0x0000000000000000000000000000000000000000000000000000000000000000";
 
           if (!isZeroRole) {
@@ -118,16 +117,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error loading role from blockchain:', error);
-        // Don't clear the cached role if blockchain call fails
         if (!getCachedRole(address || '')) {
           setRole(null);
           setIsRegistered(false);
         }
       } finally {
-        // Only set loading to false if we haven't already done so with cached data
-        if (!getCachedRole(address || '')) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 

@@ -3,17 +3,28 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useMiniPay } from '@/providers/AppProvider';
 import { useAccount } from 'wagmi';
+import { useRouter } from 'next/navigation';
+import { useRole } from '@/providers/RoleProvider';
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isMiniPay, isAutoConnecting } = useMiniPay();
   const { isConnected } = useAccount();
+  const { role } = useRole();
+  const router = useRouter();
+
+  const dashboardHref =
+    role === 'collector'
+      ? '/dashboard/collector'
+      : role === 'recycler'
+        ? '/dashboard/recycler'
+        : isConnected ? '/dashboard' : null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,13 +34,12 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const mobileMenu = document.getElementById('mobile-menu');
       const menuButton = document.getElementById('menu-button');
-      if (mobileMenu && !mobileMenu.contains(event.target as Node) && 
-          menuButton && !menuButton.contains(event.target as Node)) {
+      if (mobileMenu && !mobileMenu.contains(event.target as Node) &&
+        menuButton && !menuButton.contains(event.target as Node)) {
         setIsMobileMenuOpen(false);
       }
     };
@@ -37,7 +47,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Render connect button or loading state
   const renderWalletConnection = () => {
     if (isMiniPay) {
       if (isAutoConnecting) {
@@ -56,18 +65,17 @@ export default function Navbar() {
           </div>
         );
       }
-      return null; // Hide connect button for MiniPay users
+      return null;
     }
     return <ConnectButton />;
   };
 
   return (
     <header
-      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
-        isScrolled
-          ? 'bg-background/95 backdrop-blur-md shadow-sm'
-          : 'bg-transparent'
-      }`}
+      className={`fixed top-0 z-50 w-full transition-all duration-300 ${isScrolled
+        ? 'bg-background/95 backdrop-blur-md shadow-sm'
+        : 'bg-transparent'
+        }`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
@@ -103,7 +111,20 @@ export default function Navbar() {
             >
               How It Works
             </Link>
-           
+
+            {dashboardHref && (
+              <Button
+                onClick={() => router.push(dashboardHref)}
+                variant="default"
+                size="sm"
+                className="flex items-center gap-2"
+                disabled={!isConnected}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Button>
+            )}
+
             {renderWalletConnection()}
           </nav>
 
@@ -127,9 +148,8 @@ export default function Navbar() {
         {/* Mobile Menu */}
         <div
           id="mobile-menu"
-          className={`md:hidden fixed inset-x-0 top-20 bg-background/95 backdrop-blur-md shadow-lg transition-all duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-          }`}
+          className={`md:hidden fixed inset-x-0 top-20 bg-background/95 backdrop-blur-md shadow-lg transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
+            }`}
         >
           <div className="container mx-auto px-4 py-4">
             <nav className="flex flex-col space-y-4">
@@ -161,6 +181,18 @@ export default function Navbar() {
               >
                 Stakeholders
               </Link>
+              {dashboardHref && (
+                <Button
+                  onClick={() => { router.push(dashboardHref); setIsMobileMenuOpen(false); }}
+                  variant="default"
+                  size="sm"
+                  className="flex items-center gap-2 w-full justify-center"
+                  disabled={!isConnected}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Button>
+              )}
               <div className="py-2">
                 {renderWalletConnection()}
               </div>

@@ -48,6 +48,8 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { EmailService } from '@/lib/email-service';
+import { useGoodDollar } from '@/hooks/useGoodDollar';
+import { IconGift, IconCircleCheck } from '@tabler/icons-react';
 
 // Helper functions for email integration
 const extractEmailFromContactInfo = (contactInfo: string): string | null => {
@@ -283,11 +285,9 @@ CollectionItem.displayName = 'CollectionItem';
 // Add this constant at the top of the file after imports
 const MAX_COLLECTION_WEIGHT = 1000; // Maximum weight in kg
 
-// Add this function before the PhotoVerificationPage component
 const uploadToCloudinary = async (
   file: File
 ): Promise<CloudinaryUploadResult> => {
-  // Get fresh config values
   const config = getCloudinaryConfig();
 
   if (!config.cloudName) {
@@ -582,12 +582,29 @@ const ImageWithFallback = ({ src, alt, width = 828, height = 552 }: {
 export default function PhotoVerificationPage() {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const chainId = celo.id;
   const router = useRouter();
 
-  // Initialize the AfriCycle hook with only the required parameters
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL
+  });
+
+  const publicClient = useMemo(
+    () =>
+      createPublicClient({
+        chain: celo,
+        transport: http(RPC_URL),
+      }) as PublicClient,
+    []
+  );
+
+  // Initialize G$ Hook 
+  const gDollar = useGoodDollar({
+    address,
+    publicClient: publicClient as any,
+    walletClient,
+    chainId
   });
 
   // Add loading state for hook initialization
@@ -619,15 +636,7 @@ export default function PhotoVerificationPage() {
     },
   });
 
-  // Create public client - memoize to prevent recreation
-  const publicClient = useMemo(
-    () =>
-      createPublicClient({
-        chain: celo,
-        transport: http(RPC_URL),
-      }) as PublicClient,
-    []
-  );
+
 
   const [loadingCollections, setLoadingCollections] = useState<Set<number>>(
     new Set()
@@ -1037,7 +1046,7 @@ export default function PhotoVerificationPage() {
         }
       }
 
-      // 2. Determine scan range (Delta-Sync)
+      // 2. Determine scan range 
       const currentBlock = await publicClient.getBlockNumber()
       const lastScanned = localStorage.getItem(SCAN_BLOCK_KEY)
       let fromBlock = lastScanned ? BigInt(lastScanned) + BigInt(1) : DEPLOYMENT_BLOCK
@@ -1078,7 +1087,7 @@ export default function PhotoVerificationPage() {
             )
           )
 
-          results.flat().forEach(log => {
+          results.flat().forEach((log: { args?: { account?: `0x${string}` } }) => {
             if (log.args?.account) allNewAddresses.add(log.args.account)
           })
         }
@@ -1201,6 +1210,43 @@ export default function PhotoVerificationPage() {
               Submit and manage your waste collections
             </p>
           </div>
+
+          {/* G$ Identity Verification Card */}
+          <Card className={`border-2 transition-all ${gDollar.isWhitelisted ? 'border-green-100 bg-green-50/30' : 'border-blue-100 bg-blue-50/30'}`}>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`rounded-xl p-3 ${gDollar.isWhitelisted ? 'bg-green-100' : 'bg-blue-100'}`}>
+                    {gDollar.isWhitelisted ? (
+                      <IconCircleCheck className="h-6 w-6 text-green-600" />
+                    ) : (
+                      <IconGift className="h-6 w-6 text-blue-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {gDollar.isWhitelisted ? 'GoodDollar Identity Verified' : 'Verify Your Identity'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                      {gDollar.isWhitelisted
+                        ? 'Your identity is verified on-chain. You are eligible for daily G$ bonuses and higher tier rewards.'
+                        : 'Use GoodDollar Face Verification to unlock daily G$ UBI and performance-based streaming rewards.'}
+                    </p>
+                  </div>
+                </div>
+                {!gDollar.isWhitelisted && (
+                  <Button
+                    onClick={() => gDollar.handleVerify()}
+                    disabled={gDollar.isGeneratingLink || !address}
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {gDollar.isGeneratingLink ? 'Generating...' : 'Start Verification'}
+                  </Button>
+                )}
+                {gDollar.isWhitelisted}
+              </div>
+            </CardContent>
+          </Card>
 
           <Tabs
             value={activeTab}
