@@ -18,7 +18,7 @@ L.Icon.Default.mergeOptions({
 // Custom marker icons
 const createRecyclerIcon = (status: string, isActive: boolean = true) => {
   const color = isActive ? (status === 'active' ? '#22c55e' : status === 'busy' ? '#f59e0b' : '#6b7280') : '#6b7280'
-  
+
   return new L.DivIcon({
     html: `
       <div style="
@@ -82,7 +82,7 @@ const createUserLocationIcon = () => {
   })
 }
 
-interface RecyclerLocation {
+export interface RecyclerLocation {
   id: string
   name: string
   position: [number, number]
@@ -92,6 +92,8 @@ interface RecyclerLocation {
   reputationScore: string
   totalInventory: string
   recyclerAddress: string
+  distance?: string
+  distanceKm?: number
   // Add comprehensive data fields
   activeCollectors?: string
   availableListings?: string
@@ -105,7 +107,7 @@ interface RecyclerLocation {
   completedCollections?: number
 }
 
-interface RecyclerMapProps {
+export interface RecyclerMapProps {
   recyclers: RecyclerLocation[]
   userLocation?: { lat: number; lng: number } | null
   center?: [number, number]
@@ -118,7 +120,7 @@ interface RecyclerMapProps {
 // Component to update map view when user location changes
 function MapUpdater({ userLocation, recyclers }: { userLocation?: { lat: number; lng: number } | null, recyclers: RecyclerLocation[] }) {
   const map = useMap()
-  
+
   useEffect(() => {
     if (userLocation && recyclers.length > 0) {
       // Create bounds that include user location and all recyclers
@@ -126,7 +128,7 @@ function MapUpdater({ userLocation, recyclers }: { userLocation?: { lat: number;
         [userLocation.lat, userLocation.lng],
         ...recyclers.map(r => r.position)
       ])
-      
+
       // Fit map to show all points with some padding
       map.fitBounds(bounds, { padding: [20, 20] })
     } else if (userLocation) {
@@ -138,7 +140,7 @@ function MapUpdater({ userLocation, recyclers }: { userLocation?: { lat: number;
       map.fitBounds(bounds, { padding: [20, 20] })
     }
   }, [map, userLocation, recyclers])
-  
+
   return null
 }
 
@@ -152,10 +154,10 @@ export function RecyclerMap({
   onNavigate
 }: RecyclerMapProps) {
   // Default center - will be overridden by MapUpdater
-  const defaultCenter: [number, number] = userLocation 
-    ? [userLocation.lat, userLocation.lng] 
-    : recyclers.length > 0 
-      ? recyclers[0].position 
+  const defaultCenter: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
+    : recyclers.length > 0
+      ? recyclers[0].position
       : [6.5244, 3.3792] // Lagos, Nigeria as fallback
 
   return (
@@ -171,9 +173,9 @@ export function RecyclerMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        
+
         <MapUpdater userLocation={userLocation} recyclers={recyclers} />
-        
+
         {/* User location marker */}
         {userLocation && (
           <Marker
@@ -190,7 +192,7 @@ export function RecyclerMap({
             </Popup>
           </Marker>
         )}
-        
+
         {/* Recycler markers */}
         {recyclers.map((recycler) => (
           <Marker
@@ -205,19 +207,19 @@ export function RecyclerMap({
               <div className="p-3 min-w-[280px]">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-base">{recycler.name}</h3>
-                  <Badge 
+                  <Badge
                     variant={
-                      recycler.status === "active" ? "default" : 
-                      recycler.status === "busy" ? "secondary" : "outline"
+                      recycler.status === "active" ? "default" :
+                        recycler.status === "busy" ? "secondary" : "outline"
                     }
                     className="text-xs"
                   >
                     {recycler.status}
                   </Badge>
                 </div>
-                
+
                 <p className="text-sm text-gray-600 mb-3">{recycler.address}</p>
-                
+
                 {/* Comprehensive Data Grid */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div className="bg-gray-50 rounded-lg p-2">
@@ -227,7 +229,7 @@ export function RecyclerMap({
                     </div>
                     <div className="text-xs text-gray-400">Trust Score</div>
                   </div>
-                  
+
                   <div className="bg-gray-50 rounded-lg p-2">
                     <div className="flex items-center gap-1 mb-1">
                       <span className="text-xs text-gray-500">Inventory:</span>
@@ -235,7 +237,7 @@ export function RecyclerMap({
                     </div>
                     <div className="text-xs text-gray-400">Total Stock</div>
                   </div>
-                  
+
                   {recycler.activeCollectors && (
                     <div className="bg-gray-50 rounded-lg p-2">
                       <div className="flex items-center gap-1 mb-1">
@@ -245,7 +247,7 @@ export function RecyclerMap({
                       <div className="text-xs text-gray-400">Collectors</div>
                     </div>
                   )}
-                  
+
                   {recycler.availableListings && (
                     <div className="bg-gray-50 rounded-lg p-2">
                       <div className="flex items-center gap-1 mb-1">
@@ -256,19 +258,19 @@ export function RecyclerMap({
                     </div>
                   )}
                 </div>
-                
+
                 {/* Detailed Inventory Info */}
                 {recycler.inventoryDetails && (
                   <div className="bg-blue-50 rounded-lg p-2 mb-3">
                     <p className="text-xs font-medium text-blue-800 mb-1">📦 Inventory Details</p>
                     <div className="text-xs text-blue-700">
-                      <span className="font-semibold">{recycler.inventoryDetails.totalWeight}kg</span> total weight • 
-                      <span className="font-semibold"> {recycler.inventoryDetails.itemCount}</span> items • 
+                      <span className="font-semibold">{recycler.inventoryDetails.totalWeight}kg</span> total weight •
+                      <span className="font-semibold"> {recycler.inventoryDetails.itemCount}</span> items •
                       <span className="font-semibold"> {recycler.inventoryDetails.availableListings}</span> available
                     </div>
                   </div>
                 )}
-                
+
                 {/* Performance Stats */}
                 {(recycler.totalProcessed || recycler.completedCollections) && (
                   <div className="bg-green-50 rounded-lg p-2 mb-3">
@@ -283,7 +285,7 @@ export function RecyclerMap({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Accepted Materials */}
                 <div className="mb-3">
                   <p className="text-xs text-gray-500 mb-1">Accepted Materials:</p>
@@ -300,20 +302,20 @@ export function RecyclerMap({
                     )}
                   </div>
                 </div>
-                
+
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="text-xs px-3 py-1 flex-1"
                     onClick={() => navigator.clipboard.writeText(recycler.recyclerAddress)}
                   >
                     Copy Address
                   </Button>
                   {recycler.status === "active" && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="text-xs px-3 py-1 flex-1"
                       onClick={() => onNavigate?.(recycler)}
                     >
@@ -332,14 +334,14 @@ export function RecyclerMap({
 }
 
 // Map container with loading state
-export function MapWithLoading({ 
-  loading, 
-  error, 
-  children 
-}: { 
+export function MapWithLoading({
+  loading,
+  error,
+  children
+}: {
   loading?: boolean
   error?: string | null
-  children: React.ReactNode 
+  children: React.ReactNode
 }) {
   if (loading) {
     return (

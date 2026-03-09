@@ -10,8 +10,6 @@ import { injected } from 'wagmi/connectors';
 import { useConnect, useAccount } from 'wagmi';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-// Debug environment variable
-console.log('WalletConnect Project ID:', process.env.NEXT_PUBLIC_WC_PROJECT_ID);
 
 // Create a client
 const queryClient = new QueryClient();
@@ -61,7 +59,7 @@ function MiniPayAutoConnect({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined' && window.ethereum) {
         const isMiniPayWallet = !!(window.ethereum as any).isMiniPay;
         setIsMiniPay(isMiniPayWallet);
-        
+
         // Auto-connect if in MiniPay and not already connected
         if (isMiniPayWallet && !isConnected && connectors.length > 0) {
           setIsAutoConnecting(true);

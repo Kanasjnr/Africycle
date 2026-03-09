@@ -11,6 +11,7 @@ import { IconMapPin, IconNavigation, IconFilter, IconCalendar, IconCheck, IconPh
 import { useAfriCycle, AfricycleStatus, AfricycleWasteStream } from "@/hooks/useAfricycle"
 import { useAccount } from "wagmi"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
 import afriCycleAbi from '@/ABI/Africycle.json';
 import {
   createPublicClient,
@@ -28,7 +29,7 @@ import { celo } from 'viem/chains';
 // Dynamically import the map component to avoid SSR issues
 const RecyclerMap = dynamic(
   () => import("@/components/ui/map").then(mod => ({ default: mod.RecyclerMap })),
-  { 
+  {
     ssr: false,
     loading: () => (
       <div className="h-[280px] md:h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
@@ -39,6 +40,8 @@ const RecyclerMap = dynamic(
     )
   }
 )
+
+import { type RecyclerLocation } from "@/components/ui/map"
 
 // Define the contract configuration
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS as `0x${string}`
@@ -125,8 +128,8 @@ function RecyclerPoint({
         )}
       </div>
       <div className="mt-3 flex gap-2">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           className="flex-1 text-xs min-h-[40px]"
           onClick={onContact}
@@ -215,7 +218,7 @@ function RecyclerPointCard({
           </div>
         </div>
       </div>
-      
+
       <div className="mb-4">
         <p className="text-sm font-medium text-muted-foreground mb-2">Accepted Materials:</p>
         <div className="flex flex-wrap gap-2">
@@ -246,8 +249,8 @@ function RecyclerPointCard({
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="flex-1 min-h-[44px] text-sm"
           onClick={handleCopyAddress}
         >
@@ -255,7 +258,7 @@ function RecyclerPointCard({
           Copy Address
         </Button>
         {status === "active" && (
-          <Button 
+          <Button
             className="flex-1 min-h-[44px] text-sm"
             onClick={() => window.location.href = `/dashboard/collector/verification?recycler=${recyclerAddress}`}
           >
@@ -287,56 +290,49 @@ const getRoleHash = async (africycle: any, roleName: 'RECYCLER_ROLE' | 'COLLECTO
   }
 };
 
-// Cache for geocoded addresses to avoid repeated API calls
-const geocodeCache = new Map<string, [number, number] | null>()
+// Persistent cache for geocoded addresses
+const getGeocodeFromCache = (address: string): [number, number] | null => {
+  if (typeof window === 'undefined') return null;
+  const cached = localStorage.getItem(`africycle_geocode_cache_${address}`);
+  return cached ? JSON.parse(cached) : null;
+};
 
-// Helper function to convert address to coordinates using real geocoding services
+const setGeocodeToCache = (address: string, coords: [number, number] | null) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`africycle_geocode_cache_${address}`, JSON.stringify(coords));
+};
+
+// Helper function to convert address to coordinates
 const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
-  // Return cached result if available
-  if (geocodeCache.has(address)) {
-    console.log(`Using cached coordinates for "${address}":`, geocodeCache.get(address))
-    return geocodeCache.get(address) || null
-  }
-  
-  // Handle empty or invalid addresses - but be more specific about what's invalid
+  const cached = getGeocodeFromCache(address);
+  if (cached) return cached;
+
   if (!address || address.trim() === '' || address === 'Location not specified' || address === 'Location not set') {
-    console.log(`Invalid address provided: "${address}", using Lagos default`)
-    const defaultLocation: [number, number] = [6.5244, 3.3792] // Lagos, Nigeria
-    geocodeCache.set(address, defaultLocation)
+    const defaultLocation: [number, number] = [6.5244, 3.3792]
+    setGeocodeToCache(address, defaultLocation);
     return defaultLocation
   }
-  
-  // Clean the address for better geocoding
+
   const cleanAddress = address.trim()
-  console.log(`🌍 Starting geocoding for: "${cleanAddress}"`)
-  
+
   try {
-    // Try Google Maps Geocoding API first (most accurate)
-    console.log(`Trying Google Maps geocoding for: "${cleanAddress}"`)
     const googleResult = await geocodeWithGoogle(cleanAddress)
     if (googleResult) {
-      console.log(`✅ Google Maps successfully geocoded "${cleanAddress}" to:`, googleResult)
-      geocodeCache.set(address, googleResult)
+      setGeocodeToCache(address, googleResult)
       return googleResult
     }
-    
-    // Fallback to Nominatim (OpenStreetMap) - free but has rate limits
-    console.log(`Google failed, trying Nominatim for: "${cleanAddress}"`)
+
     const nominatimResult = await geocodeWithNominatim(cleanAddress)
     if (nominatimResult) {
-      console.log(`✅ Nominatim successfully geocoded "${cleanAddress}" to:`, nominatimResult)
-      geocodeCache.set(address, nominatimResult)
+      setGeocodeToCache(address, nominatimResult)
       return nominatimResult
     }
-    
-    // If geocoding completely fails, don't default to Lagos - return null and handle it separately
-    console.warn(`❌ Both Google and Nominatim failed to geocode: "${cleanAddress}"`)
-    geocodeCache.set(address, null)
+
+    setGeocodeToCache(address, null)
     return null
-    
+
   } catch (error) {
-    console.error(`❌ Geocoding error for address "${cleanAddress}":`, error)
-    geocodeCache.set(address, null)
+    setGeocodeToCache(address, null)
     return null
   }
 }
@@ -344,12 +340,11 @@ const geocodeAddress = async (address: string): Promise<[number, number] | null>
 // Google Maps Geocoding API
 const geocodeWithGoogle = async (address: string): Promise<[number, number] | null> => {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  
+
   if (!apiKey) {
-    console.log('Google Maps API key not found, skipping Google geocoding')
     return null
   }
-  
+
   try {
     const encodedAddress = encodeURIComponent(address)
     const response = await fetch(
@@ -361,27 +356,24 @@ const geocodeWithGoogle = async (address: string): Promise<[number, number] | nu
         },
       }
     )
-    
+
     if (!response.ok) {
       throw new Error(`Google geocoding API error: ${response.status}`)
     }
-    
+
     const data = await response.json()
-    
+
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location
-      console.log(`Google geocoded "${address}" to:`, [location.lat, location.lng])
       return [location.lat, location.lng]
     }
-    
+
     if (data.status === 'ZERO_RESULTS') {
-      console.log(`Google geocoding: No results found for "${address}"`)
       return null
     }
-    
-    console.warn(`Google geocoding failed for "${address}":`, data.status)
+
     return null
-    
+
   } catch (error) {
     console.error('Google geocoding error:', error)
     return null
@@ -393,10 +385,9 @@ const geocodeWithNominatim = async (address: string): Promise<[number, number] |
   try {
     // Add a small delay to respect rate limits (1 request per second)
     await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
     const encodedAddress = encodeURIComponent(address)
-    console.log(`🔍 Nominatim: Searching for "${address}"`)
-    
+
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=3&addressdetails=1&countrycodes=&accept-language=en`,
       {
@@ -406,43 +397,38 @@ const geocodeWithNominatim = async (address: string): Promise<[number, number] |
         },
       }
     )
-    
+
     if (!response.ok) {
       throw new Error(`Nominatim API error: ${response.status} - ${response.statusText}`)
     }
-    
+
     const data = await response.json()
-    console.log(`📍 Nominatim results for "${address}":`, data)
-    
+
     if (data && data.length > 0) {
       // Find the best match - prefer results with higher importance or city-level results
       let bestResult = data[0]
-      
+
       // Look for better matches if we have multiple results
       for (const result of data) {
-        console.log(`Evaluating result: ${result.display_name} (importance: ${result.importance})`)
-        
+
         // Prefer results with higher importance scores
-        if (result.importance && bestResult.importance && 
-            parseFloat(result.importance) > parseFloat(bestResult.importance)) {
+        if (result.importance && bestResult.importance &&
+          parseFloat(result.importance) > parseFloat(bestResult.importance)) {
           bestResult = result
         }
       }
-      
-      console.log(`🎯 Selected best result: ${bestResult.display_name}`)
-      
+
+
       const lat = parseFloat(bestResult.lat)
       const lng = parseFloat(bestResult.lon)
-      
+
       if (!isNaN(lat) && !isNaN(lng)) {
-        console.log(`✅ Nominatim geocoded "${address}" to: [${lat}, ${lng}] - ${bestResult.display_name}`)
         return [lat, lng]
       }
     }
-    
-    console.log(`❌ Nominatim geocoding: No valid results found for "${address}"`)
+
     return null
-    
+
   } catch (error) {
     console.error(`❌ Nominatim geocoding error for "${address}":`, error)
     return null
@@ -454,13 +440,13 @@ const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: numbe
   const R = 6371 // Radius of the Earth in kilometers
   const dLat = (lat2 - lat1) * Math.PI / 180
   const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLng/2) * Math.sin(dLng/2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   const distance = R * c // Distance in kilometers
-  
+
   return distance
 }
 
@@ -482,49 +468,43 @@ const getRecyclerInventoryDetails = async (africycle: any, recyclerAddress: stri
       return { totalWeight: 0, itemCount: 0, availableListings: 0 }
     }
 
-    // Get the recycler's inventory items
+    const MAX_INVENTORY_SEARCH = 100
+    const ID_BATCH_SIZE = 10
     let totalWeight = 0
     let itemCount = 0
     let availableListings = 0
-    
-    // Search through inventory IDs to find this recycler's items
-    const MAX_INVENTORY_SEARCH = 100
-    
-    for (let i = 0; i < MAX_INVENTORY_SEARCH; i++) {
-      try {
-        const inventoryDetails = await africycle.publicClient.readContract({
-          address: africycle.contractAddress,
-          abi: afriCycleAbi,
-          functionName: 'getInventoryDetails',
-          args: [BigInt(i)]
-        })
-        
-        // Handle both object and array responses
-        let inventoryData = null
-        if (inventoryDetails?.inventory) {
-          inventoryData = inventoryDetails.inventory
-        } else if (Array.isArray(inventoryDetails) && inventoryDetails[0]) {
-          inventoryData = inventoryDetails[0]
+    let stopSearch = false
+
+    for (let i = 0; i < MAX_INVENTORY_SEARCH && !stopSearch; i += ID_BATCH_SIZE) {
+      const batchIds = Array.from({ length: Math.min(ID_BATCH_SIZE, MAX_INVENTORY_SEARCH - i) }, (_, k) => BigInt(i + k))
+
+      const results = await Promise.all(
+        batchIds.map(id =>
+          africycle.publicClient.readContract({
+            address: africycle.contractAddress,
+            abi: afriCycleAbi,
+            functionName: 'getInventoryDetails',
+            args: [id]
+          }).catch(() => null)
+        )
+      )
+
+      for (const inventoryDetails of results) {
+        if (!inventoryDetails) {
+          stopSearch = true
+          break
         }
-        
-        if (inventoryData && 
-            inventoryData.recycler && 
-            inventoryData.recycler.toLowerCase() === recyclerAddress.toLowerCase()) {
-          
+
+        let inventoryData = inventoryDetails.inventory || (Array.isArray(inventoryDetails) ? inventoryDetails[0] : null)
+
+        if (inventoryData && inventoryData.recycler?.toLowerCase() === recyclerAddress.toLowerCase()) {
           totalWeight += Number(inventoryData.weight) || 0
           itemCount++
-          
-          // Check if this inventory item is available (not sold)
-          if (inventoryData.isAvailable) {
-            availableListings++
-          }
+          if (inventoryData.isAvailable) availableListings++
         }
-      } catch (error) {
-        // Inventory item doesn't exist or error accessing it
-        break
       }
     }
-    
+
     return { totalWeight, itemCount, availableListings }
   } catch (error) {
     console.error(`Error fetching inventory for recycler ${recyclerAddress}:`, error)
@@ -540,42 +520,40 @@ const getActiveCollectorsCount = async (africycle: any, recyclerAddress: string)
     }
 
     let activeCollectors = new Set<string>()
-    
-    // Search through collection IDs to find active collections with this recycler
     const MAX_COLLECTION_SEARCH = 200
-    
-    for (let i = 0; i < MAX_COLLECTION_SEARCH; i++) {
-      try {
-        const collectionDetails = await africycle.getCollectionDetails(BigInt(i))
-        
-        // Handle both object and array responses
-        let collectionData = null
-        if (collectionDetails?.collection) {
-          collectionData = collectionDetails.collection
-        } else if (Array.isArray(collectionDetails) && collectionDetails[0]) {
-          collectionData = collectionDetails[0]
+    const ID_BATCH_SIZE = 10
+    let stopSearch = false
+
+    for (let i = 0; i < MAX_COLLECTION_SEARCH && !stopSearch; i += ID_BATCH_SIZE) {
+      const batchIds = Array.from({ length: Math.min(ID_BATCH_SIZE, MAX_COLLECTION_SEARCH - i) }, (_, k) => BigInt(i + k))
+
+      const results = await Promise.all(
+        batchIds.map(id => africycle.getCollectionDetails(id).catch(() => null))
+      )
+
+      for (const collectionDetails of results) {
+        if (!collectionDetails) {
+          stopSearch = true
+          break
         }
-        
-        if (collectionData && 
-            collectionData.selectedRecycler && 
-            collectionData.selectedRecycler.toLowerCase() === recyclerAddress.toLowerCase()) {
-          
-          // Check if collection is active (pending, verified, or in progress)
-          if (collectionData.status === AfricycleStatus.PENDING || 
-              collectionData.status === AfricycleStatus.VERIFIED ||
-              collectionData.status === AfricycleStatus.IN_PROGRESS) {
-            
+
+        let collectionData = collectionDetails.collection || (Array.isArray(collectionDetails) ? collectionDetails[0] : null)
+
+        if (collectionData &&
+          collectionData.selectedRecycler?.toLowerCase() === recyclerAddress.toLowerCase()) {
+
+          if (collectionData.status === AfricycleStatus.PENDING ||
+            collectionData.status === AfricycleStatus.VERIFIED ||
+            collectionData.status === AfricycleStatus.IN_PROGRESS) {
+
             if (collectionData.collector) {
               activeCollectors.add(collectionData.collector.toLowerCase())
             }
           }
         }
-      } catch (error) {
-        // Collection doesn't exist or error accessing it
-        break
       }
     }
-    
+
     return activeCollectors.size
   } catch (error) {
     console.error(`Error fetching active collectors for recycler ${recyclerAddress}:`, error)
@@ -586,25 +564,18 @@ const getActiveCollectorsCount = async (africycle: any, recyclerAddress: string)
 // Helper function to get comprehensive recycler data with inventory and collectors
 const getRecyclerComprehensiveData = async (africycle: any, recyclerAddress: string, basicProfile: any) => {
   try {
-    console.log(`Fetching comprehensive data for recycler ${recyclerAddress}...`)
-    
+
     // Get inventory details
     const inventoryDetails = await getRecyclerInventoryDetails(africycle, recyclerAddress)
-    
+
     // Get active collectors count
     const activeCollectorsCount = await getActiveCollectorsCount(africycle, recyclerAddress)
-    
+
     // Get additional stats
     const totalProcessed = Number(basicProfile.totalProcessed) || 0
     const completedCollections = Number(basicProfile.completedCollections) || 0
-    
-    console.log(`Recycler ${recyclerAddress} comprehensive data:`, {
-      inventory: inventoryDetails,
-      activeCollectors: activeCollectorsCount,
-      totalProcessed,
-      completedCollections
-    })
-    
+
+
     return {
       ...basicProfile,
       inventory: inventoryDetails,
@@ -631,53 +602,79 @@ const getRecyclerComprehensiveData = async (africycle: any, recyclerAddress: str
   }
 }
 
+interface RecyclerMapData {
+  id: string;
+  name: string;
+  address: string;
+  distance: string;
+  distanceKm?: number;
+  reputationScore: string;
+  acceptedMaterials: string[];
+  status: "active" | "busy" | "offline";
+  totalInventory?: string;
+  activeCollectors?: string;
+  availableListings?: string;
+  recyclerAddress: string;
+  position?: [number, number];
+  rawScore?: number;
+}
+
+interface CollectionData {
+  id: string;
+  name: string;
+  address: string;
+  distance: string;
+  weight: string;
+  wasteType: string;
+  status: number;
+  timestamp: bigint;
+  selectedRecycler?: string;
+  pickupTime?: bigint;
+}
+
 export default function MapPage() {
   const { address } = useAccount()
   const [loading, setLoading] = useState(true)
-  const [recyclerPoints, setRecyclerPoints] = useState<any[]>([])
-  const [recyclerLocations, setRecyclerLocations] = useState<any[]>([])
-  const [scheduledPickups, setScheduledPickups] = useState<any[]>([])
-  const [acceptedPickups, setAcceptedPickups] = useState<any[]>([])
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [recyclerPoints, setRecyclerPoints] = useState<RecyclerMapData[]>([])
+  const [recyclerLocations, setRecyclerLocations] = useState<RecyclerLocation[]>([])
+  const [scheduledPickups, setScheduledPickups] = useState<CollectionData[]>([])
+  const [acceptedPickups, setAcceptedPickups] = useState<CollectionData[]>([])
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null)
   const [userLocationStatus, setUserLocationStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("nearby")
   const [error, setError] = useState<string | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
-  const [geocodingProgress, setGeocodingProgress] = useState<{current: number, total: number} | null>(null)
+  const [geocodingProgress, setGeocodingProgress] = useState<{ current: number, total: number } | null>(null)
   const [geocodingStatus, setGeocodingStatus] = useState<string | null>(null)
-  
+  const [hasInitialCache, setHasInitialCache] = useState(false)
+
   // Initialize the AfriCycle hook
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL,
   })
-  
+
   // Enhanced user location detection with better feedback
   const getUserLocation = useCallback(async () => {
-    console.log('🎯 Starting precise location detection...')
     setUserLocationStatus('Detecting your location...')
-    
+
     // First, try to get user location from blockchain profile
     if (africycle && address) {
       try {
-        console.log(`📍 Checking blockchain profile for collector ${address}`)
         setUserLocationStatus('Checking your profile location...')
         const userProfile = await africycle.getUserProfile(address)
-        console.log('Profile location data:', userProfile.location)
-        
+
         // If we have a valid location string, try to geocode it
-        if (userProfile.location && 
-            userProfile.location.trim() && 
-            userProfile.location !== 'Location not set' && 
-            userProfile.location !== 'Location not specified') {
-          
-          console.log(`🔍 Attempting to geocode profile location: "${userProfile.location}"`)
+        if (userProfile.location &&
+          userProfile.location.trim() &&
+          userProfile.location !== 'Location not set' &&
+          userProfile.location !== 'Location not specified') {
+
           setUserLocationStatus(`Locating "${userProfile.location}"...`)
-          
+
           // Try geocoding the profile location
           const coordinates = await geocodeAddress(userProfile.location)
           if (coordinates) {
-            console.log(`✅ Successfully geocoded profile location to:`, coordinates)
             setUserLocation({
               lat: coordinates[0],
               lng: coordinates[1]
@@ -686,11 +683,9 @@ export default function MapPage() {
             setTimeout(() => setUserLocationStatus(null), 3000)
             return // Success - we're done
           } else {
-            console.warn(`❌ Failed to geocode profile location: "${userProfile.location}"`)
             setUserLocationStatus('Profile location not found, trying GPS...')
           }
         } else {
-          console.log(`⚠️ Profile location is empty or invalid: "${userProfile.location}"`)
           setUserLocationStatus('No profile location set, trying GPS...')
         }
       } catch (error) {
@@ -698,18 +693,16 @@ export default function MapPage() {
         setUserLocationStatus('Profile check failed, trying GPS...')
       }
     }
-    
+
     // Try browser geolocation for exact location
-    console.log("🌐 Requesting precise GPS location...")
     setUserLocationStatus('Requesting precise GPS location...')
-    
+
     if (!navigator.geolocation) {
-      console.log("❌ Browser geolocation not supported")
       setUserLocationStatus('❌ GPS not supported on this device')
       setTimeout(() => setUserLocationStatus(null), 5000)
       return
     }
-    
+
     const getCurrentPositionAsync = (): Promise<GeolocationPosition> => {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
@@ -723,14 +716,12 @@ export default function MapPage() {
         )
       })
     }
-    
+
     try {
       setUserLocationStatus('📡 Getting GPS coordinates...')
       const position = await getCurrentPositionAsync()
-      
-      console.log(`✅ High-accuracy GPS location:`, [position.coords.latitude, position.coords.longitude])
-      console.log(`📍 Location accuracy: ${position.coords.accuracy} meters`)
-      
+
+
       setUserLocation({
         lat: position.coords.latitude,
         lng: position.coords.longitude
@@ -752,7 +743,6 @@ export default function MapPage() {
   // Add event listener for manual location refresh
   useEffect(() => {
     const handleLocationRefresh = () => {
-      console.log('🔄 Manual location refresh triggered')
       getUserLocation()
     }
 
@@ -761,52 +751,48 @@ export default function MapPage() {
   }, [getUserLocation])
 
   // Convert recycler points to map locations with real geocoding
-  const convertRecyclersToMapData = useCallback(async (recyclers: any[]) => {
+  const convertRecyclersToMapData = useCallback(async (recyclers: RecyclerMapData[]) => {
     try {
-      console.log(`Starting real-time geocoding for ${recyclers.length} recyclers...`)
-      setGeocodingProgress({current: 0, total: recyclers.length})
+      setGeocodingProgress({ current: 0, total: recyclers.length })
       setGeocodingStatus("Initializing geocoding...")
-      
-      const mapData = []
+
+      const mapData: (RecyclerLocation | null)[] = []
       let processedCount = 0
-      
+
       // Process recyclers in batches to avoid overwhelming the geocoding services
       const batchSize = 5
       for (let i = 0; i < recyclers.length; i += batchSize) {
         const batch = recyclers.slice(i, i + batchSize)
-        
+
         setGeocodingStatus(`Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(recyclers.length / batchSize)}...`)
-        
+
         const batchPromises = batch.map(async (recycler) => {
           try {
-            console.log(`🔍 Geocoding: "${recycler.address}" for recycler ${recycler.name}`)
             const coordinates = await geocodeAddress(recycler.address)
-            
+
             processedCount++
-            setGeocodingProgress({current: processedCount, total: recyclers.length})
+            setGeocodingProgress({ current: processedCount, total: recyclers.length })
             setGeocodingStatus(`Geocoded ${processedCount}/${recyclers.length} recyclers...`)
-            
+
             if (!coordinates) {
-              console.warn(`❌ Could not geocode address: "${recycler.address}" for recycler ${recycler.name}`)
               // Don't include recyclers with failed geocoding in the map
               return null
             }
-            
-            console.log(`✅ Successfully geocoded ${recycler.name} at "${recycler.address}" to:`, coordinates)
-            
+
+
             // Calculate distance if user location is available
             let distance = "Unknown"
             let distanceKm = 0
             if (userLocation) {
               distanceKm = calculateDistance(
-                userLocation.lat, 
-                userLocation.lng, 
-                coordinates[0], 
+                userLocation.lat,
+                userLocation.lng,
+                coordinates[0],
                 coordinates[1]
               )
               distance = formatDistance(distanceKm)
             }
-            
+
             return {
               id: recycler.id,
               name: recycler.name,
@@ -815,7 +801,7 @@ export default function MapPage() {
               status: recycler.status,
               acceptedMaterials: recycler.acceptedMaterials,
               reputationScore: recycler.reputationScore,
-              totalInventory: recycler.totalInventory,
+              totalInventory: recycler.totalInventory || "0kg (0 items)",
               recyclerAddress: recycler.recyclerAddress,
               distance: distance,
               distanceKm: distanceKm, // For sorting
@@ -823,37 +809,37 @@ export default function MapPage() {
           } catch (error) {
             console.error(`❌ Error geocoding recycler ${recycler.name}:`, error)
             processedCount++
-            setGeocodingProgress({current: processedCount, total: recyclers.length})
+            setGeocodingProgress({ current: processedCount, total: recyclers.length })
             return null
           }
         })
-        
+
         // Wait for batch to complete before starting next batch
         const batchResults = await Promise.all(batchPromises)
         mapData.push(...batchResults.filter(Boolean))
-        
+
         // Update UI with partial results
-        const validLocations = mapData.filter(location => location !== null)
+        const validLocations: RecyclerLocation[] = mapData.filter((location): location is RecyclerLocation => location !== null)
         setRecyclerLocations([...validLocations])
-        
+
         // Small delay between batches to respect rate limits
         if (i + batchSize < recyclers.length) {
           await new Promise(resolve => setTimeout(resolve, 200))
         }
       }
-      
+
       setGeocodingStatus("Finalizing locations...")
-      
+
       // Final processing - sort by distance if user location is available
-      const validLocations = mapData.filter(location => location !== null)
-      
+      const validLocations: RecyclerLocation[] = mapData.filter((location): location is RecyclerLocation => location !== null)
+
       if (userLocation) {
         validLocations.sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0))
       }
-      
+
       setRecyclerLocations(validLocations)
-      
-      // Update recyclerPoints with calculated distances and sort by distance
+
+      // Update recyclerPoints with calculated distances
       const updatedRecyclerPoints = recyclers.map(recycler => {
         const matchingLocation = validLocations.find(loc => loc?.id === recycler.id)
         return {
@@ -862,30 +848,23 @@ export default function MapPage() {
           distanceKm: matchingLocation?.distanceKm || 999999, // Large number for sorting
         }
       })
-      
+
       // Sort by distance
       if (userLocation) {
         updatedRecyclerPoints.sort((a, b) => (a.distanceKm || 999999) - (b.distanceKm || 999999))
       }
-      
+
       setRecyclerPoints(updatedRecyclerPoints)
-      
-      console.log(`Geocoding complete. Successfully geocoded ${validLocations.length} out of ${recyclers.length} recyclers.`)
-      
+
+
       const failedCount = recyclers.length - validLocations.length
       if (failedCount > 0) {
         setGeocodingStatus(`Complete! Found exact locations for ${validLocations.length} recyclers. ${failedCount} locations couldn't be geocoded.`)
-        console.warn(`⚠️ Failed to geocode ${failedCount} recyclers. Check their location data in profiles.`)
       } else {
         setGeocodingStatus(`🎉 Perfect! Found exact locations for all ${validLocations.length} recyclers.`)
       }
-      
-      // Clear progress after a short delay
-      setTimeout(() => {
-        setGeocodingProgress(null)
-        setGeocodingStatus(null)
-      }, 2000)
-      
+
+
     } catch (error) {
       console.error("Error converting recyclers to map data:", error)
       setMapError("Failed to load recycler locations on map")
@@ -894,250 +873,198 @@ export default function MapPage() {
     }
   }, [userLocation])
 
-  // Professional approach to fetch all recyclers from the blockchain (same as verification page)
   const fetchRecyclers = useCallback(async () => {
     if (!africycle || !address) {
       setLoading(false)
       return
     }
 
+    const CACHE_KEY = 'africycle_map_recyclers_cache_v1'
+    const SCAN_BLOCK_KEY = 'africycle_map_last_scanned_block_v1'
+    const RECYCLER_ROLE_HASH = '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154'
+    const DEPLOYMENT_BLOCK = BigInt(38365315)
+    const CHUNK_SIZE = BigInt(500000)
+    const MAX_CONCURRENCY = 8
+
     try {
-      console.log('Debug: Starting professional recycler discovery for map...')
       setLoading(true)
       setError(null)
-      
-      const recyclersList: Recycler[] = []
-      
-      // Create public client for event fetching
+
       const publicClient = createPublicClient({
         chain: celo,
         transport: http(RPC_URL),
       })
 
-      // Use the known recycler role hash for efficiency
-      const RECYCLER_ROLE_HASH = '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154'
-      console.log(`Debug: Using recycler role hash: ${RECYCLER_ROLE_HASH}`)
-      
-      // Professional approach: Search for RoleGranted events with the specific recycler role
-      let recyclerAddresses: `0x${string}`[] = []
-      
-      try {
-        console.log('Debug: Fetching RoleGranted events for RECYCLER_ROLE...')
-        
-        // Get current block to determine search range
-        const currentBlock = await publicClient.getBlockNumber()
-        console.log(`Debug: Current block: ${currentBlock}`)
-        
-        // Search in chunks to avoid RPC limits - start from a reasonable deployment block
-        const DEPLOYMENT_BLOCK = BigInt(38000000) // Approximate Celo deployment block
-        const CHUNK_SIZE = BigInt(50000) // Reasonable chunk size for Celo
-        
-        let fromBlock = DEPLOYMENT_BLOCK
-        const allRoleGrantedEvents: any[] = []
-        
-        while (fromBlock <= currentBlock) {
-          const toBlock = fromBlock + CHUNK_SIZE > currentBlock ? currentBlock : fromBlock + CHUNK_SIZE
-          
-          console.log(`Debug: Searching blocks ${fromBlock} to ${toBlock}...`)
-          
-          try {
-            const roleGrantedEvents = await publicClient.getLogs({
-              address: CONTRACT_ADDRESS,
-              event: {
-                type: 'event',
-                name: 'RoleGranted',
-                inputs: [
-                  { name: 'role', type: 'bytes32', indexed: true },
-                  { name: 'account', type: 'address', indexed: true },
-                  { name: 'sender', type: 'address', indexed: true }
-                ]
-              },
-              args: {
-                role: RECYCLER_ROLE_HASH as `0x${string}`
-              },
-              fromBlock: fromBlock,
-              toBlock: toBlock
-            })
-            
-            allRoleGrantedEvents.push(...roleGrantedEvents)
-            console.log(`Debug: Found ${roleGrantedEvents.length} RECYCLER_ROLE grants in blocks ${fromBlock}-${toBlock}`)
-            
-          } catch (chunkError) {
-            console.log(`Debug: Error fetching events for blocks ${fromBlock}-${toBlock}:`, chunkError)
-            // Continue with next chunk
-          }
-          
-          fromBlock = toBlock + BigInt(1)
-        }
-        
-        console.log(`Debug: Total RoleGranted events found: ${allRoleGrantedEvents.length}`)
-        
-        // Extract unique recycler addresses from events
-        recyclerAddresses = Array.from(
-          new Set(
-            allRoleGrantedEvents
-              .map(event => event.args?.account)
-              .filter(Boolean)
-          )
-        ) as `0x${string}`[]
-        
-        console.log(`Debug: Found ${recyclerAddresses.length} unique recycler addresses from RoleGranted events:`, recyclerAddresses)
-        
-      } catch (eventError) {
-        console.log('Debug: Error fetching RoleGranted events:', eventError)
-        console.log('Debug: Falling back to known recyclers and direct role checking')
-        recyclerAddresses = []
-      }
-      
-      // Add known recyclers to the search list (in case events missed some)
-      const allAddressesToCheck = Array.from(
-        new Set([...recyclerAddresses, ...KNOWN_RECYCLERS])
-      ) as `0x${string}`[]
-      
-      console.log(`Debug: Total addresses to verify for map: ${allAddressesToCheck.length}`)
-      
-      // Verify each address and get their profiles
-      for (const recyclerAddress of allAddressesToCheck) {
+      // 1. Load from Persistent Cache first
+      const cachedData = localStorage.getItem(CACHE_KEY)
+      let currentRecyclers: any[] = []
+      if (cachedData) {
         try {
-          console.log(`Debug: Verifying recycler ${recyclerAddress}...`)
-          
-          // Double-check they have the recycler role (in case of role revocations)
-          const hasRole = await africycle.hasRole(RECYCLER_ROLE_HASH, recyclerAddress)
-          
-          if (hasRole) {
-            console.log(`Debug: Confirmed ${recyclerAddress} has recycler role, fetching comprehensive profile...`)
-            
-            // Get their basic profile first
-            const basicProfile = await africycle.getUserProfile(recyclerAddress)
-            
-            if (basicProfile.name && basicProfile.name.trim()) {
-              console.log(`Debug: Found valid recycler ${recyclerAddress}: ${basicProfile.name}`)
-              
-              // Get comprehensive data (inventory + active collectors)
-              const comprehensiveData = await getRecyclerComprehensiveData(africycle, recyclerAddress, basicProfile)
-              
-              console.log(`📋 Recycler profile data for ${comprehensiveData.name}:`, {
-                name: comprehensiveData.name,
-                address: recyclerAddress,
-                blockchain_location: comprehensiveData.location,
-                location_length: comprehensiveData.location?.length || 0,
-                location_trimmed: comprehensiveData.location?.trim(),
-                isVerified: comprehensiveData.isVerified
-              })
-              
-              recyclersList.push({
-                address: recyclerAddress,
-                name: comprehensiveData.name,
-                location: comprehensiveData.location || 'Location not set',
-                contactInfo: comprehensiveData.contactInfo || 'Contact info not set',
-                isVerified: comprehensiveData.isVerified,
-                reputationScore: comprehensiveData.recyclerReputationScore,
-                totalInventory: BigInt(comprehensiveData.inventory.totalWeight),
-                activeListings: BigInt(comprehensiveData.inventory.availableListings),
-                // Add new comprehensive data
-                inventoryDetails: comprehensiveData.inventory,
-                activeCollectorsCount: comprehensiveData.activeCollectorsCount,
-                totalProcessed: comprehensiveData.totalProcessed,
-                completedCollections: comprehensiveData.completedCollections,
-                displayData: {
-                  totalInventoryDisplay: comprehensiveData.totalInventoryDisplay,
-                  availableListingsDisplay: comprehensiveData.availableListingsDisplay,
-                  activeCollectorsDisplay: comprehensiveData.activeCollectorsDisplay,
-                }
-              })
-            } else {
-              console.log(`Debug: ${recyclerAddress} has recycler role but incomplete profile`)
+          currentRecyclers = JSON.parse(cachedData, (key, value) => {
+            if (['reputationScore'].includes(key) && value !== null && value !== undefined) {
+              try {
+                return BigInt(value);
+              } catch (e) {
+                return value;
+              }
             }
-          } else {
-            console.log(`Debug: ${recyclerAddress} no longer has recycler role`)
-          }
-        } catch (error) {
-          console.log(`Debug: Error verifying recycler ${recyclerAddress}:`, error)
-          // Continue with next address
+            return value;
+          });
+          setRecyclerPoints(currentRecyclers)
+          setHasInitialCache(true)
+          // Don't wait for sync if we have cache, geocode immediately
+          convertRecyclersToMapData(currentRecyclers)
+        } catch (e) {
+          console.error("Failed to parse cached map recyclers", e)
         }
       }
-      
-      // Sort recyclers by reputation score (descending) and then by name
-      recyclersList.sort((a, b) => {
-        const reputationDiff = Number(b.reputationScore) - Number(a.reputationScore)
-        if (reputationDiff !== 0) return reputationDiff
-        return a.name.localeCompare(b.name)
-      })
-      
-      console.log('Debug: Professional recycler discovery complete for map:', {
-        totalFound: recyclersList.length,
-        recyclers: recyclersList.map(r => ({ 
-          address: r.address, 
-          name: r.name, 
-          reputation: Number(r.reputationScore),
-          verified: r.isVerified,
-          inventory: r.inventoryDetails,
-          activeCollectors: r.activeCollectorsCount
-        }))
-      })
-      
-      // Convert to display format for map
-      const displayRecyclers = recyclersList.map((recycler, index) => ({
-        id: `recycler-${index}`,
-        name: recycler.name,
-        address: recycler.location,
-        distance: "Calculating...", // Will be updated after geocoding
-        reputationScore: recycler.reputationScore.toString(),
-        acceptedMaterials: ["Plastic", "E-Waste", "Metal", "General"],
-        status: recycler.isVerified ? "active" as const : "offline" as const,
-        // Use real inventory and collectors data
-        totalInventory: recycler.displayData.totalInventoryDisplay,
-        activeCollectors: recycler.displayData.activeCollectorsDisplay,
-        availableListings: recycler.displayData.availableListingsDisplay,
-        recyclerAddress: recycler.address,
-        // Add detailed data for enhanced display
-        inventoryDetails: recycler.inventoryDetails,
-        activeCollectorsCount: recycler.activeCollectorsCount,
-        totalProcessed: recycler.totalProcessed,
-        completedCollections: recycler.completedCollections,
-      }))
-      
-      setRecyclerPoints(displayRecyclers)
-      await convertRecyclersToMapData(displayRecyclers)
+
+      // 2. Determine Search Range (Delta-Sync)
+      const currentBlock = await publicClient.getBlockNumber()
+      const lastScanned = localStorage.getItem(SCAN_BLOCK_KEY)
+      let fromBlock = lastScanned ? BigInt(lastScanned) + BigInt(1) : DEPLOYMENT_BLOCK
+
+      const allNewAddresses = new Set<`0x${string}`>()
+      if (fromBlock < currentBlock) {
+        // 3. Parallel Discovery (Chunked)
+        const chunks = []
+        for (let b = fromBlock; b <= currentBlock; b += CHUNK_SIZE) {
+          chunks.push({ from: b, to: b + CHUNK_SIZE > currentBlock ? currentBlock : b + CHUNK_SIZE })
+        }
+
+        for (let i = 0; i < chunks.length; i += MAX_CONCURRENCY) {
+          const batch = chunks.slice(i, i + MAX_CONCURRENCY)
+          const results = await Promise.all(
+            batch.map(chunk =>
+              publicClient.getLogs({
+                address: CONTRACT_ADDRESS,
+                event: {
+                  type: 'event',
+                  name: 'RoleGranted',
+                  inputs: [
+                    { name: 'role', type: 'bytes32', indexed: true },
+                    { name: 'account', type: 'address', indexed: true },
+                    { name: 'sender', type: 'address', indexed: true }
+                  ]
+                },
+                args: { role: RECYCLER_ROLE_HASH as `0x${string}` },
+                fromBlock: chunk.from,
+                toBlock: chunk.to
+              }).catch(() => [])
+            )
+          )
+          results.flat().forEach(log => {
+            if (log.args?.account) allNewAddresses.add(log.args.account)
+          })
+        }
+        localStorage.setItem(SCAN_BLOCK_KEY, currentBlock.toString())
+      }
+
+      // 4. Verification and Comprehensive Data Fetching (Parallelized)
+      // Always check KNOWN_RECYCLERS if they are missing from cache, and add any NEWly discovered addresses
+      const newAddressesToCheck = Array.from(allNewAddresses).filter(
+        addr => !currentRecyclers.some(r => r.recyclerAddress.toLowerCase() === addr.toLowerCase())
+      )
+
+      const missingKnownRecyclers = KNOWN_RECYCLERS.filter(
+        addr => !currentRecyclers.some(r => r.recyclerAddress.toLowerCase() === addr.toLowerCase())
+      )
+
+      if (newAddressesToCheck.length > 0 || missingKnownRecyclers.length > 0) {
+        const allPotential = Array.from(new Set([...newAddressesToCheck, ...missingKnownRecyclers]))
+        const verifiedNewRecyclers: RecyclerMapData[] = []
+
+        // Process in smaller batches to avoid overwhelming public RPC
+        const VERIFY_BATCH_SIZE = 5
+        for (let i = 0; i < allPotential.length; i += VERIFY_BATCH_SIZE) {
+          const batch = allPotential.slice(i, i + VERIFY_BATCH_SIZE)
+          const profileResults = await Promise.all(
+            batch.map(async (addr) => {
+              try {
+                const hasRole = await africycle.hasRole(RECYCLER_ROLE_HASH, addr as `0x${string}`)
+                if (!hasRole) return null
+                const basicProfile = await africycle.getUserProfile(addr as `0x${string}`)
+                if (!basicProfile.name?.trim()) return null
+
+                // Fetch comprehensive data in parallel
+                return getRecyclerComprehensiveData(africycle, addr as `0x${string}`, basicProfile)
+              } catch (err) {
+                return null
+              }
+            })
+          )
+          profileResults.forEach((p, idx) => {
+            const addr = batch[idx]
+            if (p) {
+              verifiedNewRecyclers.push({
+                id: `recycler-${addr}`,
+                name: p.name,
+                address: p.location || 'Location not set',
+                distance: "Calculating...",
+                reputationScore: p.recyclerReputationScore.toString(),
+                acceptedMaterials: ["Plastic", "E-Waste", "Metal", "General"],
+                status: p.isVerified ? "active" : "offline",
+                totalInventory: p.totalInventoryDisplay,
+                activeCollectors: p.activeCollectorsDisplay,
+                availableListings: p.availableListingsDisplay,
+                recyclerAddress: addr,
+                // Keep metadata for sorting
+                rawScore: Number(p.recyclerReputationScore)
+              })
+            }
+          })
+        }
+
+        if (verifiedNewRecyclers.length > 0) {
+          const updatedRecyclers = [...currentRecyclers, ...verifiedNewRecyclers]
+          const uniqueRecyclers = Array.from(new Map(updatedRecyclers.map(r => [r.recyclerAddress.toLowerCase(), r])).values())
+          uniqueRecyclers.sort((a, b) => (b.rawScore || 0) - (a.rawScore || 0))
+
+          setRecyclerPoints(uniqueRecyclers)
+          await convertRecyclersToMapData(uniqueRecyclers)
+          localStorage.setItem(CACHE_KEY, JSON.stringify(uniqueRecyclers, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ))
+        }
+      }
       setLoading(false)
-      
     } catch (error) {
-      console.error('Error in professional recycler discovery for map:', error)
-      setError(error instanceof Error ? error.message : "Failed to discover recyclers. Please try again.")
+      console.error('Error in map recycler discovery:', error)
+      setError("Failed to discover recyclers")
       setLoading(false)
     }
   }, [africycle, address, convertRecyclersToMapData])
 
-  // Fetch collections for scheduled and accepted pickups
+  // Professional approach to fetch pickups with parallelized batching
   const fetchPickups = useCallback(async () => {
     if (!africycle || !address) return
 
     try {
-      // Get collections where user is collector
-      const scheduled: any[] = []
-      const accepted: any[] = []
-      
-      // Search through collection IDs to find user's collections
+      const scheduled: CollectionData[] = []
+      const accepted: CollectionData[] = []
       const MAX_ATTEMPTS = 100
-      for (let i = 0; i < MAX_ATTEMPTS; i++) {
-        try {
-          const collectionDetails = await africycle.getCollectionDetails(BigInt(i))
-          
-          // Handle both object and array responses
-          let collectionData = null
-          if (collectionDetails?.collection) {
-            collectionData = collectionDetails.collection
-          } else if (Array.isArray(collectionDetails) && collectionDetails[0]) {
-            collectionData = collectionDetails[0]
-          }
-          
-          if (collectionData && 
-              collectionData.collector && 
-              collectionData.collector.toLowerCase() === address.toLowerCase()) {
-            
+      const BATCH_SIZE = 20 // Fetch 20 collections at once
+
+      for (let i = 0; i < MAX_ATTEMPTS; i += BATCH_SIZE) {
+        const batchIds = Array.from({ length: Math.min(BATCH_SIZE, MAX_ATTEMPTS - i) }, (_, k) => BigInt(i + k))
+
+        const results = await Promise.all(
+          batchIds.map(id => africycle.getCollectionDetails(id).catch(() => null))
+        )
+
+        results.forEach((collectionDetails, idx) => {
+          if (!collectionDetails) return
+          const currentId = i + idx
+
+          let collectionData = collectionDetails.collection || (Array.isArray(collectionDetails) ? collectionDetails[0] : null)
+
+          if (collectionData &&
+            collectionData.collector &&
+            collectionData.collector.toLowerCase() === address.toLowerCase()) {
+
             const collection = {
-              id: i.toString(),
-              name: `Collection #${i}`,
+              id: currentId.toString(),
+              name: `Collection #${currentId}`,
               address: collectionData.location,
               distance: "Unknown",
               weight: `${collectionData.weight.toString()}kg`,
@@ -1147,18 +1074,16 @@ export default function MapPage() {
               selectedRecycler: collectionData.selectedRecycler,
               pickupTime: collectionData.pickupTime,
             }
-            
+
             if (collectionData.status === AfricycleStatus.PENDING) {
               scheduled.push(collection)
             } else if (collectionData.status === AfricycleStatus.VERIFIED) {
               accepted.push(collection)
             }
           }
-        } catch (error) {
-          // Collection doesn't exist, continue
-        }
+        })
       }
-      
+
       setScheduledPickups(scheduled)
       setAcceptedPickups(accepted)
     } catch (error) {
@@ -1170,7 +1095,7 @@ export default function MapPage() {
   const getWasteTypeString = (wasteType: number): string => {
     switch (wasteType) {
       case 0: return "Plastic"
-      case 1: return "E-Waste" 
+      case 1: return "E-Waste"
       case 2: return "Metal"
       case 3: return "General"
       default: return "Unknown"
@@ -1183,8 +1108,8 @@ export default function MapPage() {
       fetchPickups()
     }
   }, [africycle, address, fetchRecyclers, fetchPickups])
-  
-  const handleNavigate = (point: any) => {
+
+  const handleNavigate = (point: RecyclerLocation) => {
     // Open in Google Maps or other mapping service
     if (userLocation) {
       const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(point.address)}`
@@ -1194,18 +1119,17 @@ export default function MapPage() {
     }
   }
 
-  const handleContact = (point: any) => {
+  const handleContact = (point: RecyclerLocation) => {
     // For now, just copy the recycler address
     navigator.clipboard.writeText(point.recyclerAddress)
     alert(`Recycler address copied to clipboard: ${point.recyclerAddress}`)
   }
 
-  const handleRecyclerSelect = (recycler: any) => {
+  const handleRecyclerSelect = (recycler: RecyclerLocation) => {
     // Optional: You can add logic here when a recycler is selected on the map
-    console.log("Selected recycler:", recycler)
   }
 
-  const handleMapNavigate = (recycler: any) => {
+  const handleMapNavigate = (recycler: RecyclerLocation) => {
     // Navigate to the recycler location
     if (userLocation) {
       const url = `https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${recycler.position[0]},${recycler.position[1]}`
@@ -1215,49 +1139,56 @@ export default function MapPage() {
       window.open(url, '_blank')
     }
   }
-  
-  if (loading) {
+
+
+  if (loading && !hasInitialCache) {
     return (
       <DashboardShell>
         <div className="w-full px-4 md:px-6 lg:px-8">
           <div className="mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Recycler Map</h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1">Find nearby recyclers and manage your pickups</p>
+            <Skeleton className="h-10 w-48 mb-2" />
+            <Skeleton className="h-5 w-72" />
           </div>
-          <div className="flex items-center justify-center h-64 md:h-80">
-            <div className="text-center max-w-md">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-base md:text-lg font-medium mb-2">Loading recycler locations...</p>
-              
-              {/* Geocoding Progress */}
-              {geocodingProgress && (
-                <div className="mb-4 w-full">
-                  <div className="bg-gray-200 rounded-full h-2 mb-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(geocodingProgress.current / geocodingProgress.total) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {geocodingProgress.current} / {geocodingProgress.total} locations processed
-                  </div>
-                </div>
-              )}
-              
-              {/* Geocoding Status */}
-              {geocodingStatus && (
-                <p className="text-sm text-primary font-medium mb-2">{geocodingStatus}</p>
-              )}
-              
-              {/* General Status */}
-              {!geocodingProgress && !geocodingStatus && (
+
+          <div className="space-y-6">
+            <Card className="p-4 md:p-6">
+              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mt-1">Discovering recyclers on the network...</p>
-                  <p className="text-xs text-muted-foreground mt-2">This may take a moment</p>
+                  <Skeleton className="h-7 w-56 mb-2" />
+                  <Skeleton className="h-5 w-80" />
                 </div>
-              )}
-              
-              
+                <div className="flex gap-3">
+                  <Skeleton className="h-11 w-24" />
+                  <Skeleton className="h-11 w-40" />
+                </div>
+              </div>
+              <Skeleton className="h-[280px] md:h-[400px] w-full rounded-lg" />
+            </Card>
+
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full rounded-lg" />
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-4 md:p-6">
+                  <div className="flex justify-between mb-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-6 w-48" />
+                      <Skeleton className="h-4 w-64" />
+                    </div>
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                  <div className="space-y-4">
+                    <Skeleton className="h-4 w-full" />
+                    <div className="flex gap-4">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-11 flex-1" />
+                      <Skeleton className="h-11 flex-1" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         </div>
@@ -1285,14 +1216,14 @@ export default function MapPage() {
       </DashboardShell>
     )
   }
-  
+
   return (
     <DashboardShell>
       <div className="w-full px-4 md:px-6 lg:px-8">
         <div className="mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Recycler Map</h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1">Find nearby recyclers and manage your pickups</p>
-          
+
           {/* Location Status */}
           {userLocationStatus && (
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1302,7 +1233,15 @@ export default function MapPage() {
               </div>
             </div>
           )}
-          
+
+          {/* Background Sync Status */}
+          {loading && hasInitialCache && (
+            <div className="mt-2 flex items-center gap-2 text-xs font-medium text-primary animate-pulse">
+              <div className="h-2 w-2 rounded-full bg-primary"></div>
+              <span>Syncing with latest blockchain data...</span>
+            </div>
+          )}
+
           {/* Location Debug Info & Manual Refresh */}
           <div className="mt-3 flex items-center gap-4">
             <div className="text-sm text-muted-foreground">
@@ -1354,7 +1293,7 @@ export default function MapPage() {
                 </Button>
               </div>
             </div>
-            
+
             {/* Interactive Map */}
             {mapError ? (
               <div className="h-[280px] md:h-[400px] rounded-lg bg-gray-100 flex items-center justify-center">
@@ -1362,8 +1301,8 @@ export default function MapPage() {
                   <IconMapPin className="h-12 w-12 md:h-16 md:w-16 text-red-400 mx-auto mb-4" />
                   <p className="text-red-600 font-semibold text-base md:text-lg mb-2">Map Error</p>
                   <p className="text-sm md:text-base text-gray-500 mb-4">{mapError}</p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="min-h-[44px]"
                     onClick={() => setMapError(null)}
                   >
@@ -1382,7 +1321,7 @@ export default function MapPage() {
                 />
               </div>
             )}
-            
+
             {/* Map Legend */}
             <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-6 text-sm md:text-base">
@@ -1445,8 +1384,8 @@ export default function MapPage() {
                     reputationScore={point.reputationScore}
                     acceptedMaterials={point.acceptedMaterials}
                     status={point.status}
-                    totalInventory={point.totalInventory}
-                    activeCollectors={point.activeCollectors}
+                    totalInventory={point.totalInventory || "0kg (0 items)"}
+                    activeCollectors={point.activeCollectors || "0 active"}
                     recyclerAddress={point.recyclerAddress}
                   />
                 ))
@@ -1459,7 +1398,7 @@ export default function MapPage() {
                   <IconCalendar className="h-16 w-16 md:h-20 md:w-20 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 font-semibold text-base md:text-lg mb-2">No scheduled pickups</p>
                   <p className="text-sm md:text-base text-gray-500 mb-6">Your pending pickups will appear here</p>
-                  <Button 
+                  <Button
                     className="min-h-[44px]"
                     onClick={() => window.location.href = "/dashboard/collector/verification"}
                   >
