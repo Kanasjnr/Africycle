@@ -52,11 +52,11 @@ import { EmailService } from '@/lib/email-service';
 // Helper functions for email integration
 const extractEmailFromContactInfo = (contactInfo: string): string | null => {
   if (!contactInfo) return null;
-  
+
   // Simple email regex pattern
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
   const match = contactInfo.match(emailRegex);
-  
+
   return match ? match[0] : null;
 };
 
@@ -114,11 +114,6 @@ const RPC_URL =
   process.env.NEXT_PUBLIC_CELO_RPC_URL || 'https://forno.celo.org';
 
 // Add debug logging for contract configuration
-console.log('Verification Page Contract Config:', {
-  contractAddress: CONTRACT_ADDRESS,
-  rpcUrl: RPC_URL,
-  envContractAddress: process.env.NEXT_PUBLIC_AFRICYCLE_CONTRACT_ADDRESS,
-});
 
 const getRoleHash = async (africycle: any, roleName: 'RECYCLER_ROLE' | 'COLLECTOR_ROLE' | 'ADMIN_ROLE') => {
   if (!africycle?.publicClient || !africycle?.contractAddress) {
@@ -324,8 +319,7 @@ const uploadToCloudinary = async (
     return response.data;
   } catch (error: any) {
     throw new Error(
-      `Failed to upload image: ${
-        error.response?.data?.error?.message || error.message
+      `Failed to upload image: ${error.response?.data?.error?.message || error.message
       }`
     );
   }
@@ -333,8 +327,7 @@ const uploadToCloudinary = async (
 
 // Update helper function to convert array data to Collection object
 const arrayToCollection = (data: WasteCollection, id: number): Collection | null => {
-  console.log(`Debug: Processing collection ${id} with data:`, data);
-  
+
   // Check if the data is valid
   if (!data || !data.collector) {
     console.error(`Debug: Invalid collection data format for #${id}:`, data);
@@ -343,25 +336,9 @@ const arrayToCollection = (data: WasteCollection, id: number): Collection | null
 
   // Skip empty collections (where collector is zero address)
   if (data.collector === '0x0000000000000000000000000000000000000000') {
-    console.log(`Debug: Skipping empty collection #${id}`);
     return null;
   }
 
-  console.log(`Debug: Processing valid collection ${id}:`, {
-    id: data.id,
-    collector: data.collector,
-    wasteType: data.wasteType,
-    weight: data.weight,
-    location: data.location,
-    imageHash: data.imageHash,
-    status: data.status,
-    timestamp: data.timestamp,
-    quality: data.quality,
-    rewardAmount: data.rewardAmount,
-    isProcessed: data.isProcessed,
-    pickupTime: data.pickupTime,
-    selectedRecycler: data.selectedRecycler
-  });
 
   const processedCollection: Collection = {
     collectionId: id,
@@ -380,7 +357,6 @@ const arrayToCollection = (data: WasteCollection, id: number): Collection | null
       : '',
   };
 
-  console.log(`Debug: Final processed collection ${id}:`, processedCollection);
   return processedCollection;
 };
 
@@ -563,14 +539,14 @@ CollectionFilters.displayName = 'CollectionFilters';
 const KNOWN_RECYCLERS = [
   "0xF69B06cc7637c5742668a932F7eD1780742D4D78",
   "0x817c19bD1Ba4eD47e180a3219d12d1462C8fABDC",
-   "0xF1240B5C1C468aA68Bd77DCFAf10d6d46E9CB8Ea"
+  "0xF1240B5C1C468aA68Bd77DCFAf10d6d46E9CB8Ea"
 ] as const
 
 // Update where images are rendered (find the Image component usage and replace with this)
-const ImageWithFallback = ({ src, alt, width = 828, height = 552 }: { 
-  src: string; 
-  alt: string; 
-  width?: number; 
+const ImageWithFallback = ({ src, alt, width = 828, height = 552 }: {
+  src: string;
+  alt: string;
+  width?: number;
   height?: number;
 }) => {
   const [error, setError] = useState(false);
@@ -586,9 +562,8 @@ const ImageWithFallback = ({ src, alt, width = 828, height = 552 }: {
         src={src}
         alt={alt}
         fill
-        className={`object-cover rounded-lg transition-opacity duration-300 ${
-          isLoading ? 'opacity-0' : 'opacity-100'
-        }`}
+        className={`object-cover rounded-lg transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'
+          }`}
         onError={() => setError(true)}
         onLoadingComplete={() => setIsLoading(false)}
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -683,48 +658,29 @@ export default function PhotoVerificationPage() {
   // Update fetchCollections to use the hook properly - MOVED HERE BEFORE useEffect
   const fetchCollections = useCallback(async () => {
     if (!address || !africycle || !isHookReady) {
-      console.log('Debug: fetchCollections - Missing requirements:', {
-        hasAddress: !!address,
-        hasAfricycle: !!africycle,
-        isHookReady,
-      });
       setIsInitialLoading(false);
       return;
     }
 
     try {
-      console.log('Debug: Starting to fetch collections for address:', address);
       setIsInitialLoading(true);
       setFetchError(null);
 
       const collections: Collection[] = [];
 
       // Search through collection IDs systematically
-      console.log('Debug: Starting collection search...');
-      
+
       let currentId = 0;
-      const MAX_ATTEMPTS = 100; 
+      const MAX_ATTEMPTS = 100;
       let consecutiveEmptyCount = 0;
-      const MAX_CONSECUTIVE_EMPTY = 20; 
-      
+      const MAX_CONSECUTIVE_EMPTY = 20;
+
       while (currentId < MAX_ATTEMPTS && consecutiveEmptyCount < MAX_CONSECUTIVE_EMPTY) {
         try {
-          console.log(`Debug: Fetching collection ID ${currentId}...`);
           const collectionDetails = await africycle.getCollectionDetails(BigInt(currentId));
-          console.log(`Debug: Raw response for ID ${currentId}:`, collectionDetails);
-          
+
           // Check if collection exists by looking at the collection property
-          console.log(`Debug: Full collectionDetails structure:`, {
-            collectionDetails,
-            hasCollection: !!collectionDetails?.collection,
-            collectionData: collectionDetails?.collection,
-            isObject: typeof collectionDetails === 'object',
-            keys: Object.keys(collectionDetails || {}),
-            isArray: Array.isArray(collectionDetails),
-            arrayLength: Array.isArray(collectionDetails) ? collectionDetails.length : 0,
-            firstElement: Array.isArray(collectionDetails) ? (collectionDetails as any)[0] : null
-          });
-          
+
           // Handle both object structure and array structure
           let collectionData = null;
           if (collectionDetails?.collection) {
@@ -734,44 +690,37 @@ export default function PhotoVerificationPage() {
             // Actual array structure from contract - cast to any to handle unknown structure
             collectionData = (collectionDetails as any)[0];
           }
-          
-          if (collectionData && 
-              collectionData.collector && 
-              collectionData.collector !== '0x0000000000000000000000000000000000000000') {
-            
-            console.log(`Debug: Found valid collection at ID ${currentId}:`, collectionData);
-            
+
+          if (collectionData &&
+            collectionData.collector &&
+            collectionData.collector !== '0x0000000000000000000000000000000000000000') {
+
+
             // Reset consecutive empty count since we found a collection
             consecutiveEmptyCount = 0;
-            
+
             // Check if this collection belongs to the current user
             if (collectionData.collector.toLowerCase() === address.toLowerCase()) {
-              console.log(`Debug: Collection ${currentId} belongs to current user`);
-              
+
               const collection = arrayToCollection(collectionData as WasteCollection, currentId);
               if (collection) {
                 collections.push(collection);
-                console.log(`Debug: Added collection ${currentId} to array. Total: ${collections.length}`);
               }
             } else {
-              console.log(`Debug: Collection ${currentId} belongs to different user: ${collectionData.collector}`);
             }
           } else {
-            console.log(`Debug: Empty collection slot at ID ${currentId}`);
             consecutiveEmptyCount++;
           }
-          
+
           currentId++;
         } catch (error) {
-          console.log(`Debug: Error fetching collection ${currentId}:`, error);
           consecutiveEmptyCount++;
           currentId++;
         }
       }
 
-      console.log(`Debug: Collection search complete. Found ${collections.length} collections for user`);
       setState((prev) => ({ ...prev, collections }));
-      
+
     } catch (error) {
       console.error('Debug: Error in fetchCollections:', error);
       setFetchError(error instanceof Error ? error.message : 'Failed to fetch collections');
@@ -897,35 +846,16 @@ export default function PhotoVerificationPage() {
 
       try {
         // Check if the selected recycler has the recycler role
-        console.log('Debug: Checking recycler role before submission:', {
-          recycler: state.form.recycler
-        });
 
         const recyclerRoleHash = await getRoleHash(africycle, 'RECYCLER_ROLE');
-        console.log('Debug: Recycler role hash:', recyclerRoleHash);
 
         const hasRecyclerRole = await africycle.hasRole(recyclerRoleHash, state.form.recycler);
 
-        console.log('Debug: Recycler role check result:', {
-          recycler: state.form.recycler,
-          hasRecyclerRole: hasRecyclerRole
-        });
 
         if (!hasRecyclerRole) {
           throw new Error(`Selected recycler does not have the recycler role`);
         }
 
-        console.log('Debug: Starting collection submission with data:', {
-          address,
-          wasteType: state.form.wasteType,
-          weight: state.form.weight,
-          location: state.form.location,
-          imageHash: state.form.imageHash,
-          pickupTime: state.form.pickupTime,
-          recycler: state.form.recycler,
-          hasAfricycle: !!africycle,
-          isHookReady,
-        });
 
         setState((prev) => ({
           ...prev,
@@ -970,11 +900,9 @@ export default function PhotoVerificationPage() {
           state.form.recycler
         );
 
-        console.log('Debug: Collection creation transaction hash:', hash);
 
         // Wait for transaction to be mined
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
-        console.log('Debug: Transaction receipt:', receipt);
 
         toast.success('Collection created successfully!');
 
@@ -985,7 +913,7 @@ export default function PhotoVerificationPage() {
           if (recyclerEmail) {
             // Get the collection ID from the transaction logs
             let collectionId = Date.now().toString(); // Fallback to timestamp
-            
+
             // Try to get the actual collection ID from transaction logs
             try {
               const logs = receipt.logs;
@@ -999,9 +927,8 @@ export default function PhotoVerificationPage() {
                 }
               }
             } catch (logError) {
-              console.log('Could not extract collection ID from logs, using timestamp:', logError);
             }
-            
+
             EmailService.sendCollectionEmail({
               collectionId,
               wasteType: getWasteTypeDisplay(state.form.wasteType),
@@ -1010,15 +937,11 @@ export default function PhotoVerificationPage() {
               status: 'request',
             }).then((success) => {
               if (success) {
-                console.log('Collection request email sent successfully via EmailJS');
               } else {
-                console.log('Collection request email failed to send via EmailJS');
               }
             }).catch((error) => {
-              console.log('Collection request email error:', error);
             });
           } else {
-            console.log('No valid email found for recycler:', selectedRecycler.contactInfo);
           }
         }
 
@@ -1074,173 +997,148 @@ export default function PhotoVerificationPage() {
   const submitButtonText = !isHookReady
     ? 'Connect Wallet'
     : state.form.submitting
-    ? 'Submitting...'
-    : 'Submit Collection';
+      ? 'Submitting...'
+      : 'Submit Collection';
 
   // Use a ref to track if we've already fetched collections
   const hasFetchedRef = useRef(false);
 
-  // Add state for recyclers
   const [recyclers, setRecyclers] = useState<Recycler[]>([]);
   const [loadingRecyclers, setLoadingRecyclers] = useState(true);
 
-  // Professional approach to fetch all recyclers from the blockchain
   const fetchRecyclers = useCallback(async () => {
-    if (!africycle || !isHookReady) {
-      console.log('Debug: fetchRecyclers - Missing requirements:', {
-        hasAfricycle: !!africycle,
-        isHookReady,
-      })
-      return
-    }
+    if (!africycle || !isHookReady) return
+
+    const CACHE_KEY = 'africycle_recyclers_cache'
+    const SCAN_BLOCK_KEY = 'africycle_last_scanned_block_v2'
+    const RECYCLER_ROLE_HASH = '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154'
+    const DEPLOYMENT_BLOCK = BigInt(38365315)
+    const CHUNK_SIZE = BigInt(500000)
+    const MAX_CONCURRENCY = 8
 
     try {
-      console.log('Debug: Starting professional recycler discovery...')
       setLoadingRecyclers(true)
-      const recyclersList: Recycler[] = []
-      
-      // Use the known recycler role hash for efficiency
-      const RECYCLER_ROLE_HASH = '0x11d2c681bc9c10ed61f9a422c0dbaaddc4054ce58ec726aca73e7e4d31bcd154'
-      console.log(`Debug: Using recycler role hash: ${RECYCLER_ROLE_HASH}`)
-      
-      // Professional approach: Search for RoleGranted events with the specific recycler role
-      let recyclerAddresses: `0x${string}`[] = []
-      
-      try {
-        console.log('Debug: Fetching RoleGranted events for RECYCLER_ROLE...')
-        
-        // Get current block to determine search range
-        const currentBlock = await publicClient.getBlockNumber()
-        console.log(`Debug: Current block: ${currentBlock}`)
-        
-        // Search in chunks to avoid RPC limits - start from a reasonable deployment block
-        const DEPLOYMENT_BLOCK = BigInt(38000000) // Approximate Celo deployment block
-        const CHUNK_SIZE = BigInt(50000) // Reasonable chunk size for Celo
-        
-        let fromBlock = DEPLOYMENT_BLOCK
-        const allRoleGrantedEvents: any[] = []
-        
-        while (fromBlock <= currentBlock) {
-          const toBlock = fromBlock + CHUNK_SIZE > currentBlock ? currentBlock : fromBlock + CHUNK_SIZE
-          
-          console.log(`Debug: Searching blocks ${fromBlock} to ${toBlock}...`)
-          
-          try {
-                         const roleGrantedEvents = await publicClient.getLogs({
-               address: CONTRACT_ADDRESS,
-               event: {
-                 type: 'event',
-                 name: 'RoleGranted',
-                 inputs: [
-                   { name: 'role', type: 'bytes32', indexed: true },
-                   { name: 'account', type: 'address', indexed: true },
-                   { name: 'sender', type: 'address', indexed: true }
-                 ]
-               },
-               args: {
-                 role: RECYCLER_ROLE_HASH as `0x${string}`
-               },
-               fromBlock: fromBlock,
-               toBlock: toBlock
-             })
-            
-            allRoleGrantedEvents.push(...roleGrantedEvents)
-            console.log(`Debug: Found ${roleGrantedEvents.length} RECYCLER_ROLE grants in blocks ${fromBlock}-${toBlock}`)
-            
-          } catch (chunkError) {
-            console.log(`Debug: Error fetching events for blocks ${fromBlock}-${toBlock}:`, chunkError)
-            // Continue with next chunk
-          }
-          
-          fromBlock = toBlock + BigInt(1)
-        }
-        
-        console.log(`Debug: Total RoleGranted events found: ${allRoleGrantedEvents.length}`)
-        
-        // Extract unique recycler addresses from events
-        recyclerAddresses = Array.from(
-          new Set(
-            allRoleGrantedEvents
-              .map(event => event.args?.account)
-              .filter(Boolean)
-          )
-        ) as `0x${string}`[]
-        
-        console.log(`Debug: Found ${recyclerAddresses.length} unique recycler addresses from RoleGranted events:`, recyclerAddresses)
-        
-      } catch (eventError) {
-        console.log('Debug: Error fetching RoleGranted events:', eventError)
-        console.log('Debug: Falling back to known recyclers and direct role checking')
-        recyclerAddresses = []
-      }
-      
-      // Add known recyclers to the search list (in case events missed some)
-      const allAddressesToCheck = Array.from(
-        new Set([...recyclerAddresses, ...KNOWN_RECYCLERS])
-      ) as `0x${string}`[]
-      
-      console.log(`Debug: Total addresses to verify: ${allAddressesToCheck.length}`)
-      
-      // Verify each address and get their profiles
-      for (const address of allAddressesToCheck) {
+
+      // 1. Initial UI update from cache
+      const cachedData = localStorage.getItem(CACHE_KEY)
+      let currentRecyclers: Recycler[] = []
+      if (cachedData) {
         try {
-          console.log(`Debug: Verifying recycler ${address}...`)
-          
-          // Double-check they have the recycler role (in case of role revocations)
-          const hasRole = await africycle.hasRole(RECYCLER_ROLE_HASH, address)
-          
-          if (hasRole) {
-            console.log(`Debug: Confirmed ${address} has recycler role, fetching profile...`)
-            
-            // Get their profile
-            const profile = await africycle.getUserProfile(address)
-            
-            if (profile.name && profile.name.trim()) {
-              console.log(`Debug: Found valid recycler ${address}: ${profile.name}`)
-              recyclersList.push({
-                address: address,
-                name: profile.name,
-                location: profile.location || 'Location not set',
-                contactInfo: profile.contactInfo || 'Contact info not set',
-                isVerified: profile.isVerified,
-                reputationScore: profile.recyclerReputationScore,
-                totalInventory: profile.totalInventory,
-                activeListings: profile.activeListings
-              })
-            } else {
-              console.log(`Debug: ${address} has recycler role but incomplete profile`)
+          // Custom JSON reviver to handle BigInt fields
+          currentRecyclers = JSON.parse(cachedData, (key, value) => {
+            if (['reputationScore', 'totalInventory', 'activeListings'].includes(key)) {
+              return BigInt(value);
             }
-          } else {
-            console.log(`Debug: ${address} no longer has recycler role`)
-          }
-        } catch (error) {
-          console.log(`Debug: Error verifying recycler ${address}:`, error)
-          // Continue with next address
+            return value;
+          });
+          setRecyclers(currentRecyclers)
+        } catch (e) {
+          console.error("Failed to parse cached recyclers", e)
         }
       }
-      
-      // Sort recyclers by reputation score (descending) and then by name
-      recyclersList.sort((a, b) => {
-        const reputationDiff = Number(b.reputationScore) - Number(a.reputationScore)
-        if (reputationDiff !== 0) return reputationDiff
-        return a.name.localeCompare(b.name)
-      })
-      
-      console.log('Debug: Professional recycler discovery complete:', {
-        totalFound: recyclersList.length,
-        recyclers: recyclersList.map(r => ({ 
-          address: r.address, 
-          name: r.name, 
-          reputation: Number(r.reputationScore),
-          verified: r.isVerified
-        }))
-      })
-      
-      setRecyclers(recyclersList)
-      
+
+      // 2. Determine scan range (Delta-Sync)
+      const currentBlock = await publicClient.getBlockNumber()
+      const lastScanned = localStorage.getItem(SCAN_BLOCK_KEY)
+      let fromBlock = lastScanned ? BigInt(lastScanned) + BigInt(1) : DEPLOYMENT_BLOCK
+
+      const allNewAddresses = new Set<`0x${string}`>()
+
+      if (fromBlock <= currentBlock) {
+
+        // 3. Parallel Batch Fetching
+        const chunks: { from: bigint; to: bigint }[] = []
+        for (let b = fromBlock; b <= currentBlock; b += CHUNK_SIZE) {
+          chunks.push({
+            from: b,
+            to: b + CHUNK_SIZE > currentBlock ? currentBlock : b + CHUNK_SIZE
+          })
+        }
+
+        // Process chunks with concurrency control
+        for (let i = 0; i < chunks.length; i += MAX_CONCURRENCY) {
+          const batch = chunks.slice(i, i + MAX_CONCURRENCY)
+          const results = await Promise.all(
+            batch.map(chunk =>
+              publicClient.getLogs({
+                address: CONTRACT_ADDRESS,
+                event: {
+                  type: 'event',
+                  name: 'RoleGranted',
+                  inputs: [
+                    { name: 'role', type: 'bytes32', indexed: true },
+                    { name: 'account', type: 'address', indexed: true },
+                    { name: 'sender', type: 'address', indexed: true }
+                  ]
+                },
+                args: { role: RECYCLER_ROLE_HASH as `0x${string}` },
+                fromBlock: chunk.from,
+                toBlock: chunk.to
+              }).catch(() => [])
+            )
+          )
+
+          results.flat().forEach(log => {
+            if (log.args?.account) allNewAddresses.add(log.args.account)
+          })
+        }
+        // 4. Verification and Profile Fetching (Targeted)
+        const newAddressesToCheck = Array.from(allNewAddresses).filter(
+          addr => !currentRecyclers.some(r => r.address.toLowerCase() === addr.toLowerCase())
+        )
+
+        const verifiedNewRecyclers: Recycler[] = []
+
+        if (newAddressesToCheck.length > 0) {
+          const profileResults = await Promise.all(
+            newAddressesToCheck.map(async (addr) => {
+              try {
+                const hasRole = await africycle.hasRole(RECYCLER_ROLE_HASH, addr)
+                if (!hasRole) return null
+                const profile = await africycle.getUserProfile(addr)
+                if (!profile.name?.trim()) return null
+
+                return {
+                  address: addr,
+                  name: profile.name,
+                  location: profile.location || 'Location not set',
+                  contactInfo: profile.contactInfo || 'Contact info not set',
+                  isVerified: profile.isVerified,
+                  reputationScore: profile.recyclerReputationScore,
+                  totalInventory: profile.totalInventory,
+                  activeListings: profile.activeListings
+                }
+              } catch (err) {
+                console.error(`Error fetching profile for ${addr}`, err)
+                return null
+              }
+            })
+          )
+
+          profileResults.forEach(r => {
+            if (r) verifiedNewRecyclers.push(r)
+          })
+        }
+
+        // 5. Final State Update and Persistent Caching
+        if (verifiedNewRecyclers.length > 0 || fromBlock < currentBlock) {
+          const updatedRecyclers = [...currentRecyclers, ...verifiedNewRecyclers]
+          const uniqueRecyclers = Array.from(new Map(updatedRecyclers.map(r => [r.address.toLowerCase(), r])).values())
+          uniqueRecyclers.sort((a, b) => Number(b.reputationScore) - Number(a.reputationScore))
+
+          setRecyclers(uniqueRecyclers)
+          // Custom JSON replacer to handle BigInt fields
+          localStorage.setItem(CACHE_KEY, JSON.stringify(uniqueRecyclers, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ))
+        }
+
+        localStorage.setItem(SCAN_BLOCK_KEY, currentBlock.toString())
+      }
+
     } catch (error) {
-      console.error('Error in professional recycler discovery:', error)
-      toast.error('Failed to discover recyclers')
+      console.error('Error in optimized recycler discovery:', error)
+      toast.error('Failed to sync recyclers')
     } finally {
       setLoadingRecyclers(false)
     }
@@ -1248,15 +1146,8 @@ export default function PhotoVerificationPage() {
 
   // Add debug logs for hook readiness
   useEffect(() => {
-    console.log('Debug: Hook readiness changed:', {
-      isHookReady,
-      hasAfricycle: !!africycle,
-      hasWalletClient: !!walletClient,
-      address
-    })
-    
+
     if (isHookReady) {
-      console.log('Debug: Hook is ready, fetching recyclers')
       fetchRecyclers()
     }
   }, [isHookReady, fetchRecyclers, africycle, walletClient, address])
@@ -1281,16 +1172,14 @@ export default function PhotoVerificationPage() {
     }
 
     try {
-      console.log('Debug: Checking user status for address:', address);
       const profile = await africycle.getUserProfile(address);
-      console.log('Debug: User profile:', profile);
 
       setUserStatus({
         isCollector: true, // Simplified - if they have a profile, assume they're a collector
         isRegistered: !!profile.name,
         profile,
         loading: false,
-      }); 
+      });
     } catch (error) {
       console.error('Debug: Error checking user status:', error);
       setUserStatus(prev => ({ ...prev, loading: false }));
@@ -1443,14 +1332,14 @@ export default function PhotoVerificationPage() {
                       >
                         <option value="0x0000000000000000000000000000000000000000">
                           {loadingRecyclers
-                            ? 'Discovering recyclers from blockchain...'
+                            ? recyclers.length > 0 ? `Syncing new recyclers... (${recyclers.length} active)` : 'Discovering recyclers from blockchain...'
                             : recyclers.length === 0
-                            ? 'No recyclers found'
-                            : 'Select a recycler'}
+                              ? 'No recyclers found'
+                              : 'Select a recycler'}
                         </option>
                         {recyclers.map((recycler) => (
                           <option key={recycler.address} value={recycler.address}>
-                            {recycler.isVerified ? '✓ ' : '• '}{recycler.name} 
+                            {recycler.isVerified ? '✓ ' : '• '}{recycler.name}
                             {' '}({recycler.location})
                             {' '}[Rep: {Number(recycler.reputationScore)}/1000]
                             {Number(recycler.activeListings) > 0 && ` • ${Number(recycler.activeListings)} active listings`}
@@ -1459,10 +1348,12 @@ export default function PhotoVerificationPage() {
                       </select>
                       <p className="text-xs text-muted-foreground">
                         {loadingRecyclers
-                          ? 'Searching blockchain for all registered recyclers...'
+                          ? recyclers.length > 0
+                            ? 'Syncing with blockchain for newest recyclers...'
+                            : 'Searching blockchain for all registered recyclers...'
                           : recyclers.length === 0
-                          ? 'No recyclers are currently registered on the platform'
-                          : `Found ${recyclers.length} verified recycler${recyclers.length === 1 ? '' : 's'}. Choose based on location and reputation.`}
+                            ? 'No recyclers are currently registered on the platform'
+                            : `Found ${recyclers.length} verified recycler${recyclers.length === 1 ? '' : 's'}. Choose based on location and reputation.`}
                       </p>
                       {recyclers.length > 0 && (
                         <div className="text-xs text-muted-foreground">
@@ -1597,8 +1488,8 @@ export default function PhotoVerificationPage() {
                     ) : (
                       <div className="py-8 text-center text-muted-foreground">
                         {filters.search ||
-                        filters.status !== 'ALL' ||
-                        filters.wasteType !== 'ALL'
+                          filters.status !== 'ALL' ||
+                          filters.wasteType !== 'ALL'
                           ? 'No collections match your filters'
                           : 'No collections found. Submit your first collection above!'}
                       </div>

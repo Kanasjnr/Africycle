@@ -42,7 +42,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   // Helper function to get cached role
   const getCachedRole = (userAddress: string): Role => {
     if (typeof window === 'undefined') return null;
-    
+
     try {
       const cached = localStorage.getItem(`${ROLE_CACHE_KEY}_${userAddress.toLowerCase()}`);
       if (cached) {
@@ -62,7 +62,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   // Helper function to cache role
   const setCachedRole = (userAddress: string, userRole: Role) => {
     if (typeof window === 'undefined') return;
-    
+
     try {
       const cacheData = {
         role: userRole,
@@ -77,62 +77,44 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadRole = async () => {
       try {
-        console.log("RoleProvider - Starting role load")
-        console.log("RoleProvider - Connection state:", { isConnected, address })
-        
         if (!isConnected || !address) {
-          console.log("RoleProvider - Not connected, clearing role")
           setRole(null);
           setIsRegistered(false);
           setIsLoading(false);
           return;
         }
 
-        // First, try to get cached role for immediate navigation
         const cachedRole = getCachedRole(address);
         if (cachedRole) {
-          console.log("RoleProvider - Using cached role for immediate navigation:", cachedRole)
           setRole(cachedRole);
           setIsRegistered(true);
-          setIsLoading(false); // Set loading to false immediately for faster navigation
+          setIsLoading(false);
         }
 
-        // Then verify role from blockchain in background
         if (africycle) {
-          console.log("RoleProvider - Verifying role from blockchain")
           const blockchainRole = await africycle.getUserRole(address);
-          console.log("RoleProvider - Raw blockchain role:", blockchainRole)
-          
-          // Check if the role is a zero bytes32 value (unregistered)
+
           const isZeroRole = blockchainRole === "0x0000000000000000000000000000000000000000000000000000000000000000";
-          console.log("RoleProvider - Is zero role:", isZeroRole)
-          
+
           if (!isZeroRole) {
             const humanReadableRole = ROLE_MAPPING[blockchainRole.toLowerCase()];
-            console.log("RoleProvider - Mapped role:", humanReadableRole)
-            
+
             if (humanReadableRole) {
-              // Update role if it's different from cached
               if (humanReadableRole !== cachedRole) {
-                console.log("RoleProvider - Updating role from blockchain verification")
                 setRole(humanReadableRole);
                 setIsRegistered(true);
                 setCachedRole(address, humanReadableRole);
               }
             } else {
-              console.log("RoleProvider - No mapping found for role:", blockchainRole)
               setRole(null);
               setIsRegistered(false);
               setCachedRole(address, null);
             }
           } else {
-            console.log("RoleProvider - User has no role (zero role)")
             setRole(null);
             setIsRegistered(false);
             setCachedRole(address, null);
           }
-        } else {
-          console.log("RoleProvider - AfriCycle not available")
         }
       } catch (error) {
         console.error('Error loading role from blockchain:', error);
