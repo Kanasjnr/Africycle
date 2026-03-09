@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react"
 import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useGoodDollar } from "@/hooks/useGoodDollar"
+import { useRewardStreaming } from "@/hooks/useRewardStreaming"
 import { useAccount, usePublicClient, useChainId, useBalance, useWalletClient } from "wagmi"
 import { formatEther, parseEther, createPublicClient, http } from "viem"
 import { celo } from 'viem/chains'
@@ -244,11 +245,13 @@ export default function WalletPage() {
   const [walletStatus, setWalletStatus] = useState({
     loading: true,
     cusdBalance: BigInt(0),
+    gDollarBalance: BigInt(0),
     isRegistered: false,
     isRegistering: false,
     isWithdrawing: false,
     collectorEarnings: BigInt(0),
     userStats: null as any,
+    userProfile: null as any, // Added userProfile
     totalGDollarsClaimed: 0,
     gDollarClaimCount: 0,
   })
@@ -282,6 +285,15 @@ export default function WalletPage() {
   const africycle = useAfriCycle({
     contractAddress: CONTRACT_ADDRESS,
     rpcUrl: RPC_URL,
+  })
+
+  // Initialize Reward Streaming Hook
+  const streaming = useRewardStreaming({
+    address,
+    publicClient,
+    walletClient,
+    chainId,
+    receiver: CONTRACT_ADDRESS,
   })
 
   // Memoize the formatted balances
@@ -504,6 +516,31 @@ export default function WalletPage() {
     }
   }, [gDollar, handleRefresh])
 
+  // Handle Reward Stream Sync
+  const handleSyncStream = useCallback(async () => {
+    if (!address || !streaming) return
+
+    const performanceTier = getTierInfo(Number(walletStatus.userProfile?.totalCollected || BigInt(0)))
+
+    // Calculate flow rate based on multiplier
+    // Base rate: 100 G$ per month
+    const baseMonthlyAmount = 100
+    const tieredMonthlyAmount = baseMonthlyAmount * performanceTier.multiplier
+    const flowRate = streaming.perMonthToFlowRate(tieredMonthlyAmount)
+
+    toast.promise(
+      streaming.syncStream(address, flowRate),
+      {
+        loading: 'Syncing G$ Reward Stream...',
+        success: (data) => {
+          streaming.refetch()
+          return `Stream synced! Tier: ${performanceTier.name} (${performanceTier.multiplier}x)`
+        },
+        error: (err) => `Sync failed: ${err.message || 'Unknown error'}`
+      }
+    )
+  }, [address, streaming, walletStatus.userProfile, CONTRACT_ADDRESS])
+
   const handleWithdraw = useCallback(async () => {
     if (!address || !africycle) return toast.error("Please connect wallet")
     if (!walletStatus.isRegistered) return toast.error("Please register first")
@@ -535,10 +572,15 @@ export default function WalletPage() {
       try {
         setWalletStatus(prev => ({ ...prev, loading: true }))
 
-        const stats = await africycle.getUserDetailedStats(address)
+        const [stats, profile] = await Promise.all([
+          africycle.getUserDetailedStats(address),
+          africycle.getUserProfile(address)
+        ])
+
         setWalletStatus(prev => ({
           ...prev,
           userStats: stats,
+          userProfile: profile,
           collectorEarnings: stats.totalEarnings
         }))
 
@@ -572,13 +614,26 @@ export default function WalletPage() {
       if (!address || !publicClient) return
 
       try {
-        const cusdBalance = await publicClient.readContract({
-          address: CUSD_TOKEN_ADDRESS,
-          abi: erc20ABI,
-          functionName: 'balanceOf',
-          args: [address]
-        }) as bigint
-        setWalletStatus(prev => ({ ...prev, cusdBalance }))
+        const [cusd, gDollar] = await Promise.all([
+          publicClient.readContract({
+            address: CUSD_TOKEN_ADDRESS,
+            abi: erc20ABI,
+            functionName: "balanceOf",
+            args: [address]
+          }),
+          publicClient.readContract({
+            address: G_DOLLAR_TOKEN_ADDRESS,
+            abi: erc20ABI,
+            functionName: "balanceOf",
+            args: [address]
+          })
+        ])
+
+        setWalletStatus(prev => ({
+          ...prev,
+          cusdBalance: cusd as bigint,
+          gDollarBalance: gDollar as bigint
+        }))
       } catch (error) {
         console.error("Error fetching balances:", error)
       }
@@ -712,9 +767,15 @@ export default function WalletPage() {
                 amount={parseFloat(formatEther(walletStatus.collectorEarnings))}
                 unit="cUSD"
                 icon={<IconCoin className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />}
-                bgColor="bg-green-100"
+              />
+              <PerformanceTierCard
+                totalWeight={walletStatus.userProfile?.totalCollected || BigInt(0)}
+                collectedByType={walletStatus.userStats?.collected}
               />
               <G_DollarUBICard gDollar={gDollar} countdown={countdown} handleClaim={handleClaimUBI} handleVerify={handleVerification} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <BalanceCard
                 title="cUSD Balance"
                 amount={parseFloat(formatEther(walletStatus.cusdBalance))}
@@ -723,6 +784,25 @@ export default function WalletPage() {
                 bgColor="bg-purple-100"
                 action={<Button variant="ghost" size="sm" onClick={() => copyToClipboard(address || "")}><IconCopy className="h-4 w-4" /></Button>}
               />
+              <Card className="p-4 sm:p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xl border-none col-span-1 md:col-span-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="rounded-xl bg-white/20 p-2.5 shadow-inner">
+                    <IconRefresh className="h-6 w-6 opacity-60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold opacity-90 uppercase tracking-tight">G$ Streaming Rewards</p>
+                    <p className="text-xs font-medium text-blue-100">Performance-Based Incentives</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4 gap-3">
+                  <div className="px-4 py-2 rounded-full bg-white/15 border border-white/30 backdrop-blur-sm">
+                    <span className="text-xs font-bold uppercase tracking-widest text-white/90">⚡ Integrating Soon</span>
+                  </div>
+                  <p className="text-center text-xs text-white/70 max-w-[220px]">
+                    Earn G$ rewards streamed directly to your wallet based on your recycling tier.
+                  </p>
+                </div>
+              </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -1011,5 +1091,121 @@ function HistoryCard({ transactionList, handleRefresh, walletStatus }: any) {
         </div>
       </div>
     </Card>
+  )
+}
+
+// --- Season 4: Performance Tiers (Based on Waste Collected) ---
+
+function getTierInfo(weightKg: number) {
+  if (weightKg >= 1000) return { name: "Platinum", color: "text-blue-600", bg: "bg-blue-100", fill: "bg-blue-500", border: "border-blue-200", multiplier: 2.5, next: null, emoji: "💎" }
+  if (weightKg >= 200) return { name: "Gold", color: "text-amber-600", bg: "bg-amber-100", fill: "bg-amber-500", border: "border-amber-200", multiplier: 1.8, next: 1000, emoji: "🥇" }
+  if (weightKg >= 50) return { name: "Silver", color: "text-slate-500", bg: "bg-slate-100", fill: "bg-slate-400", border: "border-slate-200", multiplier: 1.3, next: 200, emoji: "🥈" }
+  return { name: "Bronze", color: "text-orange-600", bg: "bg-orange-100", fill: "bg-orange-500", border: "border-orange-200", multiplier: 1.0, next: 50, emoji: "🥉" }
+}
+
+function PerformanceTierCard({ totalWeight, collectedByType }: { totalWeight: bigint, collectedByType?: bigint[] }) {
+  // Waste weights in the contract are simple integers (kg), not wei-scaled
+  let weightKg = Number(totalWeight)
+
+  // Fallback: sum up categories if total is missing
+  if (weightKg === 0 && Array.isArray(collectedByType)) {
+    weightKg = Number(collectedByType.reduce((acc, val) => acc + val, BigInt(0)))
+  }
+
+  const tier = getTierInfo(weightKg)
+  const progress = tier.next ? Math.min((weightKg / tier.next) * 100, 100) : 100
+
+  return (
+    <Card className={`p-4 sm:p-6 border-2 ${tier.border} bg-gradient-to-br from-white to-slate-50`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className={`rounded-xl ${tier.bg} p-2 sm:p-3 text-2xl leading-none shadow-sm`}>
+            {tier.emoji}
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Performance Tier</p>
+            <h3 className={`text-lg sm:text-xl font-black ${tier.color} leading-none`}>{tier.name}</h3>
+          </div>
+        </div>
+        <Badge variant="outline" className={`${tier.border} ${tier.color} font-bold bg-white text-xs sm:text-sm px-2 sm:px-3 py-1`}>
+          {tier.multiplier}x G$ Rate
+        </Badge>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-xs font-medium text-muted-foreground">
+          <span>{weightKg.toFixed(2)} kg Waste</span>
+          {tier.next ? <span>Next: {tier.next} kg</span> : <span>Max tier reached! ✨</span>}
+        </div>
+        <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-1000 rounded-full ${tier.fill}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {tier.next && (
+          <p className="text-xs text-muted-foreground">
+            {(tier.next - weightKg).toFixed(2)}kg more to reach {getTierInfo(tier.next).name}
+          </p>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+// --- Season 4: Real-time G$ Streaming Counter (Superfluid math) ---
+// amount(t) = totalAccruedAtFlowStart + flowRate × (now - lastUpdated)
+
+function StreamingCounter({
+  flowRatePerSecond,
+  totalAccruedSinceStart,
+  isActive,
+}: {
+  flowRatePerSecond: bigint
+  totalAccruedSinceStart: bigint
+  isActive: boolean
+}) {
+  // Re-compute every 100ms using Superfluid's exact formula
+  const [display, setDisplay] = useState(() =>
+    formatEther(totalAccruedSinceStart)
+  )
+
+  useEffect(() => {
+    if (!isActive || flowRatePerSecond === BigInt(0)) {
+      setDisplay(formatEther(totalAccruedSinceStart))
+      return
+    }
+
+    // We know the chain told us totalAccruedSinceStart was correct at fetchTime.
+    // We track fetchTime in ms so we can extrapolate forward.
+    const fetchTimeMs = Date.now()
+    const baseAmount = totalAccruedSinceStart
+
+    const tick = () => {
+      const elapsedSec = BigInt(Math.floor((Date.now() - fetchTimeMs) / 1000))
+      const extraAccrued = flowRatePerSecond * elapsedSec
+      const total = baseAmount + extraAccrued
+      // Show 8 decimal places for satisfying live counter UX
+      const formatted = parseFloat(formatEther(total)).toFixed(8)
+      setDisplay(formatted)
+    }
+
+    tick()
+    const interval = setInterval(tick, 100)
+    return () => clearInterval(interval)
+  }, [flowRatePerSecond, totalAccruedSinceStart, isActive])
+
+  if (!isActive) {
+    return (
+      <div className="text-xl font-semibold opacity-60 mt-1">
+        No active stream
+      </div>
+    )
+  }
+
+  return (
+    <div className="font-mono font-bold text-2xl sm:text-3xl tracking-tighter tabular-nums mt-1">
+      +{display} <span className="text-sm font-normal opacity-80">G$</span>
+    </div>
   )
 }

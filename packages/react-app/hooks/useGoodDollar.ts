@@ -89,16 +89,30 @@ export function useGoodDollar({ address, publicClient, walletClient, chainId }: 
           setClaimSDK(sdk)
 
           console.log('🔵 G$ SDK: Fetching entitlement and next claim')
-          const [entitlement, nextClaim] = await Promise.all([
-            withTimeout(sdk.checkEntitlement(), 15000, 'G$ SDK: Entitlement timeout'),
-            withTimeout(sdk.nextClaimTime(), 15000, 'G$ SDK: Next claim timeout'),
-          ])
-          console.log('✅ G$ SDK: Fetch success', { entitlement: entitlement.toString(), nextClaim })
+          try {
+            const [entitlement, nextClaim] = await Promise.all([
+              withTimeout(sdk.checkEntitlement(), 15000, 'G$ SDK: Entitlement timeout'),
+              withTimeout(sdk.nextClaimTime(), 15000, 'G$ SDK: Next claim timeout'),
+            ])
+            
+            const rawEntitlement: unknown = entitlement;
+            const safeEntitlement = typeof rawEntitlement === 'bigint'
+              ? rawEntitlement
+              : BigInt((rawEntitlement as { toString(): string })?.toString() || '0');
 
-          updateState({ 
-            entitlement, 
-            nextClaimTime: nextClaim ? new Date(nextClaim) : null 
-          })
+            
+            console.log(' G$ SDK: Fetch success', { 
+              entitlement: safeEntitlement.toString(), 
+              nextClaim 
+            })
+
+            updateState({ 
+              entitlement: safeEntitlement, 
+              nextClaimTime: nextClaim ? new Date(nextClaim) : null 
+            })
+          } catch (fetchError) {
+            console.error('⚠️ G$ SDK: Data fetch failed', fetchError)
+          }
         } else {
           console.log('ℹ️ G$ SDK: User not whitelisted, skipping ClaimSDK init')
         }

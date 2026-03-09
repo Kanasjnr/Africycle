@@ -11,13 +11,14 @@ import { useAfriCycle } from "@/hooks/useAfricycle"
 import { useAccount, usePublicClient } from "wagmi"
 import { useEffect, useState } from "react"
 import { AfricycleStatus, AfricycleWasteStream } from "@/hooks/useAfricycle"
-import { 
-  IconPackage, 
-  IconRecycle, 
-  IconCoin, 
-  IconChartBar, 
-  IconTruck, 
-  IconUsers, 
+import { formatEther } from "viem"
+import {
+  IconPackage,
+  IconRecycle,
+  IconCoin,
+  IconChartBar,
+  IconTruck,
+  IconUsers,
   IconCalendar,
   IconUpload,
   IconGift
@@ -85,6 +86,52 @@ function ProgressCard({ title, value, total, description, color }: ProgressCardP
   )
 }
 
+// --- Season 4: Performance Tiers (Based on Waste Collected) ---
+function getTierInfo(weightKg: number) {
+  if (weightKg >= 1000) return { name: "Platinum", color: "text-blue-600", bg: "bg-blue-100", fill: "bg-blue-500", border: "border-blue-200", multiplier: 2.5, next: null, emoji: "💎" }
+  if (weightKg >= 200) return { name: "Gold", color: "text-amber-600", bg: "bg-amber-100", fill: "bg-amber-500", border: "border-amber-200", multiplier: 1.8, next: 1000, emoji: "🥇" }
+  if (weightKg >= 50) return { name: "Silver", color: "text-slate-500", bg: "bg-slate-100", fill: "bg-slate-400", border: "border-slate-200", multiplier: 1.3, next: 200, emoji: "🥈" }
+  return { name: "Bronze", color: "text-orange-600", bg: "bg-orange-100", fill: "bg-orange-500", border: "border-orange-200", multiplier: 1.0, next: 50, emoji: "🥉" }
+}
+
+function PerformanceTierCard({ totalWeight, collectedByType }: { totalWeight: bigint, collectedByType?: bigint[] }) {
+  // Defensive: If totalWeight is 0 but we have stream data, sum it up
+  let weightKg = Number(totalWeight)
+  if (weightKg === 0 && Array.isArray(collectedByType)) {
+    weightKg = Number(collectedByType.reduce((acc, val) => acc + val, BigInt(0)))
+  }
+  const tier = getTierInfo(weightKg)
+  const progress = tier.next ? Math.min((weightKg / tier.next) * 100, 100) : 100
+
+  return (
+    <Card className={`p-6 border-2 ${tier.border} bg-gradient-to-br from-white to-slate-50`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`rounded-xl ${tier.bg} p-2 text-2xl leading-none`}>
+            {tier.emoji}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Performance Tier</p>
+            <h3 className={`text-lg font-extrabold ${tier.color}`}>{tier.name}</h3>
+          </div>
+        </div>
+        <Badge variant="outline" className={`${tier.border} ${tier.color} font-bold bg-white`}>
+          {tier.multiplier}x G$
+        </Badge>
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-xs font-medium text-muted-foreground">
+          <span>{weightKg.toFixed(1)}kg collected</span>
+          {tier.next ? <span>Next: {tier.next}kg</span> : <span>Max level!</span>}
+        </div>
+        <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+          <div className={`h-full transition-all duration-1000 ${tier.fill}`} style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export default function CollectorDashboard() {
   const { address } = useAccount()
   const router = useRouter()
@@ -134,15 +181,15 @@ export default function CollectorDashboard() {
 
       try {
         console.log('🔵 Dashboard G$ History: Fetching real claim history...')
-        
+
         // Calculate starting block (approximately 6 months ago to avoid timeout)
         // Celo has ~5 second block times, so 6 months ≈ 180 days * 24 hours * 60 minutes * 12 blocks/minute
         const currentBlock = await publicClient.getBlockNumber()
         const blocksPerDay = (24 * 60 * 60) / 5 // 5 second block time
         const sixMonthsAgo = currentBlock - BigInt(Math.floor(blocksPerDay * 180))
-        
+
         console.log('📊 Dashboard G$ History: Querying from block', sixMonthsAgo.toString(), 'to current block')
-        
+
         // Query Transfer events from UBI Scheme Proxy to user's address (last 6 months)
         const logs = await publicClient.getLogs({
           address: G_DOLLAR_TOKEN_ADDRESS,
@@ -193,12 +240,12 @@ export default function CollectorDashboard() {
 
       } catch (error) {
         console.error('❌ Dashboard G$ History: Failed to fetch G$ claim history:', error)
-        
+
         // If it's a timeout, don't show error as this is normal for new accounts
         if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('took too long'))) {
           console.log('⚠️ Dashboard G$ History: Query timed out, this is normal for accounts with no recent G$ claims')
         }
-        
+
         // Keep existing localStorage data if blockchain query fails
         if (typeof window !== 'undefined' && address) {
           const savedStats = localStorage.getItem(`gDollarStats_${address}`)
@@ -231,7 +278,7 @@ export default function CollectorDashboard() {
       try {
         setIsLoading(true)
         const profile = await africycle.getUserProfile(address)
-        
+
         setStats({
           totalCollected: profile.totalCollected,
           totalEarnings: profile.totalEarnings,
@@ -270,8 +317,8 @@ export default function CollectorDashboard() {
     <DashboardShell>
       <div className="w-full px-4 sm:px-6 lg:px-8">
         {isLoading ? (
-          <Loader 
-            message="Loading dashboard statistics..." 
+          <Loader
+            message="Loading dashboard statistics..."
             size="lg"
             className="py-16"
           />
@@ -300,12 +347,9 @@ export default function CollectorDashboard() {
                 icon={<IconGift className="h-6 w-6 text-white" />}
                 color="bg-purple-500"
               />
-              <StatCard
-                title="Reputation Score"
-                value={stats.reputationScore.toString()}
-                description="Your collector reputation"
-                icon={<IconChartBar className="h-6 w-6 text-white" />}
-                color="bg-yellow-500"
+              <PerformanceTierCard
+                totalWeight={stats.totalCollected}
+                collectedByType={stats.collectedByType}
               />
             </div>
 
@@ -322,16 +366,16 @@ export default function CollectorDashboard() {
                         <IconRecycle className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">
                           {wasteType === AfricycleWasteStream.PLASTIC ? "Plastic" :
-                           wasteType === AfricycleWasteStream.EWASTE ? "E-Waste" :
-                           wasteType === AfricycleWasteStream.METAL ? "Metal" : "General"}
+                            wasteType === AfricycleWasteStream.EWASTE ? "E-Waste" :
+                              wasteType === AfricycleWasteStream.METAL ? "Metal" : "General"}
                         </span>
                       </div>
                       <p className="mt-2 text-2xl font-bold">
                         {stats.collectedByType[Number(wasteType)].toString()} kg
                       </p>
-                      <Progress 
-                        value={Number(stats.collectedByType[Number(wasteType)]) / Number(totalCollected) * 100} 
-                        className="mt-2 h-2" 
+                      <Progress
+                        value={Number(stats.collectedByType[Number(wasteType)]) / Number(totalCollected) * 100}
+                        className="mt-2 h-2"
                       />
                     </div>
                   ))}
